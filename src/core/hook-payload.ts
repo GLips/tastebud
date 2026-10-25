@@ -8,6 +8,7 @@ import { Duration, Effect, Option, Schema } from "effect";
 import { OptionalTrimmedText, OptionalTrimmedTextList } from "../shared/input-text.ts";
 import { formatScopeLabel, type TasteContext, TasteContextSchema } from "../shared/places.ts";
 import { resolveOperationContext, type TasteCaller } from "./caller.ts";
+import type { DerivedKindDefinition, TasteCatalog } from "./catalog.ts";
 import { assembleDerivationRecall } from "./recall.ts";
 import { TasteStore } from "./store.ts";
 import { DerivationSummarySchema, RecallExplanationSchema } from "./view-schemas.ts";
@@ -59,9 +60,16 @@ const silentPayload = (
 });
 
 /**
- * Builds the prompt hook's payload within `hook.budgetMs`. Unknown context is silent: a hook that
- * can't tell where it is says nothing rather than guess.
+ * The kinds the hook may send at a context: the inject kinds, or none where the context is unknown,
+ * since a hook that can't tell where it is says nothing rather than guess.
  */
+export const hookInjectKindsAt = (
+  catalog: TasteCatalog,
+  context: TasteContext,
+): ReadonlyArray<DerivedKindDefinition> =>
+  context.origin === "unknown" ? [] : catalog.derivedKinds.filter((kind) => kind.recall === "inject");
+
+/** Builds the prompt hook's payload within `hook.budgetMs`. */
 export const buildHookPayload = Effect.fn("taste.buildHookPayload")(function* (input: {
   readonly prompt: string;
   readonly context: TasteContext;
@@ -69,7 +77,7 @@ export const buildHookPayload = Effect.fn("taste.buildHookPayload")(function* (i
   const store = yield* TasteStore;
   const { catalog, hook } = store.config;
   if (input.context.origin === "unknown") return silentPayload(input.prompt, input.context, "unknown-context");
-  const kinds = catalog.derivedKinds.filter((kind) => kind.recall === "inject");
+  const kinds = hookInjectKindsAt(catalog, input.context);
   if (kinds.length === 0) return silentPayload(input.prompt, input.context, "no-inject-kinds");
   const build = Effect.gen(function* () {
     const snapshot = yield* store.snapshot;

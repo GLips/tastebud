@@ -47,10 +47,16 @@ const knownKindKeys = (view: ViewSource) =>
     ...view.snapshot.derivations.map((derivation) => derivation.kind),
   ]);
 
-const textMatchIds = (text: string | undefined, type: "Source" | "Derivation") =>
+/** Each full-text hit's position, best first: the ranking recall uses. */
+const textMatchRanks = (text: string | undefined, type: "Source" | "Derivation") =>
   text === undefined
     ? Effect.void
-    : TasteStore.use((store) => Effect.map(store.search(text, { type }), (hits) => new Set(hits.map((hit) => hit.id))));
+    : TasteStore.use((store) =>
+        Effect.map(store.search(text, { type }), (hits) => new Map(hits.map((hit, rank) => [hit.id, rank]))),
+      );
+
+// Only called on ids the text filter kept, so every lookup finds a rank.
+const rankIn = (ranks: ReadonlyMap<string, number>, id: string) => ranks.get(id) ?? 0;
 
 const rowOf = (view: ViewSource, snapshot: StoreSnapshot, id: string): DerivationRow | undefined => {
   const derivation = derivationById(snapshot, id);
@@ -63,7 +69,7 @@ const rowOf = (view: ViewSource, snapshot: StoreSnapshot, id: string): Derivatio
   };
 };
 
-/** Newest first. */
+/** Best text match first when `text` is given, newest first otherwise. */
 export const listTasteRecords = Effect.fn("taste.listTasteRecords")(function* (input: ListRecordsInput) {
   const store = yield* TasteStore;
   const snapshot = yield* store.snapshot;
@@ -75,7 +81,7 @@ export const listTasteRecords = Effect.fn("taste.listTasteRecords")(function* (i
   const kinds = input.kind === undefined ? undefined : new Set(input.kind);
   const [place] =
     input.place === undefined ? [undefined] : yield* canonicalInputPlaces("place", [input.place], homedir());
-  const derivationText = yield* textMatchIds(input.text, "Derivation");
+  const derivationText = yield* textMatchRanks(input.text, "Derivation");
 
   const derivations = snapshot.derivations
     .filter((derivation) => kinds === undefined || kinds.has(derivation.kind))
@@ -89,19 +95,28 @@ export const listTasteRecords = Effect.fn("taste.listTasteRecords")(function* (i
         place === undefined ||
         matchScopeToContext(derivationStateOf(snapshot, derivation).effectiveScope, [place]) !== undefined,
     )
-    .sort((left, right) => compareIsoTimes(right.proposed_at, left.proposed_at) || right.id.localeCompare(left.id))
+    .sort(
+      (left, right) =>
+        (derivationText === undefined ? 0 : rankIn(derivationText, left.id) - rankIn(derivationText, right.id)) ||
+        compareIsoTimes(right.proposed_at, left.proposed_at) ||
+        right.id.localeCompare(left.id),
+    )
     .flatMap((derivation) => {
       const row = rowOf(view, snapshot, derivation.id);
       return row === undefined ? [] : [row];
     });
 
-  const sourceText = input.sources === true ? yield* textMatchIds(input.text, "Source") : undefined;
+  const sourceText = input.sources === true ? yield* textMatchRanks(input.text, "Source") : undefined;
   const sources =
     input.sources === true
       ? snapshot.sources
           .filter((source) => kinds === undefined || kinds.has(source.kind))
           .filter((source) => sourceText === undefined || sourceText.has(source.id))
-          .sort((left, right) => compareIsoTimes(right.captured_at, left.captured_at))
+          .sort(
+            (left, right) =>
+              (sourceText === undefined ? 0 : rankIn(sourceText, left.id) - rankIn(sourceText, right.id)) ||
+              compareIsoTimes(right.captured_at, left.captured_at),
+          )
           .map((source) => viewSource(view, source))
       : [];
   const result: ListRecordsResult = { derivations, sources };

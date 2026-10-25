@@ -4,9 +4,10 @@ import { formatScopeLabel, type TasteContext } from "../../shared/places.ts";
 import type { InboxResult } from "../inbox.ts";
 import type { IndexRefreshResult } from "../index-db.ts";
 import type { ListRecordsResult } from "../list.ts";
+import type { ListenerHeartbeat } from "../listener.ts";
 import type { AuditPlacesResult } from "../places-audit.ts";
 import type { DecisionRecord, ThreadEntryRecord } from "../records.ts";
-import type { RepointPlaceResult } from "../repoint.ts";
+import type { RepointPlaceResult, RepointPreviewResult } from "../repoint.ts";
 import type { DerivationSummary, DerivationView, RepeatMatch, SourceView } from "../view-schemas.ts";
 import { formatContextLine } from "./recall-text.ts";
 import { formatDerivationSummary, formatRepeatMatches, formatScopeBraces, quoted, section } from "./text-helpers.ts";
@@ -139,6 +140,44 @@ export const renderRepointText = (result: RepointPlaceResult) =>
           ),
         ]),
   ].join("\n");
+
+export const renderRepointPreviewText = (result: RepointPreviewResult) =>
+  [
+    `Repoint ${result.from} → ${result.to} would propose (nothing written)`,
+    section(
+      "Revisions",
+      result.revisions.map(
+        (revision) =>
+          `- ${formatDerivationSummary(revision.supersedes)}` +
+          (revision.keptPlaces.length === 0 ? "" : `\n    keeps ${revision.keptPlaces.join(", ")}`),
+      ),
+    ),
+    ...(result.alreadyPending.length === 0
+      ? []
+      : [
+          section(
+            "Already pending",
+            result.alreadyPending.map((summary) => `- ${formatDerivationSummary(summary)}`),
+          ),
+        ]),
+    ...(result.blocked.length === 0
+      ? []
+      : [
+          section(
+            "Blocked (would not be proposed)",
+            result.blocked.map((entry) => `- ${formatDerivationSummary(entry.derivation)}: ${entry.problem}`),
+          ),
+        ]),
+  ].join("\n");
+
+export const renderListenersText = (result: { readonly listeners: ReadonlyArray<ListenerHeartbeat> }) =>
+  section(
+    "Listeners",
+    result.listeners.map(
+      (listener) =>
+        `- ${listener.name}: ${listener.listening ? "listening" : "not listening"} (last heartbeat ${listener.heartbeatAt ?? "never"})`,
+    ),
+  );
 
 export const renderReindexText = (result: IndexRefreshResult) => `Reindexed ${result.recordCount} records.`;
 

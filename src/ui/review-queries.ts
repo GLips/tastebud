@@ -6,8 +6,10 @@ import {
   fetchDerivationList,
   fetchInboxGroups,
   fetchPlacesAudit,
+  fetchRecallExplanation,
   fetchRecallInspection,
   fetchRecordDetail,
+  fetchRepointPreview,
   fetchReviewShell,
   fetchSourceList,
   resolveReviewContext,
@@ -125,6 +127,44 @@ export const recallInspectionQuery = (request: RecallInspectionRequest) =>
         }),
       ),
     enabled: request.query.trim() !== "",
+    placeholderData: keepPreviousData,
+  });
+
+export interface RecallExplanationRequest extends ReviewContextRequest {
+  /** Either a derivation ref or words from its statement. */
+  readonly lookup: { readonly ref: string } | { readonly text: string };
+  readonly kind?: string | undefined;
+  readonly history: boolean;
+}
+
+export const recallExplanationQuery = (request: RecallExplanationRequest) =>
+  queryOptions({
+    queryKey: [
+      "recall-explain",
+      request.lookup,
+      request.kind ?? null,
+      request.history,
+      request.dir ?? null,
+      request.at ?? null,
+    ],
+    queryFn: async () =>
+      unwrapReviewOutcome(
+        await fetchRecallExplanation({
+          data: {
+            ...request.lookup,
+            ...(request.kind !== undefined && { kind: [request.kind] }),
+            ...(request.history && { history: true }),
+            ...(request.dir !== undefined && { dir: request.dir }),
+            ...(request.at !== undefined && { at: [...request.at] }),
+          },
+        }),
+      ),
+  });
+
+export const repointPreviewQuery = (from: string, to: string) =>
+  queryOptions({
+    queryKey: ["repoint-preview", from, to],
+    queryFn: async () => unwrapReviewOutcome(await fetchRepointPreview({ data: { from, to } })),
     placeholderData: keepPreviousData,
   });
 

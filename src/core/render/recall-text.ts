@@ -1,6 +1,7 @@
 /** Text for recall, context and the hook preview. Section names come from kind labels, not hardcoded nouns. */
 import { formatScopeLabel, type TasteContext } from "../../shared/places.ts";
 import type { HookPayload } from "../hook-payload.ts";
+import type { RecallExplainItem, RecallExplainResult } from "../recall-explain.ts";
 import type { ContextResult, ExcludedRecallHit, RecallHit, RecallResult } from "../view-schemas.ts";
 import { day, formatSourceLine, indent, quoted, section } from "./text-helpers.ts";
 
@@ -63,6 +64,27 @@ export const renderRecallText = (result: RecallResult) =>
           ),
         ]),
   ].join("\n\n");
+
+const RECALL_EXPLAIN_OUTCOME_WORDING: Record<RecallExplainItem["outcome"], string> = {
+  injected: "the prompt hook may inject it, and recall returns it, when the words match",
+  recalled: "recall returns it when the words match; the hook never sends it here",
+  excluded: "never reaches an agent here",
+};
+
+const formatRecallExplainItem = (item: RecallExplainItem) =>
+  [
+    `- ${quoted(item.statement)}  {${formatScopeLabel(item.effectiveScope)}}  (${item.kindLabel}, ${item.status})  [${item.id}]`,
+    `    ${RECALL_EXPLAIN_OUTCOME_WORDING[item.outcome]}`,
+    item.outcome === "excluded"
+      ? `    excluded: ${EXCLUSION_WORDING[item.exclusion]}`
+      : `    ${item.section} section; ${item.explanation.policy}, matched ${item.explanation.matchedPlace}`,
+  ].join("\n");
+
+export const renderRecallExplainText = (result: RecallExplainResult) =>
+  [
+    formatContextLine(result.context),
+    result.items.length === 0 ? "(no derivation matches)" : result.items.map(formatRecallExplainItem).join("\n"),
+  ].join("\n");
 
 export const renderContextText = (result: ContextResult) =>
   [

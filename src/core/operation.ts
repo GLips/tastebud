@@ -22,8 +22,10 @@ import { InvalidTasteInput, OperationNotAllowed, type TasteError } from "./error
 import { HookPayloadSchema, HookPreviewInput, previewHookPayload } from "./hook-payload.ts";
 import { InboxResultSchema, listInboxGroups } from "./inbox.ts";
 import { ListRecordsInput, ListRecordsResultSchema, listTasteRecords } from "./list.ts";
+import { ListenerHeartbeatSchema, listListenerHeartbeats } from "./listener.ts";
 import { AuditPlacesInput, AuditPlacesResultSchema, auditTastePlaces } from "./places-audit.ts";
 import { ProposeDerivationInput, proposeDerivation } from "./propose.ts";
+import { ExplainRecallInput, explainRecallEligibility, RecallExplainResultSchema } from "./recall-explain.ts";
 import {
   ListContextDerivationsInput,
   listContextDerivations,
@@ -38,16 +40,30 @@ import {
   renderCatalogText,
   renderDecideText,
   renderInboxText,
+  renderListenersText,
   renderListText,
   renderPlacesText,
   renderProposeText,
   renderReindexText,
+  renderRepointPreviewText,
   renderRepointText,
   renderThreadEntryText,
 } from "./render/operation-text.ts";
-import { renderContextText, renderHookPreviewText, renderRecallText } from "./render/recall-text.ts";
-import { RepointPlaceInput, RepointPlaceResultSchema, repointTastePlace } from "./repoint.ts";
+import {
+  renderContextText,
+  renderHookPreviewText,
+  renderRecallExplainText,
+  renderRecallText,
+} from "./render/recall-text.ts";
+import {
+  previewTastePlaceRepoint,
+  RepointPlaceInput,
+  RepointPlaceResultSchema,
+  RepointPreviewResultSchema,
+  repointTastePlace,
+} from "./repoint.ts";
 import { buildReviewUrl, ReviewUrlInput, ReviewUrlResultSchema } from "./review-url.ts";
+import { reviseDerivationScope, ReviseScopeInput } from "./revise-scope.ts";
 import { ShowRecordInput, showTasteRecord } from "./show.ts";
 import { TasteStore, withFreshTasteConfig } from "./store.ts";
 import { appendAgentThreadReply, appendOwnerThreadNote, ThreadEntryInput } from "./threads.ts";
@@ -119,6 +135,14 @@ const ContextOverrideInput = Schema.Struct({
 });
 const NoInput = Schema.Struct({});
 
+/** What `propose` and `revise-scope` return: the pending derivation and what it resembles. */
+const ProposalResultSchema = Schema.Struct({
+  derivation: DerivationViewSchema,
+  path: Schema.String,
+  related: Schema.Array(RepeatMatchSchema),
+  warnings: Schema.Array(Schema.String),
+});
+
 /** Every operation, keyed by its name. One `as const` record, so dispatch keeps each one's types. */
 export const TASTE_OPERATIONS = {
   catalog: declareTasteOperation({
@@ -163,12 +187,7 @@ export const TASTE_OPERATIONS = {
     description:
       "Propose a derivation of a kind, citing sources, for the owner to ratify. Refused as a near repeat unless `despite` names every match.",
     input: ProposeDerivationInput,
-    output: Schema.Struct({
-      derivation: DerivationViewSchema,
-      path: Schema.String,
-      related: Schema.Array(RepeatMatchSchema),
-      warnings: Schema.Array(Schema.String),
-    }),
+    output: ProposalResultSchema,
     run: proposeDerivation,
     renderText: renderProposeText,
   }),
@@ -182,6 +201,17 @@ export const TASTE_OPERATIONS = {
     output: RecallResultSchema,
     run: recallDerivations,
     renderText: renderRecallText,
+  }),
+  "recall-explain": declareTasteOperation({
+    name: "recall-explain",
+    audience: "agent",
+    kind: "query",
+    description:
+      "Why one derivation (by ref, or the closest matches to text) would be injected, recalled or excluded here, by recall's own rules.",
+    input: ExplainRecallInput,
+    output: RecallExplainResultSchema,
+    run: explainRecallEligibility,
+    renderText: renderRecallExplainText,
   }),
   context: declareTasteOperation({
     name: "context",
@@ -265,6 +295,17 @@ export const TASTE_OPERATIONS = {
     run: (input) => repointTastePlace(input),
     renderText: renderRepointText,
   }),
+  "repoint-preview": declareTasteOperation({
+    name: "repoint-preview",
+    audience: "agent",
+    kind: "query",
+    description:
+      "What `repoint` would propose for exact place `from` → `to`: each revision and the places it keeps, what is already pending, and what is blocked. Writes nothing.",
+    input: RepointPlaceInput,
+    output: RepointPreviewResultSchema,
+    run: (input) => previewTastePlaceRepoint(input),
+    renderText: renderRepointPreviewText,
+  }),
   reindex: declareTasteOperation({
     name: "reindex",
     audience: "agent",
@@ -318,6 +359,27 @@ export const TASTE_OPERATIONS = {
     output: Schema.Struct({ entry: ThreadEntryRecordSchema }),
     run: (input) => appendOwnerThreadNote(input),
     renderText: renderThreadEntryText,
+  }),
+  "revise-scope": declareTasteOperation({
+    name: "revise-scope",
+    audience: "human",
+    kind: "command",
+    description:
+      "The owner's new scope for an accepted derivation: a pending revision with the same statement and evidence, proposed by the owner.",
+    input: ReviseScopeInput,
+    output: ProposalResultSchema,
+    run: (input) => reviseDerivationScope(input),
+    renderText: renderProposeText,
+  }),
+  listeners: declareTasteOperation({
+    name: "listeners",
+    audience: "human",
+    kind: "query",
+    description: "Every agent that has listened on review threads, and whether it is listening now.",
+    input: NoInput,
+    output: Schema.Struct({ listeners: Schema.Array(ListenerHeartbeatSchema) }),
+    run: () => Effect.map(listListenerHeartbeats, (listeners) => ({ listeners })),
+    renderText: renderListenersText,
   }),
 } as const;
 

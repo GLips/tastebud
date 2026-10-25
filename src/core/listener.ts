@@ -35,11 +35,14 @@ export interface ListenEvent {
   readonly reply: string;
 }
 
-export interface ListenerHeartbeat {
-  readonly name: string;
-  readonly heartbeatAt: string | undefined;
-  readonly listening: boolean;
-}
+export const ListenerHeartbeatSchema = Schema.Struct({
+  name: Schema.String,
+  /** Absent until its first heartbeat. */
+  heartbeatAt: Schema.optionalKey(Schema.String),
+  /** Its heartbeat is recent enough that the agent is taken to be listening now. */
+  listening: Schema.Boolean,
+});
+export type ListenerHeartbeat = typeof ListenerHeartbeatSchema.Type;
 
 const listenersDirOf = (root: string) => join(indexDirOf(root), "listeners");
 
@@ -136,12 +139,12 @@ export const listListenerHeartbeats: Effect.Effect<Array<ListenerHeartbeat>, nev
     const now = Date.now();
     return readdirSync(directory)
       .filter((file) => file.endsWith(".json"))
-      .flatMap((file) => {
+      .flatMap((file): Array<ListenerHeartbeat> => {
         const cursor = readCursor(join(directory, file));
         if (!cursor) return [];
         const heartbeatAt = cursor.heartbeat_at;
         const listening = heartbeatAt !== undefined && now - Date.parse(heartbeatAt) < LISTENER_ALIVE_MS;
-        return [{ name: cursor.name, heartbeatAt, listening }];
+        return [{ name: cursor.name, ...(heartbeatAt !== undefined && { heartbeatAt }), listening }];
       })
       .sort((left, right) => left.name.localeCompare(right.name));
   },

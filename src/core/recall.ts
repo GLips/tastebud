@@ -16,9 +16,9 @@ import { derivationById, derivationStateOf, sourceById, TasteStore } from "./sto
 import type { ExcludedRecallHit, RecallExclusionReason, RecallHit, RecallResult, SourceHit } from "./view-schemas.ts";
 import { summarizeDerivation, supportingSourcesOf, viewSource, type ViewSource } from "./views.ts";
 
-const DEFAULT_RECALL_LIMIT = 5;
+export const DEFAULT_RECALL_LIMIT = 5;
 
-const recallFields = {
+export const recallFields = {
   kind: OptionalTrimmedTextList.annotate({
     description: "Derived kinds to search; default every inject and pull kind",
   }),
@@ -38,7 +38,7 @@ export const ListContextDerivationsInput = Schema.Struct(recallFields);
 export type ListContextDerivationsInput = typeof ListContextDerivationsInput.Type;
 
 /** bm25 is lower-is-better and unbounded; flipped and rounded so higher reads as better. */
-const scoreOf = (hit: SearchHit) => Math.round(-hit.rank * 1000) / 1000;
+export const scoreOfSearchHit = (hit: SearchHit) => Math.round(-hit.rank * 1000) / 1000;
 
 const recallHitOf = (
   view: ViewSource,
@@ -55,12 +55,44 @@ const recallHitOf = (
   };
 };
 
-export interface RecallAssembly {
+export interface RecallEligibilityRules {
   readonly kinds: ReadonlyArray<DerivedKindDefinition>;
   readonly context: TasteContext;
-  readonly limit: number;
   readonly history: boolean;
 }
+
+export interface RecallAssembly extends RecallEligibilityRules {
+  readonly limit: number;
+}
+
+/** Where one derivation lands in recall under these rules, or why recall leaves it out. */
+export type RecallEligibility =
+  | {
+      readonly section: "accepted" | "rejected" | "history";
+      readonly kind: DerivedKindDefinition;
+      readonly matchedPlace: string;
+    }
+  | { readonly section: "excluded"; readonly exclusion: RecallExclusionReason };
+
+/** Pure: the one eligibility rule behind recall, the hook and `recall-explain`. Text relevance aside. */
+export const classifyRecallEligibility = (
+  view: ViewSource,
+  rules: RecallEligibilityRules,
+  derivation: DerivationRecord,
+): RecallEligibility => {
+  const kind = findDerivedKind(view.catalog, derivation.kind);
+  if (kind === undefined) return { section: "excluded", exclusion: "retired-kind" };
+  if (!rules.kinds.some((selected) => selected.key === kind.key))
+    return { section: "excluded", exclusion: kind.recall === "never" ? "never-policy" : "kind-not-selected" };
+  const state = derivationStateOf(view.snapshot, derivation);
+  const matchedPlace = matchScopeToContext(state.effectiveScope, rules.context.places);
+  if (matchedPlace === undefined) return { section: "excluded", exclusion: "out-of-scope" };
+  if (state.status === "accepted" || state.status === "rejected") return { section: state.status, kind, matchedPlace };
+  if (state.status === "pending") return { section: "excluded", exclusion: "pending" };
+  return rules.history
+    ? { section: "history", kind, matchedPlace }
+    : { section: "excluded", exclusion: "history-not-requested" };
+};
 
 /** Pure: sorts full-text hits (best first) into sections by eligibility and status. */
 export const assembleDerivationRecall = (
@@ -68,46 +100,27 @@ export const assembleDerivationRecall = (
   assembly: RecallAssembly,
   hits: ReadonlyArray<SearchHit>,
 ): Pick<RecallResult, "accepted" | "rejected" | "history" | "excluded"> => {
-  const selected = new Set(assembly.kinds.map((kind) => kind.key));
-  const accepted: Array<RecallHit> = [];
-  const rejected: Array<RecallHit> = [];
-  const history: Array<RecallHit> = [];
-  const excluded: Array<ExcludedRecallHit> = [];
-  const exclude = (derivation: DerivationRecord, exclusion: RecallExclusionReason, score: number) => {
-    if (excluded.length < assembly.limit) excluded.push({ ...summarizeDerivation(view, derivation), exclusion, score });
+  const sections = {
+    accepted: [] as Array<RecallHit>,
+    rejected: [] as Array<RecallHit>,
+    history: [] as Array<RecallHit>,
   };
+  const excluded: Array<ExcludedRecallHit> = [];
   for (const hit of hits) {
     const derivation = derivationById(view.snapshot, hit.id);
     if (derivation === undefined) continue;
-    const score = scoreOf(hit);
-    const kind = findDerivedKind(view.catalog, derivation.kind);
-    if (kind === undefined) {
-      exclude(derivation, "retired-kind", score);
+    const score = scoreOfSearchHit(hit);
+    const eligibility = classifyRecallEligibility(view, assembly, derivation);
+    if (eligibility.section === "excluded") {
+      if (excluded.length < assembly.limit)
+        excluded.push({ ...summarizeDerivation(view, derivation), exclusion: eligibility.exclusion, score });
       continue;
     }
-    if (!selected.has(kind.key)) {
-      exclude(derivation, kind.recall === "never" ? "never-policy" : "kind-not-selected", score);
-      continue;
-    }
-    const state = derivationStateOf(view.snapshot, derivation);
-    const matchedPlace = matchScopeToContext(state.effectiveScope, assembly.context.places);
-    if (matchedPlace === undefined) {
-      exclude(derivation, "out-of-scope", score);
-      continue;
-    }
-    const section =
-      state.status === "accepted"
-        ? accepted
-        : state.status === "rejected"
-          ? rejected
-          : state.status === "pending" || !assembly.history
-            ? undefined
-            : history;
-    if (section === undefined)
-      exclude(derivation, state.status === "pending" ? "pending" : "history-not-requested", score);
-    else if (section.length < assembly.limit) section.push(recallHitOf(view, derivation, kind, matchedPlace, score));
+    const section = sections[eligibility.section];
+    if (section.length < assembly.limit)
+      section.push(recallHitOf(view, derivation, eligibility.kind, eligibility.matchedPlace, score));
   }
-  return { accepted, rejected, history, excluded };
+  return { ...sections, excluded };
 };
 
 /** `recall`: eligible derivations ranked by text, then rejections, then matching sources (store-wide). */
@@ -129,7 +142,7 @@ export const recallDerivations = Effect.fn("taste.recallDerivations")(function* 
   });
   const sources = sourceHits.slice(0, limit).flatMap((hit): Array<SourceHit> => {
     const source = sourceById(snapshot, hit.id);
-    return source === undefined ? [] : [{ ...viewSource(view, source), score: scoreOf(hit) }];
+    return source === undefined ? [] : [{ ...viewSource(view, source), score: scoreOfSearchHit(hit) }];
   });
   const result: RecallResult = {
     query: input.query,

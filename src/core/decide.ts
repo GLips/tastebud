@@ -64,24 +64,29 @@ export const PreviewAcceptanceInput = Schema.Struct({
 });
 export type PreviewAcceptanceInput = typeof PreviewAcceptanceInput.Type;
 
+/** A complete scope from `scope` and `places`, places canonical. */
+export const readChosenScope = Effect.fn("taste.readChosenScope")(function* (
+  scope: "global" | "places",
+  places: ReadonlyArray<string> | undefined,
+) {
+  if (scope === "global") {
+    if (places !== undefined)
+      return yield* new InvalidTasteInput({ problems: ["places: a global scope has no places"] });
+    const chosen: DerivationScope = { scope: "global" };
+    return chosen;
+  }
+  if (places === undefined)
+    return yield* new InvalidTasteInput({ problems: ["places: required and non-empty when scope is places"] });
+  const chosen: DerivationScope = { scope: "places", places: yield* canonicalInputPlaces("places", places, homedir()) };
+  return chosen;
+});
+
 /** A complete scope override from input, or undefined to keep the proposed scope. */
 const readScopeOverride = Effect.fn("taste.readScopeOverride")(function* (input: PreviewAcceptanceInput) {
-  if (input.scope === undefined) {
-    if (input.places !== undefined)
-      return yield* new InvalidTasteInput({ problems: ["places: give scope: places along with them"] });
-    return undefined;
-  }
-  if (input.scope === "global") {
-    if (input.places !== undefined)
-      return yield* new InvalidTasteInput({ problems: ["places: a global scope has no places"] });
-    const scope: DerivationScope = { scope: "global" };
-    return scope;
-  }
-  if (input.places === undefined)
-    return yield* new InvalidTasteInput({ problems: ["places: required and non-empty when scope is places"] });
-  const places = yield* canonicalInputPlaces("places", input.places, homedir());
-  const scope: DerivationScope = { scope: "places", places };
-  return scope;
+  if (input.scope !== undefined) return yield* readChosenScope(input.scope, input.places);
+  if (input.places !== undefined)
+    return yield* new InvalidTasteInput({ problems: ["places: give scope: places along with them"] });
+  return undefined;
 });
 
 /**

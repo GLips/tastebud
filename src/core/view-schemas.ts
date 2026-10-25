@@ -83,12 +83,13 @@ const RECALL_EXCLUSION_REASONS = [
   "kind-not-selected",
   "retired-kind",
 ] as const;
-export type RecallExclusionReason = (typeof RECALL_EXCLUSION_REASONS)[number];
+export const RecallExclusionReasonSchema = Schema.Literals(RECALL_EXCLUSION_REASONS);
+export type RecallExclusionReason = typeof RecallExclusionReasonSchema.Type;
 
 /** A close text match that recall left out, and why. */
 const ExcludedRecallHitSchema = Schema.Struct({
   ...DerivationSummarySchema.fields,
-  exclusion: Schema.Literals(RECALL_EXCLUSION_REASONS),
+  exclusion: RecallExclusionReasonSchema,
   score: Schema.Finite,
 });
 export type ExcludedRecallHit = typeof ExcludedRecallHitSchema.Type;

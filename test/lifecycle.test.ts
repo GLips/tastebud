@@ -119,6 +119,50 @@ describe("lifecycle", () => {
     expect([unknown.silence, unknown.hookOutput]).toEqual(["unknown-context", undefined]);
   });
 
+  test("recall-explain agrees with recall and the hook on every item, wherever it is asked", async () => {
+    const { root, inWeb, inBilling } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Checkout forms must stay short.");
+    const quote = await captureOwnerWords(root, inWeb, "Our buyers abandon long checkout forms.", "call-quote");
+    const derive = async (kind: string, statement: string, supports: string) => {
+      const derivation = await propose(root, inWeb, { kind, statement, supports: [supports] });
+      await decide(root, { target: derivation.id, outcome: "accept" });
+      return derivation.id;
+    };
+    const belief = await derive("belief", "Keep checkout forms short", memory);
+    const insight = await derive("insight", "Buyers abandon long checkout forms", quote);
+    const idea = await derive("idea", "Try a one-field checkout form", quote);
+    const pending = (
+      await propose(root, inWeb, { statement: "Checkout forms ask for email first", supports: [memory] })
+    ).id;
+
+    const explain = async (ref: string, caller: TasteCaller) => {
+      const [item] = (await runOperation(root, "recall-explain", { ref }, caller)).items;
+      return item?.outcome === "excluded" ? item.exclusion : item?.outcome;
+    };
+    expect(await explain(belief, inWeb)).toBe("injected");
+    expect(await explain(insight, inWeb)).toBe("recalled");
+    expect(await explain(idea, inWeb)).toBe("never-policy");
+    expect(await explain(pending, inWeb)).toBe("pending");
+    expect(await explain(belief, inBilling)).toBe("out-of-scope");
+
+    // Whatever recall returns or leaves out for a prompt, explain says the same of it.
+    const recall = await runOperation(root, "recall", { query: "checkout forms" }, inWeb);
+    const hook = await runOperation(root, "hook-preview", { prompt: "checkout forms" }, inWeb);
+    expect([recall.accepted.length, recall.excluded.length, hook.items.length]).toEqual([2, 2, 1]);
+    const explainAll = (ids: ReadonlyArray<string>) => Promise.all(ids.map((id) => explain(id, inWeb)));
+    expect(await explainAll(recall.accepted.map((hit) => hit.id))).toEqual(
+      recall.accepted.map((hit) => (hit.kind === "belief" ? "injected" : "recalled")),
+    );
+    expect(await explainAll(recall.excluded.map((hit) => hit.id))).toEqual(recall.excluded.map((hit) => hit.exclusion));
+    expect(await explainAll(hook.items.map((item) => item.id))).toEqual(hook.items.map(() => "injected"));
+
+    // Found by text, matches come best first, in the order `list` ranks the same words.
+    const byText = await runOperation(root, "recall-explain", { text: "abandon long checkout forms" }, inWeb);
+    const listed = await runOperation(root, "list", { text: "abandon long checkout forms" }, inWeb);
+    expect(byText.items[0]?.id).toBe(insight);
+    expect(listed.derivations.map((row) => row.id)).toEqual(byText.items.map((item) => item.id));
+  });
+
   test("the repeat check blocks within a kind where scopes overlap, and despite lets it through", async () => {
     const { root, inWeb, inBilling } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "Only use Tailwind in acme-web.");
@@ -163,7 +207,15 @@ describe("lifecycle", () => {
     await decide(root, { target: original.id, outcome: "accept" });
 
     const STOREFRONT = "github.com/acme/storefront::";
+    const recordCount = async () => (await runOperation(root, "list", {}, inWeb)).derivations.length;
+    const before = await recordCount();
+    const preview = await runOperation(root, "repoint-preview", { from: WEB, to: STOREFRONT }, inWeb);
+    expect(preview.revisions.map((entry) => [entry.supersedes.id, entry.keptPlaces])).toEqual([
+      [original.id, ["clients/acme"]],
+    ]);
+    expect(await recordCount()).toBe(before);
     const repointed = await runOperation(root, "repoint", { from: WEB, to: STOREFRONT }, inWeb);
+    expect(repointed.proposals.map((proposal) => proposal.supersedes.id)).toEqual([original.id]);
     const revision = repointed.proposals[0]?.revision;
     expect(revision?.proposedScope).toEqual({ scope: "places", places: [STOREFRONT, "clients/acme"] });
     expect([revision?.status, revision?.statement]).toEqual(["pending", "Prefer integration tests"]);
@@ -200,6 +252,28 @@ describe("lifecycle", () => {
     expect(blocked.proposals).toEqual([]);
     expect(blocked.blocked.map((entry) => entry.derivation.id)).toEqual([revision?.id ?? "missing"]);
     expect(blocked.blocked[0]?.matches.map((match) => match.id)).toEqual([twin.id]);
+  });
+
+  test("the owner's scope revision lands pending, with the same words and evidence", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "No default exports, ever.");
+    const original = await propose(root, inWeb, { statement: "Use named exports only", supports: [memory] });
+    await decide(root, { target: original.id, outcome: "accept" });
+
+    const CLIENTS = "clients/acme";
+    const input = { target: original.id, scope: "places", places: [WEB, CLIENTS] };
+    expect((await failOperation(root, "revise-scope", input, inWeb))._tag).toBe("OperationNotAllowed");
+    const { derivation } = await runOperation(root, "revise-scope", input, reviewer);
+    expect(derivation.status).toBe("pending");
+    expect(derivation.derivation.proposed_by).toBe("process:review");
+    expect(derivation.derivation.supersedes).toBe(original.id);
+    expect([derivation.statement, derivation.derivation.supports]).toEqual([original.statement, [memory]]);
+    expect([derivation.proposedScope, derivation.scopeSource]).toEqual([
+      { scope: "places", places: [WEB, CLIENTS] },
+      "explicit",
+    ]);
+    const inbox = await runOperation(root, "inbox", {}, reviewer);
+    expect(JSON.stringify(inbox)).toContain(derivation.id);
   });
 
   test("widening at accept needs every newly overlapping near repeat acknowledged", async () => {

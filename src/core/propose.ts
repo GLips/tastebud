@@ -167,6 +167,69 @@ export const checkDerivationProposal = Effect.fn("taste.checkDerivationProposal"
   return repeat;
 });
 
+/** `despite` refs resolved, and `despite_case` given exactly when they are. */
+export const resolveDespiteRefs = Effect.fn("taste.resolveDespiteRefs")(function* (
+  snapshot: StoreSnapshot,
+  despiteRefs: ReadonlyArray<string> | undefined,
+  despiteCase: string | undefined,
+) {
+  const despite = yield* Effect.forEach(despiteRefs ?? [], (ref) => resolveDerivationRef(snapshot, ref));
+  if (despite.length > 0 && despiteCase === undefined)
+    return yield* new InvalidTasteInput({ problems: ["despite needs despite_case (--why) with what changed"] });
+  if (despite.length === 0 && despiteCase !== undefined)
+    return yield* new InvalidTasteInput({ problems: ["despite_case (--why) only applies together with despite"] });
+  return despite;
+});
+
+/** What a new derivation records beyond the parts `checkDerivationProposal` judges. */
+export interface DerivationProposalAuthorship {
+  readonly scopeSource: ScopeSource;
+  readonly subject: string | undefined;
+  readonly proposedBy: string;
+  readonly reasoning: string;
+  readonly despiteCase: string | undefined;
+}
+
+/** Checks a proposal by the rules every new derivation meets, then appends it pending. */
+export const appendDerivationProposal = Effect.fn("taste.appendDerivationProposal")(function* (
+  view: ViewSource,
+  kind: DerivedKindDefinition,
+  parts: DerivationProposalParts,
+  authorship: DerivationProposalAuthorship,
+) {
+  const store = yield* TasteStore;
+  const repeat = yield* checkDerivationProposal(view, kind, parts);
+  const { scope, supports, contradicts, supersedes, despite } = parts;
+  const { subject, despiteCase } = authorship;
+  const stamp = yield* stampNewRecord;
+  const derivation: DerivationRecord = {
+    id: stamp.id,
+    type: "Derivation",
+    schema_version: SCHEMA_VERSION,
+    kind: kind.key,
+    statement: parts.statement,
+    scope: scope.scope,
+    ...(scope.scope === "places" && { places: scopePlacesOf(scope) }),
+    scope_source: authorship.scopeSource,
+    ...(subject !== undefined && { subject }),
+    supports: supports.map((record) => record.id),
+    ...(contradicts.length > 0 && { contradicts: contradicts.map((record) => record.id) }),
+    ...(supersedes !== undefined && { supersedes: supersedes.id }),
+    ...(despite.length > 0 && { despite: despite.map((record) => record.id) }),
+    proposed_by: authorship.proposedBy,
+    proposed_at: stamp.at,
+    reasoning: authorship.reasoning,
+    ...(despiteCase !== undefined && { despite_case: despiteCase }),
+  };
+  const written = yield* store.write(derivation);
+  return {
+    derivation: buildDerivationView({ snapshot: yield* store.snapshot, catalog: view.catalog }, derivation),
+    path: written.path,
+    related: [...repeat.blocking, ...repeat.related],
+    warnings: speakerWarnings(store.config, subject, supports),
+  };
+});
+
 export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* (
   input: ProposeDerivationInput,
   caller: TasteCaller,
@@ -182,48 +245,18 @@ export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* 
   const contradicts = yield* Effect.forEach(input.contradicts ?? [], (ref) => resolveEvidenceRef(snapshot, ref));
   const supersedes =
     input.supersedes === undefined ? undefined : yield* resolveDerivationRef(snapshot, input.supersedes);
-  const despite = yield* Effect.forEach(input.despite ?? [], (ref) => resolveDerivationRef(snapshot, ref));
-  if (despite.length > 0 && input.despite_case === undefined)
-    return yield* new InvalidTasteInput({ problems: ["despite needs despite_case (--why) with what changed"] });
-  if (despite.length === 0 && input.despite_case !== undefined)
-    return yield* new InvalidTasteInput({ problems: ["despite_case (--why) only applies together with despite"] });
-
+  const despite = yield* resolveDespiteRefs(snapshot, input.despite, input.despite_case);
   const { scope, source: scopeSource } = yield* chooseProposalScope(config, input, caller);
-  const repeat = yield* checkDerivationProposal(view, kind, {
-    statement: input.statement,
-    scope,
-    supports,
-    contradicts,
-    supersedes,
-    despite,
-  });
-
-  const subject = input.subject ?? (kind.key === BUILT_IN_BELIEF_KIND ? OWNER_SUBJECT : undefined);
-  const stamp = yield* stampNewRecord;
-  const derivation: DerivationRecord = {
-    id: stamp.id,
-    type: "Derivation",
-    schema_version: SCHEMA_VERSION,
-    kind: kind.key,
-    statement: input.statement,
-    scope: scope.scope,
-    ...(scope.scope === "places" && { places: scopePlacesOf(scope) }),
-    scope_source: scopeSource,
-    ...(subject !== undefined && { subject }),
-    supports: supports.map((record) => record.id),
-    ...(contradicts.length > 0 && { contradicts: contradicts.map((record) => record.id) }),
-    ...(supersedes !== undefined && { supersedes: supersedes.id }),
-    ...(despite.length > 0 && { despite: despite.map((record) => record.id) }),
-    proposed_by: proposedBy,
-    proposed_at: stamp.at,
-    reasoning: input.reasoning ?? "",
-    ...(input.despite_case !== undefined && { despite_case: input.despite_case }),
-  };
-  const written = yield* store.write(derivation);
-  return {
-    derivation: buildDerivationView({ snapshot: yield* store.snapshot, catalog: config.catalog }, derivation),
-    path: written.path,
-    related: [...repeat.blocking, ...repeat.related],
-    warnings: speakerWarnings(config, subject, supports),
-  };
+  return yield* appendDerivationProposal(
+    view,
+    kind,
+    { statement: input.statement, scope, supports, contradicts, supersedes, despite },
+    {
+      scopeSource,
+      subject: input.subject ?? (kind.key === BUILT_IN_BELIEF_KIND ? OWNER_SUBJECT : undefined),
+      proposedBy,
+      reasoning: input.reasoning ?? "",
+      despiteCase: input.despite_case,
+    },
+  );
 });

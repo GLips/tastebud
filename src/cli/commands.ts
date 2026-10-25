@@ -90,6 +90,32 @@ export const recallCommand = Command.make(
   ]),
 );
 
+export const recallExplainCommand = Command.make(
+  "recall-explain",
+  {
+    ref: Argument.String("ref").pipe(
+      Argument.withDescription("The derivation to explain: an id, short id or unique prefix"),
+      Argument.optional,
+    ),
+    text: optionalTextFlag("text", "Instead of a ref: words from its statement, explaining the closest matches"),
+    kind: kindsFlag("A derived kind recall would search (default: every inject and pull kind)"),
+    history: Flag.Boolean("history").pipe(
+      Flag.withDescription("Explain as recall with --history would"),
+      Flag.withDefault(false),
+    ),
+    ...contextFlags,
+    json: jsonFlag,
+    store: storeFlag,
+  },
+  ({ json, store, ...flags }) => runCliOperation("recall-explain", definedFields(flags), { store, json }),
+).pipe(
+  describedAs("recall-explain"),
+  Command.withExamples([
+    { command: "taste recall-explain 3f9a2c", description: "Why this derivation does or doesn't reach an agent here" },
+    { command: 'taste recall-explain --text "named exports" --in ~/code/web', description: "The closest matches" },
+  ]),
+);
+
 export const contextCommand = Command.make(
   "context",
   {
@@ -314,6 +340,17 @@ export const repointCommand = Command.make(
   },
   ({ from, to, json, store }) => runCliOperation("repoint", { from, to }, { store, json }),
 ).pipe(describedAs("repoint"));
+
+export const repointPreviewCommand = Command.make(
+  "repoint-preview",
+  {
+    from: Flag.String("from").pipe(Flag.withDescription("The exact scope place to replace")),
+    to: Flag.String("to").pipe(Flag.withDescription("The place to put in its stead")),
+    json: jsonFlag,
+    store: storeFlag,
+  },
+  ({ from, to, json, store }) => runCliOperation("repoint-preview", { from, to }, { store, json }),
+).pipe(describedAs("repoint-preview"));
 
 // ---------------------------------------------------------------------------------------------
 // hooks and the MCP server

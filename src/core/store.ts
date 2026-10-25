@@ -77,6 +77,18 @@ const buildStoreSnapshot = (records: ReadonlyArray<IndexedRecord>): StoreSnapsho
   };
 };
 
+/**
+ * The snapshot as it would be with these derivations written, for checking a batch of proposals
+ * against one another before any lands. They have no file yet, so no path or short id.
+ */
+export const snapshotWithUnwrittenDerivations = (
+  snapshot: StoreSnapshot,
+  derivations: ReadonlyArray<DerivationRecord>,
+): StoreSnapshot =>
+  derivations.length === 0
+    ? snapshot
+    : buildStoreSnapshot([...snapshot.records, ...derivations.map((record) => ({ record, path: "", shortId: "" }))]);
+
 const validateRecord = Schema.decodeUnknownEffect(TasteRecordSchema);
 
 /**

@@ -24,7 +24,6 @@ export { decideDerivation, type DecideDerivationInput, type DecideDerivationOpti
 export {
   describeTasteFailure,
   type TasteSurface,
-  InvalidTasteInput,
   StoreAlreadyExists,
   StoreNotEmpty,
   StoreWriteFailed,
@@ -40,7 +39,6 @@ export {
   LISTEN_POLL_MS,
   type ListenEvent,
   type ListenerHeartbeat,
-  listListenerHeartbeats,
   pollListenerEvents,
   writeListenerHeartbeat,
 } from "./listener.ts";
@@ -66,8 +64,9 @@ export {
 } from "./place-resolution.ts";
 export type { AuditPlacesResult } from "./places-audit.ts";
 export { BELIEF_PROPOSAL_PROMPT } from "./prompts.ts";
+export type { RecallExplainItem, RecallExplainResult } from "./recall-explain.ts";
 export type { DecisionRecord, DerivationRecord, SourceRecord, TasteRecord, ThreadEntryRecord } from "./records.ts";
-export type { RepointPlaceResult } from "./repoint.ts";
+export type { RepointPlaceResult, RepointPreviewResult } from "./repoint.ts";
 export { listRecordFiles } from "./store-files.ts";
 export { provideTasteStore, TasteStore } from "./store.ts";
 export { appendOwnerThreadNote, threadReplyInstruction } from "./threads.ts";

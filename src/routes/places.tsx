@@ -25,7 +25,7 @@ import { Result, Schema } from "effect";
 import { ArrowRight, Globe, LocateFixed, Plus, Search, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 
-import type { AuditPlacesResult, DerivationRow } from "../core/index.ts";
+import type { AuditPlacesResult } from "../core/index.ts";
 import { repointReviewPlace } from "../server/review-functions.ts";
 import { unwrapReviewOutcome } from "../server/review-outcome.ts";
 import { canonicalPlaceKey, type PlaceKey, placeCovers, scopePlacesOf } from "../shared/places.ts";
@@ -33,7 +33,12 @@ import { DerivationSummaryLine } from "../ui/derivation-link.tsx";
 import { capitalize, KindGlyph } from "../ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceChip, PlaceFormIcon, PlaceKeyCopy, placeFormOf } from "../ui/place-chips.tsx";
 import { buildPlaceTree, filterPlaceTree, type PlaceTreeNode } from "../ui/place-tree.ts";
-import { derivationListQuery, placesAuditQuery, reviewContextQuery } from "../ui/review-queries.ts";
+import {
+  derivationListQuery,
+  placesAuditQuery,
+  repointPreviewQuery,
+  reviewContextQuery,
+} from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
 import { AnchorLink } from "../ui/router-links.tsx";
 import { type KnownPlaces, useKnownPlaces, useReviewCatalog } from "../ui/use-review-context.ts";
@@ -369,13 +374,11 @@ function RepointSheet({
   from,
   opened,
   onClose,
-  affected,
   known,
 }: {
   from: PlaceKey;
   opened: boolean;
   onClose: () => void;
-  affected: ReadonlyArray<DerivationRow>;
   known: KnownPlaces;
 }) {
   const queryClient = useQueryClient();
@@ -387,6 +390,11 @@ function RepointSheet({
     onSettled: () => queryClient.invalidateQueries(),
   });
   const result = repoint.data;
+  const preview = useQuery({
+    ...repointPreviewQuery(from, target ?? ""),
+    enabled: opened && target !== undefined && target !== from && result === undefined,
+  });
+  const revisions = preview.data?.revisions ?? [];
   const kindsTouched = [...new Set((result?.proposals ?? []).map((proposal) => proposal.revision.kind))];
   return (
     <Drawer
@@ -439,31 +447,62 @@ function RepointSheet({
             </Group>
           )}
         </Stack>
-        <Stack gap={6}>
-          <Text size="sm" fw={600}>
-            {affected.length === 0
-              ? "Nothing accepted is scoped to exactly this place"
-              : `${affected.length} accepted ${affected.length === 1 ? "item" : "items"} would get a revision`}
-          </Text>
-          {affected.map((row) => {
-            const others = scopePlacesOf(row.effectiveScope).filter((place) => place !== from);
-            return (
-              <Stack key={row.id} gap={2}>
-                <DerivationSummaryLine summary={row} />
-                {others.length > 0 && (
-                  <Group gap={4} pl={18}>
-                    <Text size="xs" c="dimmed">
-                      Keeps
-                    </Text>
-                    {others.map((place) => (
-                      <PlaceChip key={place} place={place} label={known.labelOf(place)} />
-                    ))}
-                  </Group>
+        {result === undefined && (
+          <Stack gap={6}>
+            {target === undefined || target === from ? (
+              <Text size="sm" c="dimmed">
+                Choose the new place to see what would be proposed.
+              </Text>
+            ) : preview.error ? (
+              <QueryErrorAlert error={preview.error} />
+            ) : preview.data === undefined ? (
+              <Loader size="xs" />
+            ) : (
+              <>
+                <Text size="sm" fw={600}>
+                  {revisions.length === 0
+                    ? "Nothing would get a revision"
+                    : `${revisions.length} accepted ${revisions.length === 1 ? "item" : "items"} would get a revision`}
+                </Text>
+                {revisions.map((revision) => (
+                  <Stack key={revision.supersedes.id} gap={2}>
+                    <DerivationSummaryLine summary={revision.supersedes} />
+                    {revision.keptPlaces.length > 0 && (
+                      <Group gap={4} pl={18}>
+                        <Text size="xs" c="dimmed">
+                          Keeps
+                        </Text>
+                        {revision.keptPlaces.map((place) => (
+                          <PlaceChip key={place} place={place} label={known.labelOf(place)} />
+                        ))}
+                      </Group>
+                    )}
+                  </Stack>
+                ))}
+                {preview.data.alreadyPending.length > 0 && (
+                  <Text size="xs" c="dimmed">
+                    {preview.data.alreadyPending.length} already{" "}
+                    {preview.data.alreadyPending.length === 1 ? "has" : "have"} the same revision pending.
+                  </Text>
                 )}
-              </Stack>
-            );
-          })}
-        </Stack>
+                {preview.data.blocked.length > 0 && (
+                  <Alert color="orange" variant="light" title="Won't be proposed">
+                    <Stack gap={6}>
+                      {preview.data.blocked.map((entry) => (
+                        <Stack key={entry.derivation.id} gap={2}>
+                          <DerivationSummaryLine summary={entry.derivation} />
+                          <Text size="xs" c="dimmed" pl={18}>
+                            {entry.problem}
+                          </Text>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Alert>
+                )}
+              </>
+            )}
+          </Stack>
+        )}
         {repoint.error && (
           <Alert color="red" variant="light">
             {repoint.error.message}
@@ -492,11 +531,11 @@ function RepointSheet({
           </Alert>
         ) : (
           <Button
-            disabled={target === undefined || target === from || affected.length === 0}
+            disabled={target === undefined || target === from || revisions.length === 0 || preview.isPlaceholderData}
             loading={repoint.isPending}
             onClick={() => target !== undefined && repoint.mutate(target)}
           >
-            Create {affected.length} scope-change {affected.length === 1 ? "proposal" : "proposals"}
+            Create {revisions.length} scope-change {revisions.length === 1 ? "proposal" : "proposals"}
           </Button>
         )}
       </Stack>
@@ -606,13 +645,7 @@ function PlaceDetails({
           scopedHere.map((row) => <DerivationSummaryLine key={row.id} summary={row} />)
         )}
       </Stack>
-      <RepointSheet
-        from={place}
-        opened={repointing}
-        onClose={() => setRepointing(false)}
-        affected={acceptedHere}
-        known={known}
-      />
+      <RepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
     </Stack>
   );
 }

@@ -31,14 +31,15 @@ import type {
   ExcludedRecallHit,
   HookPayload,
   RecallExclusionReason,
+  RecallExplainItem,
   RecallResult,
 } from "../core/index.ts";
 import { ReviewQueryError } from "../server/review-outcome.ts";
 import type { CatalogView } from "../shared/catalog-view.ts";
-import { matchScopeToContext, type TasteContext } from "../shared/places.ts";
+import type { TasteContext } from "../shared/places.ts";
 import { capitalize, findKindView, KindGlyph } from "../ui/kind-identity.tsx";
 import { PlaceChip, ScopeChips } from "../ui/place-chips.tsx";
-import { derivationListQuery, recallInspectionQuery, recordDetailQuery } from "../ui/review-queries.ts";
+import { type RecallExplanationRequest, recallExplanationQuery, recallInspectionQuery } from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
 import { AnchorLink } from "../ui/router-links.tsx";
 import { SourceQuote } from "../ui/source-quote.tsx";
@@ -104,7 +105,7 @@ const ORIGIN_WORDING: Record<TasteContext["origin"], string> = {
 };
 
 const exclusionReason = (
-  hit: ExcludedRecallHit,
+  hit: Pick<ExcludedRecallHit, "kind" | "kindLabel" | "status" | "exclusion">,
   catalog: CatalogView | undefined,
   context: TasteContext,
   known: KnownPlaces,
@@ -411,72 +412,46 @@ function InjectedPanel({ hook, stale }: { hook: HookPayload; stale: boolean }) {
   );
 }
 
-/**
- * Why one derivation would or wouldn't reach an agent here, from its policy, status and scope.
- * Worked out in the browser from shared rules; text relevance can't be judged for an item recall
- * never searched.
- */
-function explainItem(
-  item: DerivationSummary,
+type RecallReachedItem = Exclude<RecallExplainItem, { outcome: "excluded" }>;
+
+const RECALL_SECTION_WORDING: Record<RecallReachedItem["section"], (item: RecallReachedItem) => string> = {
+  accepted: () => "Accepted.",
+  rejected: () => "Rejected: recalled as not accepted, so agents don't propose it again.",
+  history: (item) => `${capitalize(item.status)}: recalled because history is on.`,
+};
+
+/** Core's explanation in words, plus whether this prompt's recall and hook actually brought it up. */
+function explanationLines(
+  item: RecallExplainItem,
   catalog: CatalogView | undefined,
   context: TasteContext,
-  results: { readonly injected: ReadonlySet<string>; readonly recalled: ReadonlySet<string> },
   known: KnownPlaces,
+  forThisPrompt: { readonly injected: ReadonlySet<string>; readonly recalled: ReadonlySet<string> },
 ): ReadonlyArray<string> {
-  const kind = findKindView(catalog, item.kind);
-  if (kind === undefined) return ["Retired kind: it is listed, never recalled."];
-  if (kind.recall === "never")
-    return [`${capitalize(kind.singular)} policy: backlog only. Never recalled or injected.`];
-  const lines: Array<string> = [];
-  if (item.status === "pending") lines.push("Pending review: nothing pending is recalled.");
-  else if (item.status === "superseded" || item.status === "retracted")
-    lines.push(`${capitalize(item.status)}: recalled only when history is asked for.`);
-  else if (item.status === "rejected")
-    lines.push("Rejected: recalled as not accepted, so agents don't propose it again.");
-  else lines.push("Accepted.");
-  const matched = matchScopeToContext(item.effectiveScope, context.places);
-  if (matched === undefined)
-    lines.push(
-      context.places.length === 0
-        ? "Not global, and the context is unknown, so it can't apply."
-        : `Outside ${context.places.map(known.labelOf).join(", ")}: its scope covers none of these places.`,
-    );
-  else
-    lines.push(
-      matched === "global" ? "Global: applies everywhere." : `In scope: matched at ${known.labelOf(matched)}.`,
-    );
-  lines.push(
-    kind.recall === "inject"
-      ? "Inject policy: the hook may send it, recall returns it."
-      : "Pull policy: only recall returns it; the hook never sends it.",
-  );
-  if (results.injected.has(item.id)) lines.push("For this prompt: the hook would inject it.");
-  else if (results.recalled.has(item.id)) lines.push("For this prompt: recall returns it.");
-  else if (matched !== undefined && (item.status === "accepted" || item.status === "rejected"))
-    lines.push("For this prompt: eligible, but its words didn't match closely enough to be a candidate.");
-  return lines;
+  if (item.outcome === "excluded") return [`Excluded: ${exclusionReason(item, catalog, context, known)}.`];
+  const matched = item.explanation.matchedPlace;
+  return [
+    RECALL_SECTION_WORDING[item.section](item),
+    matched === "global" ? "Global: applies everywhere." : `In scope: matched at ${known.labelOf(matched)}.`,
+    item.outcome === "injected"
+      ? "The hook may inject it, and recall returns it, when a prompt's words match."
+      : "Recall returns it when a prompt's words match; the hook never sends it here.",
+    forThisPrompt.injected.has(item.id)
+      ? "For this prompt: the hook injects it."
+      : forThisPrompt.recalled.has(item.id)
+        ? "For this prompt: recall returns it."
+        : "For this prompt: its words didn't match closely enough to be a candidate.",
+  ];
 }
 
 const ID_LIKE = /^[0-9a-f-]{6,36}$/i;
 
-const wordsOf = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-
-/** `list` filters by text but doesn't rank, so the closest statements are put first here. */
-const rankByWordOverlap = (items: ReadonlyArray<DerivationSummary>, needle: string) => {
-  const wanted = new Set(wordsOf(needle));
-  const scoreOf = (item: DerivationSummary) => wordsOf(item.statement).filter((word) => wanted.has(word)).length;
-  return items
-    .map((item) => ({ item, score: scoreOf(item) }))
-    .sort((left, right) => right.score - left.score)
-    .map(({ item }) => item);
-};
-
 function FindSpecificItem({
-  context,
+  request,
   recall,
   hook,
 }: {
-  context: TasteContext;
+  request: Omit<RecallExplanationRequest, "lookup">;
   recall: RecallResult;
   hook: HookPayload;
 }) {
@@ -484,28 +459,18 @@ function FindSpecificItem({
   const known = useKnownPlaces();
   const [needle, setNeedle] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const byId = ID_LIKE.test(submitted);
-  const record = useQuery({
-    ...recordDetailQuery(submitted),
-    enabled: submitted !== "" && byId,
-    refetchInterval: false,
+  const explanation = useQuery({
+    ...recallExplanationQuery({
+      ...request,
+      lookup: ID_LIKE.test(submitted) ? { ref: submitted } : { text: submitted },
+    }),
+    enabled: submitted !== "",
   });
-  const matches = useQuery({
-    ...derivationListQuery({ text: submitted }),
-    enabled: submitted !== "" && !byId,
-    refetchInterval: false,
-  });
-  const items: ReadonlyArray<DerivationSummary> = byId
-    ? record.data?.derivation !== undefined
-      ? [record.data.derivation]
-      : []
-    : rankByWordOverlap(matches.data ?? [], submitted).slice(0, 5);
-  const results = {
+  const items = explanation.data?.items ?? [];
+  const forThisPrompt = {
     injected: new Set(hook.items.map((item) => item.id)),
     recalled: new Set([...recall.accepted, ...recall.rejected, ...recall.history].map((hit) => hit.id)),
   };
-  const loading = byId ? record.isFetching : matches.isFetching;
-  const failed = byId ? record.error : matches.error;
   return (
     <Paper p="sm">
       <Stack gap={8}>
@@ -531,17 +496,17 @@ function FindSpecificItem({
               onChange={(event) => setNeedle(event.currentTarget.value)}
               style={{ flex: 1 }}
             />
-            <Button size="xs" variant="default" type="submit" loading={loading}>
+            <Button size="xs" variant="default" type="submit" loading={explanation.isFetching}>
               Explain
             </Button>
           </Group>
         </form>
-        {failed && (
+        {explanation.error && (
           <Text size="xs" c="red.7">
-            {failed.message}
+            {explanation.error.message}
           </Text>
         )}
-        {submitted !== "" && !loading && !failed && items.length === 0 && (
+        {submitted !== "" && explanation.isSuccess && items.length === 0 && (
           <Text size="xs" c="dimmed">
             Nothing matches “{submitted}”.
           </Text>
@@ -554,11 +519,13 @@ function FindSpecificItem({
                 {item.statement}
               </AnchorLink>
             </Group>
-            {explainItem(item, catalog, context, results, known).map((line) => (
-              <Text key={line} size="xs" c="dimmed" pl={16}>
-                {line}
-              </Text>
-            ))}
+            {explanationLines(item, catalog, explanation.data?.context ?? recall.context, known, forThisPrompt).map(
+              (line) => (
+                <Text key={line} size="xs" c="dimmed" pl={16}>
+                  {line}
+                </Text>
+              ),
+            )}
           </Stack>
         ))}
       </Stack>
@@ -759,7 +726,7 @@ function RecallInspectorScreen() {
           <Stack gap="lg" {...stylex.props(stale && styles.stale)}>
             <RecallCandidateGroups recall={inspection.data.recall} hook={inspection.data.hook} catalog={catalog} />
             <FindSpecificItem
-              context={inspection.data.recall.context}
+              request={{ kind: submitted.kind, history: submitted.history, dir: submitted.dir, at: submitted.at }}
               recall={inspection.data.recall}
               hook={inspection.data.hook}
             />

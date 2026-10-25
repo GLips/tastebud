@@ -146,7 +146,7 @@ function useScopeRevision(target: string) {
           ...request.scope,
           ...(request.despite !== undefined && {
             despite: [...request.despite.ids],
-            despiteCase: request.despite.why,
+            despite_case: request.despite.why,
           }),
         },
       }),

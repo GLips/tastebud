@@ -16,7 +16,7 @@ import { InvalidTasteInput } from "./errors.ts";
 import { stampNewRecord } from "./ids.ts";
 import { checkDerivationProposal } from "./propose.ts";
 import { type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
-import { derivationStateOf, resolveEvidenceRef, TasteStore } from "./store.ts";
+import { derivationStateOf, resolveEvidenceRef, snapshotWithUnwrittenDerivations, TasteStore } from "./store.ts";
 import { DerivationSummarySchema, RepeatMatchSchema } from "./view-schemas.ts";
 import { summarizeDerivation, type ViewSource } from "./views.ts";
 
@@ -28,49 +28,77 @@ export const RepointPlaceInput = Schema.Struct({
 });
 export type RepointPlaceInput = typeof RepointPlaceInput.Type;
 
+const RepointBlockedSchema = Schema.Struct({
+  derivation: DerivationSummarySchema,
+  problem: Schema.String,
+  /** Blocking near repeats, when that is why. */
+  matches: Schema.Array(RepeatMatchSchema),
+});
+
+/** Accepted derivations with A whose identical revision is already pending. */
+const RepointAlreadyPendingSchema = Schema.Array(DerivationSummarySchema);
+
 export const RepointPlaceResultSchema = Schema.Struct({
   from: Schema.String,
   to: Schema.String,
   proposals: Schema.Array(
     Schema.Struct({ supersedes: DerivationSummarySchema, revision: DerivationSummarySchema, path: Schema.String }),
   ),
-  /** Accepted derivations with A whose identical revision is already pending. */
-  alreadyPending: Schema.Array(DerivationSummarySchema),
-  /** Accepted derivations whose revision propose's rules refused; `matches` are blocking near repeats. */
-  blocked: Schema.Array(
-    Schema.Struct({
-      derivation: DerivationSummarySchema,
-      problem: Schema.String,
-      matches: Schema.Array(RepeatMatchSchema),
-    }),
-  ),
+  alreadyPending: RepointAlreadyPendingSchema,
+  /** Accepted derivations whose revision propose's rules refused. */
+  blocked: Schema.Array(RepointBlockedSchema),
 });
 export type RepointPlaceResult = typeof RepointPlaceResultSchema.Type;
 
-export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* (input: RepointPlaceInput) {
+/** What `repoint` would do, written nowhere. */
+export const RepointPreviewResultSchema = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  revisions: Schema.Array(
+    Schema.Struct({
+      supersedes: DerivationSummarySchema,
+      /** The scope's other places, which the revision keeps beside `to`. */
+      keptPlaces: Schema.Array(Schema.String),
+    }),
+  ),
+  alreadyPending: RepointAlreadyPendingSchema,
+  blocked: Schema.Array(RepointBlockedSchema),
+});
+export type RepointPreviewResult = typeof RepointPreviewResultSchema.Type;
+
+interface RepointRevisionPlan {
+  readonly target: DerivationRecord;
+  readonly revision: DerivationRecord;
+  readonly keptPlaces: ReadonlyArray<string>;
+}
+
+/**
+ * Every revision `repoint` would write, checked by propose's rules but written nowhere. Each is
+ * checked against the store plus the revisions planned before it, so a batch can't repeat itself.
+ */
+const planRepointRevisions = Effect.fn("taste.planRepointRevisions")(function* (input: RepointPlaceInput) {
   const store = yield* TasteStore;
+  const { catalog } = store.config;
   // canonicalInputPlaces de-duplicates, so a missing `to` means both spell the same place.
   const [from, to] = yield* canonicalInputPlaces("from/to", [input.from, input.to], homedir());
   if (from === undefined || to === undefined)
     return yield* new InvalidTasteInput({ problems: ["from and to must be different places"] });
   const snapshot = yield* store.snapshot;
-  const view: ViewSource = { snapshot, catalog: store.config.catalog };
+  const view: ViewSource = { snapshot, catalog };
   const targets = snapshot.derivations.filter((derivation) => {
     const state = derivationStateOf(snapshot, derivation);
     return state.status === "accepted" && scopePlacesOf(state.effectiveScope).includes(from);
   });
 
-  const proposals: Array<RepointPlaceResult["proposals"][number]> = [];
+  const revisions: Array<RepointRevisionPlan> = [];
   const alreadyPending: Array<RepointPlaceResult["alreadyPending"][number]> = [];
   const blocked: Array<RepointPlaceResult["blocked"][number]> = [];
   for (const target of targets) {
-    const kind = findDerivedKind(store.config.catalog, target.kind);
+    const kind = findDerivedKind(catalog, target.kind);
     if (kind === undefined) continue;
-    const places = [
-      ...new Set(
-        scopePlacesOf(derivationStateOf(snapshot, target).effectiveScope).map((place) => (place === from ? to : place)),
-      ),
-    ];
+    const scopePlaces = scopePlacesOf(derivationStateOf(snapshot, target).effectiveScope);
+    const keptPlaces = scopePlaces.filter((place) => place !== from);
+    const places = [...new Set(scopePlaces.map((place) => (place === from ? to : place)))];
     const scopeKey = scopeGroupKey({ scope: "places", places });
     const pendingTwin = snapshot.derivations.some(
       (other) =>
@@ -82,12 +110,17 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
       alreadyPending.push(summarizeDerivation(view, target));
       continue;
     }
-    // Each revision is checked against the store as it is now, earlier revisions included.
-    const current: ViewSource = { snapshot: yield* store.snapshot, catalog: store.config.catalog };
+    const current: ViewSource = {
+      snapshot: snapshotWithUnwrittenDerivations(
+        snapshot,
+        revisions.map((planned) => planned.revision),
+      ),
+      catalog,
+    };
+    const evidenceOf = (ids: ReadonlyArray<string>) =>
+      Effect.forEach(ids, (id) => resolveEvidenceRef(current.snapshot, id));
     const checked = yield* Effect.result(
       Effect.gen(function* () {
-        const evidenceOf = (ids: ReadonlyArray<string>) =>
-          Effect.forEach(ids, (id) => resolveEvidenceRef(current.snapshot, id));
         return yield* checkDerivationProposal(current, kind, {
           statement: target.statement,
           scope: { scope: "places", places },
@@ -125,14 +158,46 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
       proposed_at: stamp.at,
       reasoning: `Repointed from ${from} to ${to}; the statement is unchanged.`,
     };
-    const written = yield* store.write(revision);
-    const after: ViewSource = { snapshot: yield* store.snapshot, catalog: store.config.catalog };
-    proposals.push({
-      supersedes: summarizeDerivation(after, target),
-      revision: summarizeDerivation(after, revision),
-      path: written.path,
-    });
+    revisions.push({ target, revision, keptPlaces });
   }
-  const result: RepointPlaceResult = { from, to, proposals, alreadyPending, blocked };
+  return { from, to, view, revisions, alreadyPending, blocked };
+});
+
+/** `repoint-preview`: the revisions `repoint` would propose, the ones already pending, and the blocked. */
+export const previewTastePlaceRepoint = Effect.fn("taste.previewTastePlaceRepoint")(function* (
+  input: RepointPlaceInput,
+) {
+  const plan = yield* planRepointRevisions(input);
+  const result: RepointPreviewResult = {
+    from: plan.from,
+    to: plan.to,
+    revisions: plan.revisions.map((planned) => ({
+      supersedes: summarizeDerivation(plan.view, planned.target),
+      keptPlaces: [...planned.keptPlaces],
+    })),
+    alreadyPending: plan.alreadyPending,
+    blocked: plan.blocked,
+  };
+  return result;
+});
+
+export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* (input: RepointPlaceInput) {
+  const store = yield* TasteStore;
+  const plan = yield* planRepointRevisions(input);
+  const written = yield* Effect.forEach(plan.revisions, (planned) =>
+    Effect.map(store.write(planned.revision), ({ path }) => ({ ...planned, path })),
+  );
+  const after: ViewSource = { snapshot: yield* store.snapshot, catalog: store.config.catalog };
+  const result: RepointPlaceResult = {
+    from: plan.from,
+    to: plan.to,
+    proposals: written.map((planned) => ({
+      supersedes: summarizeDerivation(after, planned.target),
+      revision: summarizeDerivation(after, planned.revision),
+      path: planned.path,
+    })),
+    alreadyPending: plan.alreadyPending,
+    blocked: plan.blocked,
+  };
   return result;
 });

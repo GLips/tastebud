@@ -8,12 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
 import { DECISION_OUTCOMES, DERIVATION_STATUSES } from "../shared/vocabulary.ts";
-import {
-  proposeReviewScopeRevision,
-  readListenerHeartbeats,
-  runReviewOperation,
-  runReviewOperations,
-} from "./taste-store.server.ts";
+import { runReviewOperation, runReviewOperations } from "./taste-store.server.ts";
 
 // Validators only shape the wire; each operation decodes its own input strictly after this.
 const ContextRequestFields = {
@@ -85,14 +80,15 @@ export const fetchDerivationList = createServerFn({ method: "GET" })
 /** One record as `show` returns it, plus who is listening on threads (for a derivation's composer). */
 export const fetchRecordDetail = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ ref: Schema.String })))
-  .handler(async ({ data }) => {
-    const [shown, listeners] = await Promise.all([
-      runReviewOperation("show", { ref: data.ref }),
-      readListenerHeartbeats(),
-    ]);
-    if (!shown.ok) return shown;
-    return { ok: true as const, value: { ...shown.value, listeners: listeners.ok ? listeners.value : [] } };
-  });
+  .handler(({ data }) =>
+    runReviewOperations((run) =>
+      Effect.gen(function* () {
+        const shown = yield* run("show", { ref: data.ref });
+        const { listeners } = yield* run("listeners", {});
+        return { ...shown, listeners };
+      }),
+    ),
+  );
 
 /** Every source, optionally of some kinds. Speaker filtering happens in the browser. */
 export const fetchSourceList = createServerFn({ method: "GET" })
@@ -128,6 +124,24 @@ export const fetchRecallInspection = createServerFn({ method: "GET" })
     );
   });
 
+/** Why one derivation (by ref, or the closest text matches) would be injected, recalled or excluded there. */
+export const fetchRecallExplanation = createServerFn({ method: "GET" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({
+        ref: Schema.optionalKey(Schema.String),
+        text: Schema.optionalKey(Schema.String),
+        kind: Schema.optionalKey(Schema.Array(Schema.String)),
+        history: Schema.optionalKey(Schema.Boolean),
+        ...ContextRequestFields,
+      }),
+    ),
+  )
+  .handler(({ data }) => {
+    const { dir, at, ...explainInput } = data;
+    return runReviewOperation("recall-explain", explainInput, { dir, at });
+  });
+
 /** Places in use with counts, and the audit against the probes the reviewer keeps in the browser. */
 export const fetchPlacesAudit = createServerFn({ method: "GET" })
   .validator(
@@ -153,19 +167,22 @@ export const repointReviewPlace = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ from: Schema.String, to: Schema.String })))
   .handler(({ data }) => runReviewOperation("repoint", data));
 
-/**
- * "Edit scope → propose revision" on an accepted derivation: a pending revision with the same
- * statement and evidence and the new scope. It lands in the inbox like any proposal.
- */
+/** What repointing `from` to `to` would propose, written nowhere. */
+export const fetchRepointPreview = createServerFn({ method: "GET" })
+  .validator(Schema.toStandardSchemaV1(Schema.Struct({ from: Schema.String, to: Schema.String })))
+  .handler(({ data }) => runReviewOperation("repoint-preview", data));
+
+/** "Edit scope → propose revision": the owner's pending revision of an accepted derivation. */
 export const proposeScopeRevision = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(
       Schema.Struct({
         target: Schema.String,
-        ...ScopeOverrideFields,
+        scope: Schema.Literals(["global", "places"]),
+        places: Schema.optionalKey(Schema.Array(Schema.String)),
         despite: Schema.optionalKey(Schema.Array(Schema.String)),
-        despiteCase: Schema.optionalKey(Schema.String),
+        despite_case: Schema.optionalKey(Schema.String),
       }),
     ),
   )
-  .handler(({ data }) => proposeReviewScopeRevision(data));
+  .handler(({ data }) => runReviewOperation("revise-scope", data));
