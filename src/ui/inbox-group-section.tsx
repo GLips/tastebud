@@ -7,7 +7,7 @@ import { Alert, Button, Group, Paper, Stack, Text, Tooltip } from "@mantine/core
 import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useState, useSyncExternalStore } from "react";
 
 import type { InboxGroup } from "../core/index.ts";
 import type { DerivedKindView } from "../shared/catalog-view.ts";
@@ -73,12 +73,29 @@ export function GoneProposalRow({ entry, onContinue }: { entry: InboxQueueEntry;
   );
 }
 
-function useBatchAccept(onAccepted: (id: string) => void) {
+/**
+ * Ids queued by a running batch. They live outside React because the batch's loop outlives the group
+ * that started it: switch kinds mid-batch and come back, and the cards must still be locked.
+ */
+let batchQueuedIds: ReadonlySet<string> = new Set();
+const batchQueueListeners = new Set<() => void>();
+const updateBatchQueuedIds = (next: (previous: ReadonlySet<string>) => ReadonlySet<string>) => {
+  batchQueuedIds = next(batchQueuedIds);
+  for (const listener of batchQueueListeners) listener();
+};
+const subscribeToBatchQueue = (listener: () => void) => {
+  batchQueueListeners.add(listener);
+  return () => batchQueueListeners.delete(listener);
+};
+const readBatchQueuedIds = () => batchQueuedIds;
+
+function useBatchAccept(onAccepted: (id: string) => void, groupIds: ReadonlyArray<string>) {
   const queryClient = useQueryClient();
-  const [queued, setQueued] = useState<ReadonlySet<string>>(() => new Set());
+  const allQueued = useSyncExternalStore(subscribeToBatchQueue, readBatchQueuedIds, readBatchQueuedIds);
+  const queued = new Set(groupIds.filter((id) => allQueued.has(id)));
   const [failures, setFailures] = useState<ReadonlyArray<{ id: string; sentence: string }>>([]);
   const acceptAll = async (ids: ReadonlyArray<string>) => {
-    setQueued(new Set(ids));
+    updateBatchQueuedIds((previous) => new Set([...previous, ...ids]));
     setFailures([]);
     const failed: Array<{ id: string; sentence: string }> = [];
     // One at a time, in the order shown: a later card may be refused because an earlier one landed.
@@ -91,7 +108,7 @@ function useBatchAccept(onAccepted: (id: string) => void) {
       }));
       if (outcome.ok) onAccepted(id);
       else failed.push({ id, sentence: outcome.failure.sentence });
-      setQueued((previous) => new Set([...previous].filter((kept) => kept !== id)));
+      updateBatchQueuedIds((previous) => new Set([...previous].filter((kept) => kept !== id)));
       await acceptInOrder(rest);
     };
     await acceptInOrder(ids);
@@ -123,7 +140,10 @@ export function InboxGroupSection({
   renderEntry: (entry: InboxQueueEntry, queued: boolean) => ReactNode;
   onAccepted: (id: string) => void;
 }) {
-  const batch = useBatchAccept(onAccepted);
+  const batch = useBatchAccept(
+    onAccepted,
+    entries.map((entry) => entry.id),
+  );
   const live = entries.filter((entry) => !entry.gone).length;
   const ready = entries.filter((entry) => isBatchAcceptable(entry, drafts, engagedIds));
   const needReview = live - ready.length;

@@ -450,8 +450,11 @@ const contextOverrideOf = (input: unknown): { in?: string; at?: ReadonlyArray<st
   if (typeof input !== "object" || input === null) return {};
   const fields: { in?: unknown; at?: unknown } = input;
   return {
-    ...(typeof fields.in === "string" && { in: fields.in }),
-    ...(Array.isArray(fields.at) && { at: fields.at.filter((place) => typeof place === "string") }),
+    // Blank values decode to absent, so they must not count as an override here either.
+    ...(typeof fields.in === "string" && fields.in.trim() !== "" && { in: fields.in }),
+    ...(Array.isArray(fields.at) && {
+      at: fields.at.filter((place): place is string => typeof place === "string" && place.trim() !== ""),
+    }),
   };
 };
 

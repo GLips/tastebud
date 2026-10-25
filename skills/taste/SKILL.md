@@ -92,7 +92,7 @@ Every derivation is `global` or scoped to places (`github.com/acme/web::`, `gith
 - **Sweeps and imports** (a folder of notes, a batch of call transcripts): always pass the scope explicitly, with `--place <key>` (repeatable) or `--global`.
 - **`--global`** only when the owner's words say it holds for all their work ("in every repo", "for every client"). An "always" in one repo is about that repo.
 - **Never widen on your own.** Don't turn a repo rule into a global one, or add places the evidence doesn't name. Widening is the owner's call.
-- **Unknown context** (not in a repo or known directory, or an MCP client with no single root): proposals without a scope are refused with retry examples. Pass `--place`, `--global`, or `--in <dir>` to say where you are. `--at <place>` also says where you are; it never sets the scope.
+- **Unknown context** (an MCP client that sent no `in` and has no single root, or a resolver that placed you nowhere; `taste catalog` shows which): proposals without a scope are refused with retry examples. Pass `--place`, `--global`, or `--in <dir>` to say where you are. `--at <place>` also says where you are; it never sets the scope.
 
 ## 6. Threads and listening
 
