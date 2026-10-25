@@ -65,5 +65,5 @@
       }
     ]
   },
-  "include": ["src", "test", "hooks", "scripts", "lint", "vite.config.ts"]
+  "include": ["src", "test",  "scripts", "lint", "vite.config.ts"]
 }

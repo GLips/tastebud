@@ -1,26 +1,60 @@
 /**
- * What every command shares: the `--json` and `--store` flags, opening the store, printing a result
- * in either mode, and turning a failure into the spec's exit code (0 ok, 2 invalid input, 3 refused).
+ * What every command shares: the `--json`, `--store`, `--in` and `--at` flags, opening the store,
+ * building the caller, running an operation and printing its text or JSON, and turning a failure
+ * into its exit code (from `describeTasteFailure`: 1 broken, 2 input, 3 refused, 4 conflict).
  */
+import { resolve } from "node:path";
+
 import { Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect";
 import { CliError, Flag } from "effect/cli";
 import { ChildProcessSpawner } from "effect/process";
 
-import { provideTasteStore, resolveStoreRoot, type TasteError, type TasteStore } from "../core/index.ts";
-import { formatTasteErrorText } from "./format.ts";
+import {
+  describeTasteFailure,
+  provideTasteStore,
+  renderTasteOperationText,
+  resolveStoreRoot,
+  resolveTasteContext,
+  runTasteOperation,
+  type TasteCaller,
+  type TasteError,
+  type TasteOperationName,
+  type TasteOperationOutput,
+  TASTE_OPERATIONS,
+  type TasteStore,
+} from "../core/index.ts";
 
 export const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Machine-readable JSON on stdout"),
+  Flag.withDescription("Print the operation's result as JSON on stdout (errors too, as {error})"),
   Flag.withDefault(false),
 );
 export const storeFlag = Flag.optional(Flag.String("store")).pipe(
-  Flag.withDescription("Store root (default: $TASTE_STORE, then ./.taste)"),
+  Flag.withDescription("Store root (default: $TASTE_STORE, then ~/.taste)"),
+);
+
+export const optionalTextFlag = (name: string, description: string) =>
+  Flag.optional(Flag.String(name)).pipe(Flag.withDescription(description));
+export const repeatableTextFlag = (name: string, description: string) =>
+  Flag.String(name).pipe(Flag.atLeast(0), Flag.withDescription(`${description} (repeatable)`));
+
+/** `--in` and `--at`, for commands whose operation reads where the caller is. */
+export const contextFlags = {
+  in: optionalTextFlag("in", "Resolve the context as if working in this directory (default: the current directory)"),
+  at: repeatableTextFlag(
+    "at",
+    "Take this place key as the context instead of resolving a directory, e.g. github.com/acme/web::",
+  ),
+};
+
+/** `--by`: the acting agent. Core refuses `human:` names; only the review UI writes as the owner. */
+export const actorFlag = Flag.String("by").pipe(
+  Flag.withDescription("The acting agent, as itself, e.g. claude-code/2.x (never human:…)"),
 );
 
 export const resolveCliStoreRoot = (store: Option.Option<string>): string =>
-  resolveStoreRoot({ flag: Option.getOrUndefined(store), env: process.env.TASTE_STORE, cwd: process.cwd() });
+  resolveStoreRoot({ flag: Option.getOrUndefined(store), env: process.env.TASTE_STORE });
 
-/** Runs `effect` against the store named by `--store` / `TASTE_STORE` / `./.taste`. */
+/** Runs `effect` against the store named by `--store` / `TASTE_STORE` / `~/.taste`. */
 export const inCliStore = <A, E>(store: Option.Option<string>, effect: Effect.Effect<A, E, TasteStore>) =>
   provideTasteStore(resolveCliStoreRoot(store))(effect);
 
@@ -31,8 +65,67 @@ export const printErrorLine = (text: string) => Effect.sync(() => process.stderr
 export const emitCliResult = <A>(json: boolean, value: A, renderText: (value: A) => string) =>
   printLine(json ? JSON.stringify(value, null, 2) : renderText(value));
 
-/** Reads all of stdin. Agents' shells give a closed or `/dev/null` stdin; an open pipe that never closes would block. */
-export const readCliStdin = Effect.promise(() => Bun.stdin.text());
+/**
+ * A text flag whose value `-` means "read stdin". Reading only on request matters: agents' shells
+ * often hand over an open pipe that never closes, so an implicit read would hang.
+ */
+export const readTextOrStdin = (value: string) =>
+  value === "-" ? Effect.promise(() => Bun.stdin.text()) : Effect.succeed(value);
+
+/** Flags that are unset stay absent, so the operation's own defaults and messages apply. */
+export const definedFields = (fields: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(fields)
+      .map(([key, value]) => [key, Option.isOption(value) ? Option.getOrUndefined(value) : value] as const)
+      .filter(([, value]) => value !== undefined && value !== false && !(Array.isArray(value) && value.length === 0)),
+  );
+
+/** Operations whose input has `in`, i.e. the ones that read where the caller is. */
+const readsCallerContext = (name: TasteOperationName) => Object.hasOwn(TASTE_OPERATIONS[name].input.fields, "in");
+
+export interface CliOperationOptions {
+  readonly store: Option.Option<string>;
+  readonly json: boolean;
+  readonly actor?: string;
+}
+
+/**
+ * The CLI's adapter: the caller is this process (its cwd, and `--by`), then the operation decodes
+ * and runs `input`. Relative `--in` paths resolve against the cwd inside core.
+ */
+export const runCliOperation = <N extends TasteOperationName>(
+  name: N,
+  input: Record<string, unknown>,
+  options: CliOperationOptions,
+) =>
+  Effect.gen(function* () {
+    const cwd = process.cwd();
+    const output = yield* inCliStore(
+      options.store,
+      Effect.gen(function* () {
+        // Resolving the cwd runs git, so only operations that read the context pay for it.
+        const context = readsCallerContext(name)
+          ? yield* resolveTasteContext({ cwd })
+          : { places: [], origin: "unknown" as const, cwd };
+        const caller: TasteCaller = {
+          via: "cli",
+          context,
+          ...(options.actor !== undefined && { actor: options.actor }),
+        };
+        return yield* runTasteOperation(name, input, caller);
+      }),
+    );
+    yield* emitCliResult(options.json, output, (value: TasteOperationOutput<N>) =>
+      renderTasteOperationText(name, value),
+    );
+    return output;
+  });
+
+/** Directories typed on the command line, absolute so core resolves them the same from anywhere. */
+export const absoluteDirectories = (directories: ReadonlyArray<string>) =>
+  directories.map((directory) =>
+    directory === "~" || directory.startsWith("~/") ? directory : resolve(process.cwd(), directory),
+  );
 
 /**
  * effect/cli needs these services, but taste never uses its file, path-completion, prompt or
@@ -58,21 +151,6 @@ export const cliPlatformLayer = Layer.mergeAll(
   ),
 );
 
-/** The spec defines 2 (invalid input) and 3 (near repeat refused); 1 is anything unexpected. */
-const EXIT_CODE_BY_TASTE_ERROR: Record<TasteError["_tag"], number> = {
-  InvalidRecordInput: 2,
-  UnknownRecordRef: 2,
-  AmbiguousRecordRef: 2,
-  StoreNotInitialised: 2,
-  StoreAlreadyExists: 2,
-  StoreNotEmpty: 2,
-  NearRepeatRefused: 3,
-  CorruptRecordFile: 1,
-  DecisionNotAllowed: 1,
-  DecisionLockTimeout: 1,
-  StoreWriteFailed: 1,
-};
-
 /**
  * Reports a failed command and returns its exit code. effect/cli has already printed help and parse
  * errors (exit 2, or 0 for a bare help request). A defect prints its stack and exits 1.
@@ -90,7 +168,12 @@ export const reportCliFailure = (
   }
   const { error } = failure;
   if (CliError.isCliError(error)) return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 2;
-  if (json) process.stdout.write(`${JSON.stringify({ error }, null, 2)}\n`);
-  else process.stderr.write(`${formatTasteErrorText(error)}\n`);
-  return EXIT_CODE_BY_TASTE_ERROR[error._tag];
+  const described = describeTasteFailure(error);
+  if (json) {
+    // The error's own fields (a near repeat's matches, a refusal's context) are what an agent retries with.
+    const fields = Object.fromEntries(Object.entries(error).filter(([key]) => key !== "_tag"));
+    const body = { error: { tag: error._tag, category: described.category, message: described.sentence, ...fields } };
+    process.stdout.write(`${JSON.stringify(body, null, 2)}\n`);
+  } else process.stderr.write(`taste: ${described.sentence}\n`);
+  return described.exitCode;
 };
