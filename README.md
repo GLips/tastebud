@@ -4,73 +4,142 @@
 
 An opinionated memory layer for agents.
 
-Execution is cheap now that agents do it, so a person's judgment is the moat. Taste captures the ad hoc decisions and preferences a person brings: their words, verbatim, with provenance. It turns patterns in those words into beliefs the person ratifies, never forgets a rejection, and hands agents the right belief at the right time.
+Execution is cheap now that agents do it, so a person's judgment is the moat. Taste captures the ad hoc decisions and preferences a person brings: their words, verbatim, with provenance. It turns patterns in those words into conclusions the person ratifies, never forgets a rejection, and hands agents the right conclusion in the right place.
 
 You bring the sources and the agents. Taste fetches nothing and calls no model.
 
-> Status: v1 demo. It runs from source; [Try v1](#try-v1) below. The design map lives in [`docs/brainstorms/2026-10-19-taste/map.md`](docs/brainstorms/2026-10-19-taste/map.md).
+> Status: v2. It runs from source with [Bun](https://bun.sh). The contract is [`docs/v2-spec.md`](docs/v2-spec.md); build notes are in [`docs/notes.md`](docs/notes.md).
 
-## Core ideas
+## The model
 
-- **Memories are human words, verbatim.** Each memory is a snapshot of who said what, when, and where, with a frozen excerpt of the surrounding context. It stays understandable after the source is edited or deleted. An edit to the source becomes a new memory that `revises` the old one. Agents' words are never memories.
-- **Beliefs are proposals a human ratified.** Agents propose; a human accepts or rejects in batches. An accepted belief never changes on its own. New evidence raises a new proposal that `supersedes` the old one.
-- **Rejections are first-class.** "This actually isn't something we believe" is kept and read back: when an agent proposes the same idea again, and whenever a recall matches it.
-- **Taste is the only home for beliefs.** Beliefs are never baked into CLAUDE.md, wiki pages or other projects, where a copy would go stale. Agents get them through recall or injection.
-- **Store only what a human reviews; compute everything else on read.** There are no topics, oracles, decay scores or self-rebuilding summaries.
-- **The model is enforced; the mechanics are guidance.** Invariants (verbatim, attributed, append-only, human-ratified) can't be configured. Thresholds, cadences and counts are defaults you change.
+- **Sources are someone's exact words.** A source records who said what, when and where, with a frozen excerpt around it, so it still makes sense after the original is edited or deleted. Each source has a kind: the default is `memory`, and a store can add others, like `call-quote` for customer calls. An edit becomes a new source that `revises` the old one. An agent's own words are never a source.
+- **Derivations are one-line conclusions a human ratified.** An agent proposes one, citing the sources it rests on, and only the owner accepts, rejects or retracts it. The default derived kind is `belief` ("how I work"); a store can add others, like `insight` ("what customers keep telling us") or `idea` ("things to try"). Each kind ships its own proposal prompt, and its recall policy says whether agents get it injected, can pull it, or never see it.
+- **Places say where work happens.** A place is a repo (`github.com/acme/web::`, or a subpath like `github.com/acme/web::apps/checkout`), a directory (`~/Notes/clients/acme`) or a name (`clients/acme`). A derivation's scope is `global` or a list of places, and it applies wherever one of its places covers where you are. A proposal with no scope defaults to the repo you're in. Agents never widen a scope on their own; the owner can amend it when they accept.
+- **Nothing changes without the owner.** An accepted derivation never edits itself. New evidence becomes a new proposal that `supersedes` the old one, and that needs ratifying too.
+- **Rejections are kept and read back.** "We don't actually think this" is stored with the reason. A new proposal that nearly repeats a rejection in an overlapping scope is refused unless the agent names it with `--despite` and says what changed. Recall shows rejections next to what was accepted.
 
-## Shape
+Everything else follows from that. The store is append-only markdown with YAML frontmatter, one file per source, derivation, decision and thread entry, laid out by month (`sources/2026/10/…`). The SQLite index in `.index/` is a cache you can delete. The folder can live in git, Dropbox or an Obsidian vault, and you can read it without Taste running.
 
-- **Storage: append-only markdown files with YAML frontmatter.** Every memory, belief revision, decision and review thread is its own file, and no file is ever edited. Layout is by kind, then month: `memories/YYYY/MM/`, `beliefs/…`, `decisions/…`, `threads/…`. A SQLite index in `.index/` is a rebuildable cache: delete it any time. The folder can live in git, Dropbox or an Obsidian vault, and it's auditable without Taste running.
-- **Links only point back in time.** A belief cites memories, a decision targets a belief, a revision supersedes an older one. Reverse lookups go through the index (or grep).
-- **Interface: CLI first, MCP as a thin layer.** Writes go through `taste`; reads may also go straight to the files.
-- **The core is model-free.** Distillation runs as a shipped skill inside *your* agents, on your schedule. `taste propose` checks every new proposal against existing beliefs, rejected ones included, and refuses a near-repeat unless the agent re-proposes with `--despite <belief> --why "…"`.
-- **Review: a local web UI.** `taste review` serves grouped, budget-sized batches with keyboard triage, inline quotes and earlier rejections, and comment threads with an agent. An agent attaches with `taste review listen`, a long-lived process that wakes it whenever you reply.
-- **Retrieval: pull by default.** `taste recall "<query>"` returns accepted beliefs first, then rejections marked "not believed", then raw memories. A narrow `UserPromptSubmit` hook for Claude Code (a few items, labelled as evidence) is opt-in at install.
-- **Packaging.** Standalone binaries built with Bun; no runtime needed. An optional `taste daemon` hosts the scheduler and the review UI. There's no hosted service.
-
-## Try v1
-
-The v1 demo build runs from source with [Bun](https://bun.sh); there's no compiled binary yet.
+## Try it
 
 ```bash
+git clone https://github.com/GLips/taste && cd taste
 bun install
-alias taste="bun $PWD/src/cli/main.ts"
+ln -s "$PWD/src/cli/main.ts" ~/.local/bin/taste   # any directory on your PATH
+
+taste seed --store /tmp/taste-demo                # a fictional store: Dana, Acme's web and billing repos, three customer calls
 export TASTE_STORE=/tmp/taste-demo
-taste seed                        # fictional store: Dana (demo), projects acme-web and billing-api
-taste recall "tailwind"           # believed, not believed, memories
-taste review                      # review UI on http://localhost:4747
+taste recall "tailwind styling" --at github.com/acme/billing-api::
+taste review                                      # review UI on http://localhost:4747
 ```
 
-Run `taste --help`, or `taste <command> --help`, for every command. Every command takes `--json` and `--store <dir>`. Exit codes are 0 for success, 2 for invalid input and 3 for a refused near repeat.
+[`docs/demo.md`](docs/demo.md) is a five-minute tour of that store. For your own store, `taste init` writes a commented `~/.taste/taste.config.ts`.
 
-### Install the agent skill
+The store is `--store`, else `$TASTE_STORE`, else `~/.taste`.
 
-`skills/taste/SKILL.md` teaches an agent when to capture, propose, recall and listen. For Claude Code, link it into your skills folder:
+## The CLI at a glance
+
+| Command | What it does |
+|---|---|
+| `taste catalog` | The kinds in this store, each kind's proposal prompt, where you are. Agents read it first. |
+| `taste capture` | Append a source: someone's exact words. |
+| `taste propose` | Propose a derivation that cites sources, with a scope and the near-repeat check. |
+| `taste recall "<query>"` | What applies here: accepted, then rejected, then raw sources, each with why it matched. |
+| `taste context` | Every accepted derivation of the inject kinds that applies here, for session start. |
+| `taste list` / `taste show <ref>` | Browse by kind, status, place, subject or text; one record with its evidence, decisions and thread. |
+| `taste thread-reply <ref> "<text>"` | Answer the owner's note on a review thread. |
+| `taste review` / `taste review listen` | The review UI; a long-lived listener that wakes an agent when the owner writes a note. |
+| `taste places` / `taste repoint` | Places in use and an audit of scopes that match none of your directories; propose moving a scope from one place to another. |
+| `taste hook prompt` / `taste hook preview` | The prompt hook, and exactly what it would inject. |
+| `taste mcp` | The agent commands as MCP tools over stdio. |
+| `taste init` / `taste seed` / `taste reindex` | A new store; the demo store; rebuild the index. |
+
+Every command has `--help`, and most take `--json`. Commands that read where you are take `--in <dir>` (resolve that directory) or `--at <place>` (take that place as given). Exit codes: 0 ok, 1 broken, 2 bad input (including a proposal with no scope from an unknown place), 3 refused (a near repeat), 4 conflict.
+
+Only the owner decides, and only in the review UI. `taste decide <ref>` prints the record's review link and writes nothing.
+
+## Agents
+
+**The skill.** [`skills/taste/SKILL.md`](skills/taste/SKILL.md) teaches an agent when to capture, propose, recall and listen. For Claude Code:
 
 ```bash
 ln -s "$PWD/skills/taste" ~/.claude/skills/taste
 ```
 
-### Install the prompt hook (opt-in)
+**MCP.** `taste mcp` serves the agent commands as tools (`taste_catalog`, `taste_recall`, `taste_propose`, …). The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
 
-`hooks/user-prompt-submit.ts` adds at most three ratified beliefs or rejections to each prompt, labelled as evidence. It never adds raw memories. It has a 650ms deadline and prints nothing when it runs out of time, finds no match, or finds no store. Add it to `~/.claude/settings.json` (or a project's `.claude/settings.json`):
+```bash
+claude mcp add taste -- taste mcp                          # Claude Code
+codex mcp add taste -- taste mcp                           # Codex
+```
+
+Cursor reads `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
+
+```json
+{ "mcpServers": { "taste": { "command": "taste", "args": ["mcp"] } } }
+```
+
+Add `--store <dir>` after `mcp`, or set `TASTE_STORE` in the server's environment, to use a store other than `~/.taste`.
+
+**The prompt hook (opt-in).** `taste hook prompt` is a Claude Code `UserPromptSubmit` hook. It resolves where the session is from the hook's `cwd`, and adds at most three accepted or rejected derivations of the `inject` kinds that match the prompt, labelled as evidence. It never adds raw sources, gives up silently after 650 ms, and always exits 0. Add it to `~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "bun /absolute/path/to/taste/hooks/user-prompt-submit.ts" }] }
-    ]
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "taste hook prompt" }] }]
   }
 }
 ```
 
-The store is `TASTE_STORE`, otherwise `.taste` in the session's working directory. Set `TASTE_SCOPE=<project>` to recall only beliefs in that scope; without it, beliefs from every scope are eligible, each labelled with its scope. To see exactly what it would inject for a prompt, run `taste hook preview "<prompt>"`, or use the recall inspector in the review UI.
+`taste hook preview "<prompt>"` shows exactly what it would inject, and so does the review UI's recall inspector.
+
+## `taste.config.ts`
+
+Each store has one editable file. It default-exports a plain object, so it needs no imports, and the review server picks up edits without a restart.
+
+```ts
+export default {
+  owner: "human:dana",
+
+  // "git" (the default): a repo place from the origin remote, else the directory.
+  // "directories": always the directory. Or a function, which replaces both:
+  place: ({ cwd, source }) => {
+    if (source?.address?.startsWith("granola://")) return ["clients/acme"];
+    const client = cwd?.match(/\/Notes\/clients\/([^/]+)/)?.[1];
+    return client === undefined ? [] : [`clients/${client}`]; // [] means "unknown": only global applies
+  },
+
+  // Giving sourceKinds or derivedKinds replaces the defaults (memory, belief) whole.
+  sourceKinds: {
+    memory: { singular: "memory", plural: "memories" },
+    "call-quote": { singular: "call quote", plural: "call quotes" },
+  },
+  derivedKinds: {
+    belief: {
+      singular: "belief", plural: "beliefs",
+      sources: ["memory"], recall: "inject", acceptLabel: "Believe",
+      proposalPrompt: "Propose a belief when the owner's own words show a durable preference…",
+    },
+    insight: {
+      singular: "insight", plural: "insights",
+      description: "What customers keep telling us.",
+      sources: ["call-quote"], recall: "pull", acceptLabel: "Accept",
+      proposalPrompt: "Propose an insight when two or more customers, on different calls, say the same thing…",
+    },
+  },
+
+  hook: { limit: 3, budgetMs: 650 },
+};
+```
+
+- A resolver function gets `{ cwd, source, env }` and returns place keys. It must be deterministic. `source` is set only when capturing.
+- `recall` is `inject` (the hook, `context` and recall), `pull` (recall and `context --kind` only) or `never` (only list, show and the review UI).
+- `sources` lists the source kinds a derivation of that kind must cite. A kind you remove later is retired: its records stay readable but can't be proposed, accepted or recalled.
+- The demo's [`demo/.taste/taste.config.ts`](demo/.taste/taste.config.ts) has three full proposal prompts to copy from.
 
 ## Out of scope
 
-Fetching or ingesting sources, agent-authored memories, summarised memories, beliefs that change themselves, topics and oracles, decay ranking, and writing beliefs into other files.
+Fetching or ingesting sources, agent-authored sources, summarised sources, derivations that change themselves, topics and oracles, decay ranking, and writing derivations into other files such as CLAUDE.md.
 
 ## Prior art
 

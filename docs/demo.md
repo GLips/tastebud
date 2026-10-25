@@ -1,133 +1,114 @@
-# Taste v1 demo walkthrough
+# A five-minute tour of the demo store
 
-The eight demo steps from `docs/v1-spec.md`, as commands you can paste. You need three terminals and Chrome. A freshly seeded store is already waiting at `demo/.taste`, which git ignores. To start over, run `rm -rf demo` and then step 1.
+The demo store is fiction. Dana (`human:dana`) is a developer on Acme, an e-commerce coffee brand with a web storefront (`github.com/acme/web`) and a billing API (`github.com/acme/billing-api`). Dana's coding agent has captured their corrections and proposed beliefs. A Granola sweep has captured quotes from three customer calls, and a research agent has proposed insights and ideas from them. Dana has decided some of it.
 
-Run this setup in every terminal, from the repo root:
+The tour uses a fresh copy, so you can accept, reject and repoint freely. It assumes `taste` is on your PATH (see the README's [Try it](../README.md#try-it)).
 
-```bash
-cd ~/Programming/taste
-export TASTE_STORE=$PWD/demo/.taste
-taste() { bun ~/Programming/taste/src/cli/main.ts "$@"; }
-```
-
-Record ids are UUIDv7 and change every time you seed, so the commands save them in shell variables. Any command that takes an id also accepts a unique prefix or the 8-character short id from the file name.
-
-## 1. Seed (skip this if `demo/.taste` already exists)
+## 1. Seed a store and read the catalog
 
 ```bash
-taste seed
+taste seed --store /tmp/taste-demo
+export TASTE_STORE=/tmp/taste-demo
+taste catalog
 ```
 
-Expected output: `Seeded a demo store at …/demo/.taste (17 records, owner human:demo "Dana (demo)").` Running it a second time refuses with exit 2 because the store isn't empty.
+The catalog is what an agent reads first. It shows the owner, the `git` resolver, and the kinds from the store's [`taste.config.ts`](../demo/.taste/taste.config.ts):
 
-## Start the review UI (terminal A)
+- two source kinds, `memory` and `call-quote`;
+- three derived kinds, each with its own proposal prompt: `belief` (recall `inject`), `insight` ("what customers keep telling us", `pull`, cites only call quotes) and `idea` ("things to try on the website and ads", `never`, accepted as "Worth doing").
+
+## 2. Places: where things apply
+
+Make two stand-in checkouts so the git resolver has something to resolve:
 
 ```bash
-taste review            # add --port N if 4747 is taken
+mkdir -p /tmp/acme/web/apps/checkout /tmp/acme/billing-api
+git -C /tmp/acme/web init -q && git -C /tmp/acme/web remote add origin git@github.com:acme/web.git
+git -C /tmp/acme/billing-api init -q && git -C /tmp/acme/billing-api remote add origin https://github.com/acme/billing-api.git
+
+taste context --in /tmp/acme/web/apps/checkout
+taste context --in /tmp/acme/billing-api
 ```
 
-Expected output: `Taste review: http://localhost:4747/  (store …/demo/.taste)`, followed by Vite's banner. Open http://localhost:4747/ in Chrome. The first load takes a few seconds while Vite prepares modules.
+From `apps/checkout` the context is `github.com/acme/web::apps/checkout`. You get the global beliefs, the `acme/web` ones (the repo root covers its subdirectories), and "In checkout, never show a price the server hasn't confirmed". That last one was proposed from checkout, so its scope defaulted to the whole repo; Dana narrowed it to `apps/checkout` when they accepted it. From `billing-api` you get the global beliefs plus the billing ones (integer cents, a real Postgres) and nothing from `acme/web`.
 
-The inbox shows 3 pending cards, grouped by subject and then by scope:
-- the Effect revision (acme-web), which replaces an accepted belief
-- "Prefer a few integration tests…" (billing-api)
-- "Use Tailwind for acme-web's marketing pages and billing-api's admin dashboard", which has an orange "Re-proposed despite an earlier rejected belief" box showing the rejection ("only acme-web") and the agent's case
+`context` lists only `inject` kinds. Insights and ideas don't appear.
 
-## 2. An agent captures and proposes (terminal B)
+## 3. Recall, rejections included
 
 ```bash
-MEM=$(taste capture --said-by human:demo --label "Dana (demo)" \
-  --said-at 2026-10-19T09:12:00-07:00 \
-  --quote "Don't mock the database in billing-api tests. Spin up a real Postgres in a container." \
-  --applies-to billing-api --via claude-code/2.x --json | jq -r .id)
-
-taste propose --statement "In billing-api, tests run against a real Postgres, never a mocked database" \
-  --supports $MEM --applies-to billing-api --by claude-code/2.x \
-  --reason "Dana said this directly when an agent mocked the DB layer."
+taste recall "tailwind styling" --at github.com/acme/billing-api::
 ```
 
-Expected output: `Proposed <id>` with the statement and `{billing-api}`, then a "Related:" list. The list includes the seeded "Prefer a few integration tests against a real Postgres…" at about 0.43 similarity.
+- **Accepted:** nothing. "Use Tailwind for styling in acme/web" doesn't apply in billing-api.
+- **Not accepted:** "Use Tailwind for styling in every repo", rejected with Dana's reason ("Only acme/web…").
+- **Sources:** Dana's words about Tailwind, including the edit that narrowed their first request (a source that `revises` another).
+- **Close but excluded:** the acme/web belief (out of scope here), and a pending re-proposal, "Use Tailwind for styling in every repo with a UI". That one was proposed `--despite` the rejection, because billing-api has since grown an admin dashboard.
 
-## 3. Accept it in the UI
-
-Within a second, a new card appears in the billing-api group of the inbox. Click **Accept**, or select the card with `j`/`k` and press `a`. The card disappears, and `taste show <id>` now reports `status: accepted`.
-
-## 4. A fresh agent recalls it
+`--at` says where you are without needing a checkout; `--in <dir>` resolves a directory. Now another kind:
 
 ```bash
-taste recall "should billing-api tests mock the database?"
+taste recall "skip a delivery" --kind insight --at clients/acme
+taste list --kind idea
 ```
 
-Expected output:
-- **Believed:** the Postgres belief, with Dana's quote and its attribution (`Dana (demo) (human:demo) · 2026-10-19 09:12`).
-- **Not believed:** `(none)`.
-- **Memories:** the matching quotes.
+The insight "Subscribers cancel when they only wanted to skip or pause a delivery" comes back with the call quotes behind it and their `granola://` addresses. The idea built on it, a "Skip next delivery" link, is listed under "Close but excluded", because ideas are never recalled. `list` shows the whole ideas backlog: accepted, pending and rejected, including two global ideas.
 
-## 5. A rejected idea is refused, then let through with `--despite`
+## 4. What the prompt hook would inject
 
 ```bash
-REJ=$(taste recall tailwind --json | jq -r '.notBelieved[0].id')
-taste propose --statement "Use Tailwind everywhere." --supports $MEM --by claude-code/2.x --reason "Tailwind keeps coming up."
-echo "exit $?"     # 3
+taste hook preview "show the shipping price on the checkout page" --in /tmp/acme/web/apps/checkout
 ```
 
-Expected output: `Refused: this is a near repeat of an existing belief.` It is followed by `"Use Tailwind everywhere"`, `rejected, similarity 1.00, … decided <date>`, `reason: only acme-web`, and the `--despite` hint.
+This is exactly what `taste hook prompt` would add to that prompt in a Claude Code session in that directory: at most three `inject` items, labelled as evidence. Here, that's the checkout price belief.
+
+## 5. History: revisions, retractions, threads
 
 ```bash
-taste propose --statement "Use Tailwind everywhere." --supports $MEM --by claude-code/2.x \
-  --reason "Tailwind keeps coming up." \
-  --despite $REJ --why "billing-api now ships a customer-facing portal built from acme-web components."
+taste list --kind belief --status superseded
+taste list --kind belief --status retracted
+taste show <the superseded belief's id>
 ```
 
-Expected output: `Proposed <id>` with `{Everywhere}`. In the inbox, the new card has an orange **EVERYWHERE** chip and the "Re-proposed despite" box, which shows the earlier wording, its status and reason, and the agent's case.
+"Model failures in acme/web with Effect instead of try/catch" was superseded by a more specific revision about one `Data.TaggedError` per failure. "Run database migrations automatically on deploy" was accepted, then retracted after a lock incident, and a pending belief to run them by hand cites the new words and lists the old ones under `contradicts`. `show` prints a record's evidence, decisions, thread and both scopes, proposed and effective. Refs take a full id, the short id from a file name, or any unique prefix.
 
-## 6. A note in the UI wakes a listening agent (terminal C)
+## 6. The review UI
+
+```bash
+taste review        # http://localhost:4747
+```
+
+- **Inbox:** pending derivations by kind, then scope. Look for the scope chips:
+  - "Validate form fields on blur" and the Stripe webhook belief were proposed without a scope, so theirs reads "from" the repo they came from. Edit the scope inline before you accept.
+  - "Write ad headlines in sentence case" is about Jordan, Acme's marketer, not Dana. Its subject says so.
+  - The Tailwind re-proposal shows the rejection it argues past, and why.
+- **A derivation's page:** "Use named exports" has a thread: Dana asked about re-exported defaults and the agent answered. "Validate form fields on blur" has a note from Dana that nobody has answered yet.
+- **Recall inspector:** type a prompt and a directory to see what the hook would inject, and what was excluded and why.
+- **Places:** the place tree, counts per kind, and the audit.
+
+## 7. A renamed repo
+
+`acme/web` used to be called `storefront`. Two beliefs were accepted under the old name, so they apply nowhere you work now:
+
+```bash
+taste places --probe /tmp/acme/web/apps/checkout --probe /tmp/acme/billing-api --probe-place clients/acme
+taste repoint --from github.com/acme/storefront:: --to github.com/acme/web::
+```
+
+The audit lists `github.com/acme/storefront::` as unmatched by those probes, with its two beliefs. `repoint` proposes a pending revision of each with only that place replaced; it changes nothing until Dana accepts them in the inbox.
+
+## 8. An agent on the thread
+
+In a second terminal:
 
 ```bash
 taste review listen --as demo-agent
 ```
 
-stderr prints `taste: listening as demo-agent on …`. stdout stays quiet. Notes written before a listener first starts count as history, so it doesn't replay them.
-
-In Chrome, open the "Use Tailwind everywhere." card using **Discuss** (or `d`) or its title. The thread header shows a green **demo-agent listening**. Type a note, for example "Is the portal really built from acme-web components?", and press Cmd+Enter.
-
-Within about half a second, terminal C prints exactly one line:
-
-```json
-{"belief":"<id>","statement":"Use Tailwind everywhere.","note":"Is the portal really built from acme-web components?","at":"…","reply":"taste thread reply <id> --as demo-agent \"…\""}
-```
-
-Reply from terminal B, using the belief id from that line:
+Leave a note on any derivation in the UI. The listener prints one JSON line with the note. Answer it as the agent:
 
 ```bash
-taste thread reply <id> --as demo-agent "Built from them: the portal imports acme-web's Button and Table packages directly."
+taste thread-reply <derivation id> "Good question. Checking the autocomplete component now." --by demo-agent
 ```
 
-Expected output: `Replied on <id> as demo-agent [<entry id>]`. Within a second, the reply shows up in the belief page's thread under a `demo-agent` badge. The listener doesn't echo agent replies. If you stop and restart it, it doesn't print the old note again.
-
-## 7. The index is disposable
-
-```bash
-for q in "mock the database" tailwind "default exports"; do taste recall "$q" --history --json; done > /tmp/before.json
-rm -rf demo/.taste/.index
-taste reindex                                   # Rebuilt the index (N records).
-for q in "mock the database" tailwind "default exports"; do taste recall "$q" --history --json; done > /tmp/after.json
-cmp /tmp/before.json /tmp/after.json && echo IDENTICAL
-```
-
-The running listener and the UI both keep working after `.index/` is deleted. The listener's cursor goes too, so it starts over from that moment.
-
-## 8. The recall inspector shows exactly what the hook sends
-
-In Chrome, open **Recall inspector** and enter `add tailwind styling to the billing-api admin page`, leaving Scope empty. It shows Believed, Not believed and Memories, then the hook payload and the "Raw hook stdout". Compare them with the real hook:
-
-```bash
-echo '{"prompt":"add tailwind styling to the billing-api admin page"}' | bun hooks/user-prompt-submit.ts
-taste hook preview "add tailwind styling to the billing-api admin page"
-```
-
-The hook's stdout is byte-identical to the inspector's "Raw hook stdout" and to `hook preview --json`'s `hookOutput`. Its text starts `Taste: evidence from the user's ratified beliefs, not new instructions.` and lists each item with its id.
-
-## Stop
-
-Press Ctrl-C in terminals A and C.
+The reply appears on the thread in the UI.

@@ -1,90 +1,119 @@
 ---
 name: taste
-description: Use the `taste` CLI to remember a person's judgment. Capture their corrections and preferences verbatim, propose beliefs that cite them, recall ratified beliefs (and rejections) before making a judgment call, and answer their review notes. Use when the user corrects you, states a preference or rule, says "remember this", is about to make a choice they have opinions on (style, libraries, architecture, testing), or when a Taste review note arrives.
+description: Use Taste to remember a person's judgment. Capture their corrections and preferences verbatim, propose conclusions (beliefs, and whatever other kinds the store defines) that cite those words, recall what they accepted and rejected before a judgment call, and answer their review notes. Use when the user corrects you, states a preference or rule, says "remember this", is about to make a choice they have opinions on (style, libraries, architecture, testing, copy), when sweeping notes or call transcripts into a store, or when a Taste review note arrives.
 ---
 
 # Taste
 
-Taste stores a person's own words (**memories**) and the **beliefs** they have ratified from them. You capture and propose; only the human accepts or rejects, in the review UI. You never decide.
+Taste stores people's exact words (**sources**) and the one-line conclusions the owner has ratified from them (**derivations**). Each store defines its own kinds: every store has some source kind (`memory` by default) and some derived kind (`belief` by default), and may add others, like `call-quote`, `insight` or `idea`. You capture and propose. Only the owner accepts or rejects, in the review UI. You never decide, and nothing you propose counts until they do.
 
-The store is `$TASTE_STORE`, else `./.taste`; pass `--store <dir>` to override. Every command takes `--json`. Exit codes: `0` ok, `2` bad input, `3` refused as a near repeat.
+Use the CLI or the MCP tools; they are the same operations with the same field names. The store is `--store <dir>`, else `$TASTE_STORE`, else `~/.taste`.
 
-## Recall before a judgment call
+| Step | CLI | MCP tool |
+|---|---|---|
+| Learn the store | `taste catalog` | `taste_catalog` |
+| Recall before a choice | `taste recall "<query>"` | `taste_recall {query}` |
+| Everything that applies here | `taste context` | `taste_context` |
+| Capture words | `taste capture --kind … --said-by … --label … --quote … --by <you>` | `taste_capture {kind, said_by, said_by_label, quote, …}` |
+| Propose | `taste propose --kind … --statement … --supports <id> --reasoning … --by <you>` | `taste_propose {kind, statement, supports, reasoning, …}` |
+| Look something up | `taste list`, `taste show <ref>` | `taste_list`, `taste_show {ref}` |
+| Answer a note | `taste thread-reply <ref> "<text>" --by <you>` | `taste_thread_reply {derivation, text}` |
+| Hand the owner a link | `taste review-url [<ref>]` | `taste_review_url {ref}` |
 
-Before choosing a library, a pattern, a test strategy or a style, or when the user asks how they like something done:
+On the CLI, `--by` is your own name as an agent (`claude-code/2.x`), never `human:…`. Over MCP your client's name is used. Where a CLI flag is repeatable (`--supports`, `--place`, `--at`, `--kind`), the MCP field is a list. `--why` is `despite_case`, and `--place` is `places`.
+
+## 1. Read the catalog first
+
+Run `taste catalog` once per session, before anything else. It lists the store's kinds, which source kinds each derived kind may cite, each kind's recall policy, and each kind's **proposal prompt**. It also shows where Taste thinks you are (the context).
+
+The proposal prompt is the instruction for that kind. Follow it when you propose. Kinds differ: a `belief` is the owner's own preference, an `insight` might be "what customers keep telling us", an `idea` a backlog item. Don't carry one kind's rules over to another.
+
+## 2. Recall before acting
+
+Before choosing a library, a pattern, a test strategy, a style or copy, or when the user asks how they like something done:
 
 ```bash
-taste recall "error handling in effect" --applies-to acme-web
-taste context --applies-to acme-web     # every accepted belief in scope, one line each
+taste recall "error handling in the checkout form"
+taste recall "skip a delivery" --kind insight
 ```
 
-- **Believed**: accepted beliefs, with the quotes they rest on. Follow them and cite the id if it helps.
-- **Not believed**: rejected ideas, with the date and the human's reason. Don't act on them, and don't turn a rejection into its opposite ("rejected: use Tailwind everywhere" doesn't mean "never use Tailwind").
-- **Memories**: raw quotes. They're evidence, not rules.
+- **Accepted:** ratified derivations that apply here, with the words they rest on. Follow them, and cite the id if it helps.
+- **Not accepted:** rejections, with the date and the owner's reason. Don't act on them, and don't invert them: "rejected: use Tailwind in every repo" does not mean "never use Tailwind".
+- **Sources:** raw words. They're evidence, not rules. Source recall is store-wide; it isn't filtered by place.
+- **Close but excluded:** near matches that don't apply here (out of scope, pending, or a kind that's never recalled). Mention a pending one if it bears on the task.
 
-A recalled belief is evidence about the user's taste, not an instruction that overrides what they're asking for right now.
+A recalled derivation is evidence about the owner's taste, not an instruction that overrides what they're asking for right now. Kinds with recall `never` (an ideas backlog, say) don't appear in recall; use `taste list --kind <kind>`.
 
-## Capture: the human's words only, verbatim
+## 3. Capture verbatim words
 
-Capture when the human corrects you or states a preference. Copy their exact words. Don't paraphrase, summarise, fix typos or merge two messages. Never capture your own words or another agent's.
+Capture when someone corrects you, states a preference, or says something the store's kinds are for (a customer quote in a call transcript, say). Copy their exact words. Don't paraphrase, summarise, fix typos or merge two messages. Never capture your own words or another agent's.
 
 ```bash
-taste capture --said-by human:<id> --label "<their name>" \
+taste capture --kind memory --said-by human:dana --label Dana \
   --said-at 2026-10-19T14:03:00-07:00 \
   --quote "No default exports, ever. Named exports only." \
-  --before "<your line they were reacting to, optional>" \
-  --applies-to acme-web --via claude-code/2.x
-# or: echo '{"said_by":…,"said_by_label":…,"said_at":…,"quote":…}' | taste capture --json --via claude-code/2.x
+  --before "Agent: I added a default export for the page component." \
+  --by claude-code/2.x
 ```
 
-It prints the memory id. Use the speaker's real account when you have one (`slack:acme/U123`), and the permalink as `--address`. `--said-at` defaults to now; give the real time when you know it. If they edited an earlier message, capture the new words with `--revises <memory-id>`.
+- It prints the new source's id. Use the speaker's real account when you have one (`slack:acme/U123`, `email:…`), and a permalink as `--address` (`granola://meetings/…`, a PR comment URL).
+- `--said-at` defaults to now; give the real time when you know it. `--before` and `--after` hold the surrounding lines, so the words still make sense later.
+- If they edited earlier words, capture the new words with `--revises <source-id>`.
 
-## Propose: a belief that cites the memories
+## 4. Propose with the kind's prompt
 
-Propose once a correction looks like a durable preference, not a one-off. The statement is one line. Scope it as narrowly as the evidence allows: no `--applies-to` means **everywhere**, which reviewers treat warily.
+Propose once the words show something durable, by the standard in that kind's prompt. The statement is one line.
 
 ```bash
-taste propose --statement "Use named exports, never default exports" \
-  --supports <memory-id> [--supports <memory-id>] --applies-to acme-web \
-  --by claude-code/2.x --reason "Dana corrected a default export twice this week."
+taste propose --kind belief --statement "Use named exports, never default exports" \
+  --supports <source-id> --supports <source-id> \
+  --reasoning "Dana corrected a default export in two repos and gave a reason (grep) that holds anywhere." \
+  --by claude-code/2.x
 ```
 
-- To refine an accepted belief, add `--supersedes <belief-id>`.
-- It prints the new id and related beliefs. Mention the related ones to the user if they bear on the proposal.
+- `--supports` must include at least one source of a kind this kind cites; you may also cite derivations. Add `--contradicts` for evidence that cuts the other way.
+- To revise an accepted derivation, add `--supersedes <id>` and cite the new words.
+- `--subject <account>` when the preference is someone else's, not the owner's.
+- It prints the new id, related derivations and any warnings. Mention the related ones to the user if they bear on it.
 
-**Refused (exit 3).** The idea is a near repeat of an existing belief, often a rejected one. The output shows its wording, status, date and reason. Read it. Usually the right move is to drop the proposal and tell the user it was already decided. Re-propose only when something has genuinely changed, and say what:
+**Refused as a near repeat (exit 3).** Something close already exists in an overlapping scope, often a rejection. Read each match's status, date and reason. Usually, tell the user it was already decided and stop. Re-propose only when something genuinely changed, naming every match:
 
 ```bash
-taste propose … --despite <earlier-belief-id> --why "billing-api now has an admin UI, which the rejection predates"
+taste propose … --despite <id> --why "billing-api now has an admin UI, which the rejection predates"
 ```
 
-`--why` goes in front of the reviewer next to the earlier rejection. Don't rephrase the statement to slip past the check.
+`--why` goes in front of the owner next to the earlier decision. Never reword a statement to slip past the check.
 
-## Listen for review notes
+## 5. Scope: default to the repo, never widen
 
-When the user is reviewing (`taste review`, at http://localhost:4747), attach a listener so their notes on a belief reach you. Run it under Claude Code's Monitor tool, or with `run_in_background`. It never exits:
+Every derivation is `global` or scoped to places (`github.com/acme/web::`, `github.com/acme/web::apps/checkout`, `clients/acme`).
+
+- **Working in a repo:** leave scope off. It defaults to the root of the repo you're in, which suits a correction made there. The owner can narrow it to a subdirectory when they accept.
+- **Sweeps and imports** (a folder of notes, a batch of call transcripts): always pass the scope explicitly, with `--place <key>` (repeatable) or `--global`.
+- **`--global`** only when the owner's words say it holds for all their work ("in every repo", "for every client"). An "always" in one repo is about that repo.
+- **Never widen on your own.** Don't turn a repo rule into a global one, or add places the evidence doesn't name. Widening is the owner's call.
+- **Unknown context** (not in a repo or known directory, or an MCP client with no single root): proposals without a scope are refused with retry examples. Pass `--place`, `--global`, or `--in <dir>` to say where you are. `--at <place>` also says where you are; it never sets the scope.
+
+## 6. Threads and listening
+
+The owner can leave a note on any derivation in the review UI. When they are reviewing, attach a listener so their notes reach you. Run it under Claude Code's Monitor tool or with `run_in_background`; it never exits:
 
 ```bash
-taste review listen --as <your-agent-name>
+taste review listen --as claude-code
 ```
 
-Each new human note prints one JSON line:
-
-```json
-{"belief":"<id>","statement":"…","note":"<their note>","at":"…","reply":"taste thread reply <id> --as <name> \"…\""}
-```
-
-Read the note, look at the belief (`taste show <id>`), and answer on the thread:
+Each new note prints one JSON line with the derivation id, its kind and statement, and the note. Read the note, look at the record (`taste show <id>`), and answer on the thread:
 
 ```bash
-taste thread reply <belief-id> --as <your-agent-name> "<your answer>"
+taste thread-reply <derivation-id> "Yes: a re-exported default counts too. Want it as its own belief?" --by claude-code/2.x
 ```
 
-The reply shows up in the UI. If the note asks you to change the proposal, propose a new belief that supersedes the old one rather than arguing. Use the same `--as` name every time: it keys the cursor, so a restarted listener never repeats a note.
+If the note asks for a change, propose a revision (`--supersedes`) or a new derivation rather than arguing. Use the same `--as` name every time: it keys the listener's cursor, so a restarted listener never repeats a note. To point the owner at something, give them `taste review-url <id>`.
 
 ## Never
 
-- Write files in the store by hand. Everything goes through `taste`.
-- Capture an agent's words, or paraphrase a human's.
-- Claim a proposal is a belief before it's accepted.
-- Reply as `human:*`.
+- Write files in the store by hand. Everything goes through Taste.
+- Capture an agent's words, or paraphrase a person's.
+- Call a proposal accepted, or act on it as if it were, before the owner decides.
+- Widen a scope beyond what the words say.
+- Act as `human:…`. Decisions and the owner's notes only come from the review UI.

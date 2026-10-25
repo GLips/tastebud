@@ -279,11 +279,11 @@ export const proposeCommand = Command.make(
   Command.withExamples([
     {
       command:
-        'taste propose --kind belief --statement "Use named exports only" --supports 0f3a9c1e --reasoning "She said so twice" --by claude-code/2.x',
+        'taste propose --kind belief --statement "Use named exports only" --supports 0f3a9c1e --reasoning "They said so twice" --by claude-code/2.x',
       description: "Scope defaults to this repo's root",
     },
     {
-      command: 'taste propose … --despite 7b21e0aa --why "She asked again after the rejection"',
+      command: 'taste propose … --despite 7b21e0aa --why "They asked again after the rejection"',
       description: "Re-propose past a near repeat",
     },
   ]),

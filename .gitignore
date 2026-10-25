@@ -3,7 +3,6 @@ node_modules/
 .agent_cache/
 dist/
 .DS_Store
-.taste/
+/.taste/
 demo-store/
 *.demo-store/
-demo/
