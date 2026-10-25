@@ -1,44 +1,64 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { acceptReviewGroup, decideReviewBelief } from "../server/review-functions.ts";
+import { decideReviewDerivation } from "../server/review-functions.ts";
+import type { ReviewFailure } from "../server/review-outcome.ts";
 import type { DecisionOutcome } from "../shared/vocabulary.ts";
+import { recordSessionDecision } from "./review-session-log.ts";
+
+export interface ReviewDecisionInput {
+  readonly outcome: DecisionOutcome;
+  readonly reason?: string;
+  readonly scope?: "global" | "places";
+  readonly places?: ReadonlyArray<string>;
+  readonly acknowledges?: ReadonlyArray<string>;
+}
+
+/** Sends one decision; a refusal comes back as a failure for the card to show, never a retry. */
+export const sendReviewDecision = async (target: string, input: ReviewDecisionInput) => {
+  const outcome = await decideReviewDerivation({
+    data: {
+      target,
+      outcome: input.outcome,
+      ...(input.reason !== undefined && { reason: input.reason }),
+      ...(input.scope !== undefined && { scope: input.scope }),
+      ...(input.places !== undefined && { places: [...input.places] }),
+      ...(input.acknowledges !== undefined &&
+        input.acknowledges.length > 0 && { acknowledges: [...input.acknowledges] }),
+    },
+  });
+  if (outcome.ok) {
+    const { derivation, decision } = outcome.value;
+    recordSessionDecision({
+      derivationId: derivation.id,
+      kind: derivation.kind,
+      statement: derivation.statement,
+      outcome: decision.outcome,
+      effectiveScope: derivation.effectiveScope,
+      at: decision.at,
+    });
+  }
+  return outcome;
+};
 
 /**
- * Decides one belief. A refused decision (someone decided first, a revision already retired its target) comes back
- * as `error` for the card to show inline; every query is refreshed either way so the card shows the store as it is.
+ * Decides one derivation. Every query refreshes afterwards either way, so a card shows the store
+ * as it now is; the failure stays on the card until cleared.
  */
 export function useReviewDecision(target: string) {
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [failure, setFailure] = useState<ReviewFailure | undefined>(undefined);
   const mutation = useMutation({
-    mutationFn: (input: { outcome: DecisionOutcome; reason?: string }) =>
-      decideReviewBelief({ data: { target, outcome: input.outcome, ...(input.reason && { reason: input.reason }) } }),
-    onMutate: () => setError(undefined),
-    onSuccess: (result) => setError(result.ok ? undefined : result.message),
-    onError: (failure) => setError(failure.message),
+    mutationFn: (input: ReviewDecisionInput) => sendReviewDecision(target, input),
+    onMutate: () => setFailure(undefined),
+    onSuccess: (outcome) => setFailure(outcome.ok ? undefined : outcome.failure),
+    onError: (error) => setFailure({ sentence: error.message, category: "broken", tag: "Network" }),
     onSettled: () => queryClient.invalidateQueries(),
   });
   return {
-    decide: (outcome: DecisionOutcome, reason?: string) =>
-      mutation.mutateAsync(reason === undefined ? { outcome } : { outcome, reason }),
+    decide: (input: ReviewDecisionInput) => mutation.mutateAsync(input),
     pending: mutation.isPending,
-    error,
-    clearError: () => setError(undefined),
+    failure,
+    clearFailure: () => setFailure(undefined),
   };
-}
-
-/** Accept-all for an inbox group; failures are per card, so the rest of the group still lands. */
-export function useAcceptReviewGroup() {
-  const queryClient = useQueryClient();
-  const [failures, setFailures] = useState<ReadonlyArray<{ target: string; message: string }>>([]);
-  const mutation = useMutation({
-    mutationFn: (targets: ReadonlyArray<string>) => acceptReviewGroup({ data: { targets: [...targets] } }),
-    onMutate: () => setFailures([]),
-    onSuccess: (results) =>
-      setFailures(results.flatMap((result) => (result.ok ? [] : [{ target: result.target, message: result.message }]))),
-    onError: (failure) => setFailures([{ target: "", message: failure.message }]),
-    onSettled: () => queryClient.invalidateQueries(),
-  });
-  return { acceptAll: mutation.mutate, pending: mutation.isPending, failures };
 }

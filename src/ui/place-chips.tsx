@@ -1,0 +1,159 @@
+/**
+ * Places and scopes as the reviewer reads them: a chip per place with an icon for its form, the
+ * short label, and the full key one hover away. Global is always the orange chip, because it is the
+ * scope that is easiest to approve by accident.
+ */
+import { Badge, CopyButton, Group, Text, Tooltip } from "@mantine/core";
+import * as stylex from "@stylexjs/stylex";
+import { Result } from "effect";
+import { Check, Copy, Folder, FolderGit2, Globe, type LucideIcon, Tag } from "lucide-react";
+
+import { type DerivationScope, formatPlaceLabel, parsePlaceKey, type PlaceKey } from "../shared/places.ts";
+
+export type PlaceForm = "repo" | "directory" | "named";
+
+export const placeFormOf = (place: PlaceKey): PlaceForm => {
+  const parsed = parsePlaceKey(place);
+  return Result.isSuccess(parsed) ? parsed.success.form : "named";
+};
+
+const PLACE_FORM_ICONS: Record<PlaceForm, LucideIcon> = { repo: FolderGit2, directory: Folder, named: Tag };
+export const PLACE_FORM_NAMES: Record<PlaceForm, string> = {
+  repo: "Repo place",
+  directory: "Directory place",
+  named: "Named place",
+};
+
+export function PlaceFormIcon({ place, size = 12 }: { place: PlaceKey; size?: number }) {
+  const Icon = PLACE_FORM_ICONS[placeFormOf(place)];
+  return <Icon size={size} strokeWidth={2} aria-hidden style={{ flexShrink: 0 }} />;
+}
+
+const repoHostOf = (place: PlaceKey): string | undefined => {
+  const parsed = parsePlaceKey(place);
+  return Result.isSuccess(parsed) && parsed.success.form === "repo" ? parsed.success.repoId.split("/")[0] : undefined;
+};
+
+/**
+ * Short labels for a set of places, adding the host only where two repos would otherwise read the
+ * same (`github.com/acme/web` beside `gitlab.com/acme/web`).
+ */
+export const labelPlaces = (places: ReadonlyArray<PlaceKey>): Map<PlaceKey, string> => {
+  const byLabel = new Map<string, Set<string>>();
+  for (const place of places) {
+    const label = formatPlaceLabel(place);
+    const hosts = byLabel.get(label) ?? new Set<string>();
+    hosts.add(repoHostOf(place) ?? "");
+    byLabel.set(label, hosts);
+  }
+  return new Map(
+    places.map((place) => {
+      const label = formatPlaceLabel(place);
+      const host = repoHostOf(place);
+      const ambiguous = (byLabel.get(label)?.size ?? 0) > 1;
+      return [place, ambiguous && host !== undefined ? `${host}/${label}` : label];
+    }),
+  );
+};
+
+const styles = stylex.create({
+  key: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: "11px", wordBreak: "break-all" },
+  copyable: { cursor: "copy", userSelect: "all" },
+});
+
+// Mantine clips badge labels with an ellipsis, which lets a table column squeeze a place to "ac…".
+const UNCLIPPED_LABEL = { label: { overflow: "visible" } };
+
+export function PlaceChip({
+  place,
+  label,
+  color = "gray",
+  strike = false,
+}: {
+  place: PlaceKey;
+  label?: string;
+  color?: string;
+  strike?: boolean;
+}) {
+  return (
+    <Tooltip
+      label={
+        <span>
+          {PLACE_FORM_NAMES[placeFormOf(place)]} · <span {...stylex.props(styles.key)}>{place}</span>
+        </span>
+      }
+      withArrow
+      openDelay={250}
+    >
+      <Badge
+        color={color}
+        variant="light"
+        tt="none"
+        fw={500}
+        styles={UNCLIPPED_LABEL}
+        leftSection={<PlaceFormIcon place={place} size={11} />}
+        td={strike ? "line-through" : undefined}
+      >
+        {label ?? formatPlaceLabel(place)}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+function GlobalScopeChip({ label = "Everywhere" }: { label?: string }) {
+  return (
+    <Tooltip label="Global: applies in every place, including future ones" withArrow>
+      <Badge
+        color="orange"
+        variant="light"
+        tt="none"
+        styles={UNCLIPPED_LABEL}
+        leftSection={<Globe size={11} strokeWidth={2.25} />}
+      >
+        {label}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+export function ScopeChips({
+  scope,
+  labels,
+  wrap = "nowrap",
+}: {
+  scope: DerivationScope;
+  labels?: ReadonlyMap<PlaceKey, string>;
+  wrap?: "wrap" | "nowrap";
+}) {
+  if (scope.scope === "global") return <GlobalScopeChip />;
+  return (
+    <Group gap={4} wrap={wrap}>
+      {scope.places.map((place) => {
+        const label = labels?.get(place);
+        return <PlaceChip key={place} place={place} {...(label !== undefined && { label })} />;
+      })}
+    </Group>
+  );
+}
+
+/** A full place key in monospace that copies on click; it is what the CLI's `--place` takes. */
+export function PlaceKeyCopy({ place }: { place: PlaceKey }) {
+  return (
+    <CopyButton value={place}>
+      {({ copied, copy }) => (
+        <Tooltip label={copied ? "Copied" : "Copy the full key"} withArrow openDelay={300}>
+          <Group gap={4} wrap="nowrap" onClick={copy} {...stylex.props(styles.copyable)}>
+            <Text span c="dimmed" {...stylex.props(styles.key)}>
+              {place}
+            </Text>
+            {copied ? (
+              <Check size={11} color="var(--mantine-color-taste-7)" />
+            ) : (
+              <Copy size={11} color="var(--mantine-color-gray-5)" />
+            )}
+          </Group>
+        </Tooltip>
+      )}
+    </CopyButton>
+  );
+}

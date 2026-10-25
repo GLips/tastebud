@@ -1,11 +1,12 @@
-import { Badge, Container, Group, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Badge, Container, Group, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { UserRound } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { ChevronDown, Settings, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { reviewStoreInfoQuery } from "./review-queries.ts";
+import { capitalize, KindGlyph } from "./kind-identity.tsx";
+import { reviewShellQuery } from "./review-queries.ts";
 
 const styles = stylex.create({
   page: { minHeight: "100vh", backgroundColor: "var(--mantine-color-gray-0)" },
@@ -34,6 +35,8 @@ const styles = stylex.create({
     gap: "6px",
     ":hover": { backgroundColor: "var(--mantine-color-gray-1)" },
   },
+  navActive: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
+  divider: { width: "1px", height: "16px", backgroundColor: "var(--mantine-color-gray-2)", marginInline: "4px" },
   who: { display: "flex", alignItems: "center", gap: "5px", cursor: "default" },
   main: { paddingBlock: "20px" },
 });
@@ -43,48 +46,124 @@ const ACTIVE_NAV = {
   style: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
 };
 
+/** Past this many derived kinds the header folds them into one Library menu. */
+const INLINE_KIND_LIMIT = 3;
+
+function KindNavigation() {
+  const catalog = useQuery(reviewShellQuery).data?.catalog;
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const kinds = catalog?.derivedKinds ?? [];
+  if (kinds.length <= INLINE_KIND_LIMIT) {
+    return kinds.map((kind) => (
+      <Link
+        key={kind.key}
+        to="/kinds/$kind"
+        params={{ kind: kind.key }}
+        {...stylex.props(styles.navLink)}
+        activeProps={ACTIVE_NAV}
+      >
+        <KindGlyph catalog={catalog} kind={kind.key} size={10} />
+        {capitalize(kind.plural)}
+      </Link>
+    ));
+  }
+  return (
+    <Menu position="bottom-start" withArrow shadow="md">
+      <Menu.Target>
+        <UnstyledButton {...stylex.props(styles.navLink, pathname.startsWith("/kinds/") && styles.navActive)}>
+          Library <ChevronDown size={13} />
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {kinds.map((kind) => (
+          <Menu.Item
+            key={kind.key}
+            component={Link}
+            to={`/kinds/${kind.key}`}
+            leftSection={<KindGlyph catalog={catalog} kind={kind.key} />}
+          >
+            {capitalize(kind.plural)}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 export function ReviewAppShell({ children }: { children: ReactNode }) {
-  const info = useQuery(reviewStoreInfoQuery);
+  const shell = useQuery(reviewShellQuery);
+  const hasKinds = (shell.data?.catalog.derivedKinds.length ?? 0) > 0;
+  const pendingTotal = Object.values(shell.data?.pendingByKind ?? {}).reduce((sum, count) => sum + count, 0);
   return (
     <div {...stylex.props(styles.page)}>
       <header {...stylex.props(styles.header)}>
         <Container size="lg">
-          <Group justify="space-between" {...stylex.props(styles.bar)}>
-            <Group gap="lg">
+          <Group justify="space-between" wrap="nowrap" {...stylex.props(styles.bar)}>
+            <Group gap="lg" wrap="nowrap">
               <Link to="/" {...stylex.props(styles.brand)}>
                 <img src="/brand/lockup.svg" alt="taste" {...stylex.props(styles.lockup)} />
               </Link>
-              <Group gap={2}>
+              <Group gap={2} wrap="nowrap">
                 <Link to="/" {...stylex.props(styles.navLink)} activeOptions={{ exact: true }} activeProps={ACTIVE_NAV}>
                   Inbox
-                  {info.data !== undefined && info.data.pendingCount > 0 && (
-                    <Badge size="sm" circle={info.data.pendingCount < 10} variant="filled">
-                      {info.data.pendingCount}
+                  {pendingTotal > 0 && (
+                    <Badge size="sm" circle={pendingTotal < 10} variant="filled">
+                      {pendingTotal}
                     </Badge>
                   )}
                 </Link>
-                <Link to="/beliefs" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
-                  Beliefs
+                {hasKinds && (
+                  <>
+                    <span {...stylex.props(styles.divider)} />
+                    <KindNavigation />
+                  </>
+                )}
+                <span {...stylex.props(styles.divider)} />
+                <Link to="/sources" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
+                  Sources
                 </Link>
                 <Link to="/recall" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
                   Recall
                 </Link>
+                <Link to="/places" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
+                  Places
+                </Link>
               </Group>
             </Group>
-            {info.data !== undefined ? (
-              <Tooltip label={`Reviewing as ${info.data.owner} · ${info.data.root}`} withArrow position="bottom-end">
-                <span {...stylex.props(styles.who)}>
-                  <UserRound size={14} color="var(--mantine-color-gray-6)" />
-                  <Text size="xs" c="dimmed">
-                    {info.data.owner}
+            <Group gap={10} wrap="nowrap">
+              {shell.data !== undefined ? (
+                <Tooltip
+                  label={`Reviewing as ${shell.data.catalog.owner} · ${shell.data.storeRoot}`}
+                  withArrow
+                  position="bottom-end"
+                >
+                  <span {...stylex.props(styles.who)}>
+                    <UserRound size={14} color="var(--mantine-color-gray-6)" />
+                    <Text size="xs" c="dimmed">
+                      {shell.data.catalog.owner}
+                    </Text>
+                  </span>
+                </Tooltip>
+              ) : shell.error ? (
+                <Tooltip label={shell.error.message} withArrow multiline w={320} position="bottom-end">
+                  <Text size="xs" c="red">
+                    Store unavailable
                   </Text>
-                </span>
+                </Tooltip>
+              ) : null}
+              <Tooltip label="Settings" withArrow>
+                <ActionIcon
+                  component={Link}
+                  to="/settings"
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Settings"
+                  activeProps={{ "data-active": true, style: { color: "var(--mantine-color-taste-9)" } }}
+                >
+                  <Settings size={16} />
+                </ActionIcon>
               </Tooltip>
-            ) : info.error ? (
-              <Text size="xs" c="red">
-                Store unavailable
-              </Text>
-            ) : null}
+            </Group>
           </Group>
         </Container>
       </header>

@@ -10,13 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlacesRouteImport } from './routes/places'
 import { Route as RecallRouteImport } from './routes/recall'
-import { Route as BeliefsIndexRouteImport } from './routes/beliefs.index'
-import { Route as BeliefsIdRouteImport } from './routes/beliefs.$id'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as DerivationsIdRouteImport } from './routes/derivations.$id'
+import { Route as KindsKindRouteImport } from './routes/kinds.$kind'
+import { Route as SourcesIndexRouteImport } from './routes/sources.index'
+import { Route as SourcesIdRouteImport } from './routes/sources.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlacesRoute = PlacesRouteImport.update({
+  id: '/places',
+  path: '/places',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecallRoute = RecallRouteImport.update({
@@ -24,49 +33,105 @@ const RecallRoute = RecallRouteImport.update({
   path: '/recall',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BeliefsIndexRoute = BeliefsIndexRouteImport.update({
-  id: '/beliefs/',
-  path: '/beliefs/',
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BeliefsIdRoute = BeliefsIdRouteImport.update({
-  id: '/beliefs/$id',
-  path: '/beliefs/$id',
+const DerivationsIdRoute = DerivationsIdRouteImport.update({
+  id: '/derivations/$id',
+  path: '/derivations/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KindsKindRoute = KindsKindRouteImport.update({
+  id: '/kinds/$kind',
+  path: '/kinds/$kind',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesIndexRoute = SourcesIndexRouteImport.update({
+  id: '/sources/',
+  path: '/sources/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesIdRoute = SourcesIdRouteImport.update({
+  id: '/sources/$id',
+  path: '/sources/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/places': typeof PlacesRoute
   '/recall': typeof RecallRoute
-  '/beliefs/$id': typeof BeliefsIdRoute
-  '/beliefs/': typeof BeliefsIndexRoute
+  '/settings': typeof SettingsRoute
+  '/derivations/$id': typeof DerivationsIdRoute
+  '/kinds/$kind': typeof KindsKindRoute
+  '/sources/$id': typeof SourcesIdRoute
+  '/sources/': typeof SourcesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/places': typeof PlacesRoute
   '/recall': typeof RecallRoute
-  '/beliefs/$id': typeof BeliefsIdRoute
-  '/beliefs': typeof BeliefsIndexRoute
+  '/settings': typeof SettingsRoute
+  '/derivations/$id': typeof DerivationsIdRoute
+  '/kinds/$kind': typeof KindsKindRoute
+  '/sources/$id': typeof SourcesIdRoute
+  '/sources': typeof SourcesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/places': typeof PlacesRoute
   '/recall': typeof RecallRoute
-  '/beliefs/$id': typeof BeliefsIdRoute
-  '/beliefs/': typeof BeliefsIndexRoute
+  '/settings': typeof SettingsRoute
+  '/derivations/$id': typeof DerivationsIdRoute
+  '/kinds/$kind': typeof KindsKindRoute
+  '/sources/$id': typeof SourcesIdRoute
+  '/sources/': typeof SourcesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/recall' | '/beliefs/$id' | '/beliefs/'
+  fullPaths:
+    | '/'
+    | '/places'
+    | '/recall'
+    | '/settings'
+    | '/derivations/$id'
+    | '/kinds/$kind'
+    | '/sources/$id'
+    | '/sources/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/recall' | '/beliefs/$id' | '/beliefs'
-  id: '__root__' | '/' | '/recall' | '/beliefs/$id' | '/beliefs/'
+  to:
+    | '/'
+    | '/places'
+    | '/recall'
+    | '/settings'
+    | '/derivations/$id'
+    | '/kinds/$kind'
+    | '/sources/$id'
+    | '/sources'
+  id:
+    | '__root__'
+    | '/'
+    | '/places'
+    | '/recall'
+    | '/settings'
+    | '/derivations/$id'
+    | '/kinds/$kind'
+    | '/sources/$id'
+    | '/sources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlacesRoute: typeof PlacesRoute
   RecallRoute: typeof RecallRoute
-  BeliefsIdRoute: typeof BeliefsIdRoute
-  BeliefsIndexRoute: typeof BeliefsIndexRoute
+  SettingsRoute: typeof SettingsRoute
+  DerivationsIdRoute: typeof DerivationsIdRoute
+  KindsKindRoute: typeof KindsKindRoute
+  SourcesIdRoute: typeof SourcesIdRoute
+  SourcesIndexRoute: typeof SourcesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,6 +143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/places': {
+      id: '/places'
+      path: '/places'
+      fullPath: '/places'
+      preLoaderRoute: typeof PlacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recall': {
       id: '/recall'
       path: '/recall'
@@ -85,18 +157,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecallRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/beliefs/': {
-      id: '/beliefs/'
-      path: '/beliefs'
-      fullPath: '/beliefs/'
-      preLoaderRoute: typeof BeliefsIndexRouteImport
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/beliefs/$id': {
-      id: '/beliefs/$id'
-      path: '/beliefs/$id'
-      fullPath: '/beliefs/$id'
-      preLoaderRoute: typeof BeliefsIdRouteImport
+    '/derivations/$id': {
+      id: '/derivations/$id'
+      path: '/derivations/$id'
+      fullPath: '/derivations/$id'
+      preLoaderRoute: typeof DerivationsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kinds/$kind': {
+      id: '/kinds/$kind'
+      path: '/kinds/$kind'
+      fullPath: '/kinds/$kind'
+      preLoaderRoute: typeof KindsKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources/': {
+      id: '/sources/'
+      path: '/sources'
+      fullPath: '/sources/'
+      preLoaderRoute: typeof SourcesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources/$id': {
+      id: '/sources/$id'
+      path: '/sources/$id'
+      fullPath: '/sources/$id'
+      preLoaderRoute: typeof SourcesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -104,9 +197,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlacesRoute: PlacesRoute,
   RecallRoute: RecallRoute,
-  BeliefsIdRoute: BeliefsIdRoute,
-  BeliefsIndexRoute: BeliefsIndexRoute,
+  SettingsRoute: SettingsRoute,
+  DerivationsIdRoute: DerivationsIdRoute,
+  KindsKindRoute: KindsKindRoute,
+  SourcesIdRoute: SourcesIdRoute,
+  SourcesIndexRoute: SourcesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

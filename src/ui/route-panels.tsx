@@ -1,5 +1,7 @@
-import { Alert, Button, Center, Code, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Center, Stack, Text, Title } from "@mantine/core";
 import { Link, type ErrorComponentProps } from "@tanstack/react-router";
+
+import { type ReviewFailure, ReviewQueryError } from "../server/review-outcome.ts";
 
 export function RouteErrorPanel({ error, reset }: ErrorComponentProps) {
   return (
@@ -29,11 +31,21 @@ export function RouteNotFoundPanel() {
   );
 }
 
+const FAILURE_TITLES: Record<ReviewFailure["category"], string> = {
+  input: "That request didn't make sense to the store",
+  refused: "The store refused this",
+  conflict: "The store changed underneath this",
+  broken: "The store needs fixing",
+};
+
 /** A query's failure, inline: the screens keep polling, so this clears itself once the store reads again. */
 export function QueryErrorAlert({ error }: { error: Error }) {
+  const title = error instanceof ReviewQueryError ? FAILURE_TITLES[error.failure.category] : "Could not load this";
   return (
-    <Alert color="red" title="Could not load this">
-      <Code block>{error.message}</Code>
+    <Alert color="red" title={title}>
+      <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+        {error.message}
+      </Text>
     </Alert>
   );
 }

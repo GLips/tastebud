@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import type { ListenerHeartbeat, ThreadEntryRecord } from "../core/index.ts";
 import { postOwnerThreadNote } from "../server/review-functions.ts";
+import { unwrapReviewOutcome } from "../server/review-outcome.ts";
 import { describeAuthor, formatReviewTime, formatTimeAgo } from "./format.ts";
 
 const styles = stylex.create({
@@ -17,8 +18,8 @@ const styles = stylex.create({
   dotIdle: { backgroundColor: "var(--mantine-color-gray-4)" },
 });
 
-/** Whether a note posted now would wake an agent: any listener whose heartbeat is under 15s old. */
-export function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
+/** Whether a note posted now would wake an agent: any listener with a fresh heartbeat. */
+function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
   const live = listeners.filter((listener) => listener.listening);
   if (live.length > 0) {
     return (
@@ -49,14 +50,14 @@ export function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArra
   );
 }
 
-/** One belief's discussion, oldest first, with a composer that always writes as the store owner. */
-export function BeliefThread({
-  beliefId,
+/** One derivation's discussion, oldest first, with a composer that always writes as the store owner. */
+export function DerivationThread({
+  derivationId,
   thread,
   owner,
   listeners,
 }: {
-  beliefId: string;
+  derivationId: string;
   thread: ReadonlyArray<ThreadEntryRecord>;
   owner: string;
   listeners: ReadonlyArray<ListenerHeartbeat>;
@@ -64,9 +65,10 @@ export function BeliefThread({
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const post = useMutation({
-    mutationFn: (text: string) => postOwnerThreadNote({ data: { belief: beliefId, text } }),
+    mutationFn: async (text: string) =>
+      unwrapReviewOutcome(await postOwnerThreadNote({ data: { derivation: derivationId, text } })),
     onSuccess: () => setDraft(""),
-    onSettled: () => queryClient.invalidateQueries(),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["record"] }),
   });
   const submit = () => {
     if (draft.trim() !== "" && !post.isPending) post.mutate(draft);
@@ -96,6 +98,7 @@ export function BeliefThread({
         );
       })}
       <Textarea
+        aria-label="Note to the agent"
         placeholder={
           thread.length === 0
             ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send"
