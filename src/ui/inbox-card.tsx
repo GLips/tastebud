@@ -3,7 +3,20 @@
  * (rejecting, editing the scope, previewing an accept); the scope draft lives with the inbox so
  * batch accept can tell edited cards apart.
  */
-import { ActionIcon, Alert, Anchor, Badge, Button, Group, HoverCard, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Badge,
+  Button,
+  Group,
+  HoverCard,
+  Loader,
+  Paper,
+  Stack,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,14 +32,7 @@ import { formatReviewTime, formatTimeAgo } from "./format.ts";
 import { ScopeChips } from "./place-chips.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { AnchorLink, ButtonLink } from "./router-links.tsx";
-import {
-  describeScopeChange,
-  isCompleteScope,
-  isSameScope,
-  type ScopeDraft,
-  scopeDraftKey,
-  scopeOverrideOf,
-} from "./scope-draft.ts";
+import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft, scopeOverrideOf } from "./scope-draft.ts";
 import { ScopeEditor } from "./scope-editor.tsx";
 import { SourceQuote } from "./source-quote.tsx";
 import type { KnownPlaces } from "./use-review-context.ts";
@@ -71,6 +77,7 @@ export function InboxProposalCard({
   card,
   kind,
   selected,
+  queued,
   draft,
   known,
   onSelect,
@@ -82,6 +89,8 @@ export function InboxProposalCard({
   card: InboxCard;
   kind: DerivedKindView;
   selected: boolean;
+  /** Waiting its turn in a batch accept: locked, so what the batch counted as unchanged stays so. */
+  queued: boolean;
   /** The edited scope, or undefined while it is as proposed. */
   draft: ScopeDraft | undefined;
   known: KnownPlaces;
@@ -101,13 +110,12 @@ export function InboxProposalCard({
   const [conflict, setConflict] = useState(false);
   const proposed = view.proposedScope;
   const shownScope = draft ?? proposed;
-  const draftKey = scopeDraftKey(shownScope);
-  // Acknowledgements belong to one scope: change it and every box is unchecked again.
-  const [acknowledged, setAcknowledged] = useState<{ key: string; ids: ReadonlySet<string> }>({
-    key: draftKey,
-    ids: new Set(),
-  });
-  const acknowledgedIds = acknowledged.key === draftKey ? acknowledged.ids : new Set<string>();
+  const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
+  // Acknowledgements belong to the scope they were given for: any change unchecks every box.
+  const changeDraft = (next: ScopeDraft | undefined) => {
+    setAcknowledged(new Set());
+    onDraftChange(next === undefined || isSameScope(proposed, next) ? undefined : next);
+  };
   const override = scopeOverrideOf(proposed, draft);
   const edited = draft !== undefined && !isSameScope(proposed, draft);
   const changes = describeScopeChange(proposed, shownScope, known.labelOf);
@@ -115,7 +123,10 @@ export function InboxProposalCard({
   const engaged = mode !== "idle" || decision.pending;
   const backlogKind = kind.recall === "never";
 
-  useEffect(() => onEngagedChange(engaged), [engaged, onEngagedChange]);
+  useEffect(() => {
+    onEngagedChange(engaged);
+    return () => onEngagedChange(false);
+  }, [engaged, onEngagedChange]);
 
   const submitAccept = async (acknowledges: ReadonlyArray<string>) => {
     if (decision.pending) return;
@@ -128,11 +139,12 @@ export function InboxProposalCard({
     }
   };
   const submitReject = async (reason: string) => {
+    if (decision.pending) return;
     const outcome = await decision.decide({ outcome: "reject", reason });
     if (outcome.ok) onDecided();
   };
   const accept = () => {
-    if (decision.pending) return;
+    if (decision.pending || queued) return;
     if (draft !== undefined && !isCompleteScope(draft)) setMode("editing");
     else if (needsPreview) setMode("previewing");
     else void submitAccept([]);
@@ -144,7 +156,7 @@ export function InboxProposalCard({
 
   return (
     <Paper ref={ref} px="md" py="sm" onClick={onSelect} {...stylex.props(styles.card, selected && styles.selected)}>
-      {selected && mode === "idle" && !decision.pending && (
+      {selected && mode === "idle" && !decision.pending && !queued && (
         <SelectedCardHotkeys
           onAccept={accept}
           onReject={() => setMode("rejecting")}
@@ -171,7 +183,15 @@ export function InboxProposalCard({
               {reasoning !== "" && ` — ${reasoning}`}
             </Text>
           </Stack>
-          {mode === "idle" && (
+          {mode === "idle" && queued && (
+            <Group gap={6} wrap="nowrap">
+              <Loader size={12} />
+              <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                Queued: {kind.acceptLabel}
+              </Text>
+            </Group>
+          )}
+          {mode === "idle" && !queued && (
             <Group gap={4} wrap="nowrap">
               {similar.length > 0 && (
                 <HoverCard width={380} withArrow shadow="md" position="bottom-end">
@@ -238,7 +258,7 @@ export function InboxProposalCard({
                 no places yet
               </Text>
             )}
-            {mode === "idle" && (
+            {mode === "idle" && !queued && (
               <Tooltip label="Edit where this applies · S" withArrow>
                 <Anchor
                   component="button"
@@ -258,8 +278,8 @@ export function InboxProposalCard({
                 <Text size="xs" c="dark.4">
                   {changes.join(" · ") || "Edited"}
                 </Text>
-                {mode === "idle" && (
-                  <Anchor component="button" size="xs" c="dimmed" onClick={() => onDraftChange(undefined)}>
+                {mode === "idle" && !queued && (
+                  <Anchor component="button" size="xs" c="dimmed" onClick={() => changeDraft(undefined)}>
                     Restore
                   </Anchor>
                 )}
@@ -297,8 +317,9 @@ export function InboxProposalCard({
             proposed={proposed}
             draft={shownScope}
             known={known}
+            active={selected}
             continueLabel={(changed) => (changed ? `${kind.acceptLabel} with this scope` : kind.acceptLabel)}
-            onDraftChange={(next) => onDraftChange(isSameScope(proposed, next) ? undefined : next)}
+            onDraftChange={changeDraft}
             onClose={() => setMode("idle")}
             onContinue={() => {
               setConflict(false);
@@ -315,12 +336,13 @@ export function InboxProposalCard({
             proposedScope={proposed}
             changes={changes}
             acceptLabel={kind.acceptLabel}
-            acknowledged={acknowledgedIds}
+            active={selected}
+            acknowledged={acknowledged}
             onAcknowledge={(id, checked) => {
-              const ids = new Set(acknowledgedIds);
+              const ids = new Set(acknowledged);
               if (checked) ids.add(id);
               else ids.delete(id);
-              setAcknowledged({ key: draftKey, ids });
+              setAcknowledged(ids);
             }}
             conflict={conflict}
             pending={decision.pending}

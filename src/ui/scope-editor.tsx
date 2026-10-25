@@ -4,11 +4,12 @@
  */
 import { ActionIcon, Autocomplete, Button, Group, Kbd, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Result } from "effect";
-import { ArrowRight, CornerDownRight, Globe, Plus, RotateCcw, Scissors, X } from "lucide-react";
+import { ArrowRight, CornerDownRight, Globe, MapPin, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useState } from "react";
 
-import { canonicalPlaceKey, type DerivationScope, type PlaceKey } from "../shared/places.ts";
+import { canonicalPlaceKey, type DerivationScope, type PlaceKey, scopePlacesOf } from "../shared/places.ts";
 import { PlaceFormIcon, PlaceKeyCopy } from "./place-chips.tsx";
 import {
   childPlaceKey,
@@ -134,7 +135,7 @@ function AddPlaceInput({
 }) {
   const [value, setValue] = useState("");
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const chosen = new Set(draft.scope === "places" ? draft.places : []);
+  const chosen = new Set(scopePlacesOf(draft));
   const options = known.places.filter((place) => !chosen.has(place));
   const add = (raw: string) => {
     const key = canonicalPlaceKey(raw.trim());
@@ -148,6 +149,8 @@ function AddPlaceInput({
   return (
     <Autocomplete
       size="xs"
+      // Mounts when a global draft is limited to places; an empty list means picking one comes next.
+      autoFocus={draft.scope === "places" && draft.places.length === 0}
       aria-label="Add another place"
       placeholder="Add another place: search, or type a key like github.com/acme/web::apps/checkout"
       leftSection={<Plus size={13} />}
@@ -202,6 +205,7 @@ export function ScopeEditor({
   draft,
   known,
   continueLabel,
+  active,
   requireChange = false,
   onDraftChange,
   onContinue,
@@ -212,6 +216,8 @@ export function ScopeEditor({
   draft: ScopeDraft;
   known: KnownPlaces;
   continueLabel: (edited: boolean) => string;
+  /** Only the editor on the selected card listens for Esc. */
+  active: boolean;
   /** A revision of an unchanged scope would be a no-op, so its button waits for a change. */
   requireChange?: boolean;
   onDraftChange: (draft: ScopeDraft) => void;
@@ -219,19 +225,20 @@ export function ScopeEditor({
   onClose: () => void;
 }) {
   const [narrowing, setNarrowing] = useState<PlaceKey | undefined>(undefined);
+  // A page-level Esc rather than a keydown on the panel: opening with S leaves focus outside it.
+  useHotkeys([
+    {
+      hotkey: "Escape",
+      callback: onClose,
+      options: { ignoreInputs: false, enabled: active && narrowing === undefined },
+    },
+  ]);
+  const stopNarrowing = () => setNarrowing(undefined);
   const changes = describeScopeChange(proposed, draft, known.labelOf);
   const edited = !isSameScope(proposed, draft);
   const complete = isCompleteScope(draft);
   return (
-    <div
-      {...stylex.props(styles.panel)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && narrowing === undefined) {
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
+    <div {...stylex.props(styles.panel)}>
       <Stack gap={8}>
         <Group justify="space-between" gap="xs">
           <Text size="sm" fw={600}>
@@ -261,6 +268,16 @@ export function ScopeEditor({
             <Text size="xs" c="dimmed">
               Every place, including ones that don't exist yet
             </Text>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<MapPin size={12} />}
+              ml="auto"
+              onClick={() => onDraftChange({ scope: "places", places: [] })}
+            >
+              Limit to places…
+            </Button>
           </Group>
         ) : (
           <Stack gap={2}>
@@ -299,10 +316,10 @@ export function ScopeEditor({
                   <NarrowPlacePicker
                     place={place}
                     known={known}
-                    onClose={() => setNarrowing(undefined)}
+                    onClose={stopNarrowing}
                     onNarrow={(to) => {
                       onDraftChange(narrowPlace(draft, place, to));
-                      setNarrowing(undefined);
+                      stopNarrowing();
                     }}
                   />
                 )}

@@ -15,7 +15,16 @@ export interface InboxQueueEntry {
   readonly gone: boolean;
 }
 
+export interface InboxQueueBucket {
+  readonly key: string;
+  readonly group: InboxGroup;
+  readonly entries: ReadonlyArray<InboxQueueEntry>;
+}
+
 export interface InboxQueue {
+  /** The queue as rendered: bucketed by scope and subject, buckets in order of their first card. */
+  readonly buckets: ReadonlyArray<InboxQueueBucket>;
+  /** Every entry in rendered order, so j/k and "the next card" follow what the reviewer sees. */
   readonly entries: ReadonlyArray<InboxQueueEntry>;
   readonly incomingCount: number;
   readonly showIncoming: () => void;
@@ -58,6 +67,19 @@ const absorbInboxPoll = (
   return { groups, kind, orders, latest };
 };
 
+// An arrival appended to the order can still belong to an earlier bucket, which is why the
+// rendered order is the bucketed one and not the raw order.
+const bucketQueueEntries = (entries: ReadonlyArray<InboxQueueEntry>): Array<InboxQueueBucket> => {
+  const buckets = new Map<string, { key: string; group: InboxGroup; entries: Array<InboxQueueEntry> }>();
+  for (const entry of entries) {
+    const key = inboxGroupKeyOf(entry.group);
+    const bucket = buckets.get(key) ?? { key, group: entry.group, entries: [] };
+    bucket.entries.push(entry);
+    buckets.set(key, bucket);
+  }
+  return [...buckets.values()];
+};
+
 export function useStableInboxQueue(groups: ReadonlyArray<InboxGroup> | undefined, kind: string): InboxQueue {
   const [stored, setStored] = useState<QueueMemory>(() =>
     absorbInboxPoll({ groups: undefined, kind, orders: new Map(), latest: new Map() }, groups, kind),
@@ -70,15 +92,18 @@ export function useStableInboxQueue(groups: ReadonlyArray<InboxGroup> | undefine
   const live = liveEntriesOf(groups, kind);
   const liveIds = new Set(live.map((entry) => entry.id));
   const order = memory.orders.get(kind) ?? [];
-  const queued = new Set(order);
-  const incoming = live.filter((entry) => !queued.has(entry.id) && !removed.has(entry.id));
-  const entries = order.flatMap((id): Array<InboxQueueEntry> => {
-    const known = memory.latest.get(id);
-    return known === undefined || removed.has(id) ? [] : [{ id, ...known, gone: !liveIds.has(id) }];
-  });
+  const ordered = new Set(order);
+  const incoming = live.filter((entry) => !ordered.has(entry.id) && !removed.has(entry.id));
+  const buckets = bucketQueueEntries(
+    order.flatMap((id): Array<InboxQueueEntry> => {
+      const known = memory.latest.get(id);
+      return known === undefined || removed.has(id) ? [] : [{ id, ...known, gone: !liveIds.has(id) }];
+    }),
+  );
 
   return {
-    entries,
+    buckets,
+    entries: buckets.flatMap((bucket) => bucket.entries),
     incomingCount: incoming.length,
     showIncoming: () =>
       setStored((previous) => ({
@@ -88,17 +113,3 @@ export function useStableInboxQueue(groups: ReadonlyArray<InboxGroup> | undefine
     remove: (id) => setRemoved((previous) => new Set(previous).add(id)),
   };
 }
-
-/** Entries bucketed by scope and subject, groups in the order their first card appears. */
-export const groupQueueEntries = (
-  entries: ReadonlyArray<InboxQueueEntry>,
-): Array<{ key: string; group: InboxGroup; entries: Array<InboxQueueEntry> }> => {
-  const buckets = new Map<string, { key: string; group: InboxGroup; entries: Array<InboxQueueEntry> }>();
-  for (const entry of entries) {
-    const key = inboxGroupKeyOf(entry.group);
-    const bucket = buckets.get(key) ?? { key, group: entry.group, entries: [] };
-    bucket.entries.push(entry);
-    buckets.set(key, bucket);
-  }
-  return [...buckets.values()];
-};

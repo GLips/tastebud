@@ -116,10 +116,18 @@ interface GitOutput {
   readonly stdout: string;
 }
 
+/**
+ * The environment minus git's repository overrides (`GIT_DIR`, `GIT_INDEX_FILE`, …). A git hook sets
+ * them, and they would win over `-C directory`, resolving every directory to the hook's repo.
+ */
+const environmentWithoutGitRepoOverrides = (): Record<string, string | undefined> =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+
 const runGit = (directory: string, args: ReadonlyArray<string>) =>
   Effect.tryPromise({
     try: async (): Promise<GitOutput> => {
       const child = Bun.spawn(["git", "-C", directory, ...args], {
+        env: environmentWithoutGitRepoOverrides(),
         stdout: "pipe",
         stderr: "ignore",
         stdin: "ignore",

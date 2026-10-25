@@ -49,6 +49,8 @@ export const inStore = <A, E>(root: string, effect: Effect.Effect<A, E, TasteSto
 export const git = (cwd: string, ...args: Array<string>) => {
   const result = Bun.spawnSync(["git", "-c", "user.email=t@example.com", "-c", "user.name=Tester", ...args], {
     cwd,
+    // Under a git hook, GIT_DIR and friends would point these commands at this repo instead.
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))),
     stdout: "pipe",
     stderr: "pipe",
   });

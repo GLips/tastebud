@@ -1,12 +1,10 @@
 import {
   ActionIcon,
-  Alert,
   Button,
   Center,
   Group,
   Kbd,
   Loader,
-  Paper,
   SegmentedControl,
   Stack,
   Text,
@@ -15,25 +13,23 @@ import {
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { ArrowDown, CheckCheck, Keyboard, PartyPopper } from "lucide-react";
+import { ArrowDown, Keyboard, PartyPopper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { InboxGroup } from "../core/index.ts";
 import type { DerivedKindView } from "../shared/catalog-view.ts";
 import { InboxProposalCard } from "../ui/inbox-card.tsx";
-import { groupQueueEntries, type InboxQueueEntry, useStableInboxQueue } from "../ui/inbox-queue.ts";
+import { GoneProposalRow, InboxGroupSection } from "../ui/inbox-group-section.tsx";
+import { type InboxQueueEntry, useStableInboxQueue } from "../ui/inbox-queue.ts";
 import { capitalize, describeKindDelivery, KindGlyph } from "../ui/kind-identity.tsx";
-import { ScopeChips } from "../ui/place-chips.tsx";
-import { inboxGroupsQuery, recordDetailQuery, reviewShellQuery } from "../ui/review-queries.ts";
+import { inboxGroupsQuery, reviewShellQuery } from "../ui/review-queries.ts";
 import { ReviewSessionList } from "../ui/review-session-list.tsx";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
-import { AnchorLink, ButtonLink } from "../ui/router-links.tsx";
-import { isSameScope, type ScopeDraft } from "../ui/scope-draft.ts";
-import { type KnownPlaces, useKnownPlaces } from "../ui/use-review-context.ts";
-import { sendReviewDecision } from "../ui/use-review-decision.ts";
+import { AnchorLink } from "../ui/router-links.tsx";
+import type { ScopeDraft } from "../ui/scope-draft.ts";
+import { useKnownPlaces } from "../ui/use-review-context.ts";
 
 const InboxSearch = Schema.Struct({ kind: Schema.optionalKey(Schema.String) });
 
@@ -46,17 +42,9 @@ const LAST_KIND_KEY = "taste.inbox.kind";
 
 const styles = stylex.create({
   screen: { maxWidth: "820px", marginInline: "auto" },
-  groupHeader: {
-    position: "sticky",
-    top: "48px",
-    zIndex: 5,
-    paddingBlock: "6px",
-    backgroundColor: "var(--mantine-color-gray-0)",
-  },
   keys: { display: "grid", gridTemplateColumns: "auto auto", columnGap: "10px", rowGap: "4px", alignItems: "center" },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
-  gone: { borderStyle: "dashed", backgroundColor: "var(--mantine-color-gray-0)" },
 });
 
 const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
@@ -67,154 +55,6 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["d", "Discuss with an agent"],
   ["⌘↵ / Esc", "Confirm / back, in a preview"],
 ];
-
-/** Groups about the owner need no label; only derivations about someone else say whom. */
-const subjectLabel = (subject: string | undefined, owner: string | undefined) =>
-  subject === undefined || subject === "owner" || subject === owner ? undefined : `About ${subject}`;
-
-const isUnchangedAndClear = (entry: InboxQueueEntry, drafts: ReadonlyMap<string, ScopeDraft>) => {
-  const draft = drafts.get(entry.id);
-  const edited = draft !== undefined && !isSameScope(entry.card.derivation.proposedScope, draft);
-  return !entry.gone && !edited && entry.card.needsAcknowledgement.length === 0;
-};
-
-/** A card someone decided in another tab or process: kept in place so the queue doesn't jump. */
-function GoneProposalRow({ entry, onContinue }: { entry: InboxQueueEntry; onContinue: () => void }) {
-  const detail = useQuery(recordDetailQuery(entry.id));
-  const status = detail.data?.derivation?.status;
-  return (
-    <Paper px="md" py="sm" {...stylex.props(styles.gone)}>
-      <Group justify="space-between" wrap="nowrap" gap="md">
-        <Stack gap={2} style={{ minWidth: 0 }}>
-          <Text size="sm" c="dimmed" td="line-through" truncate>
-            {entry.card.derivation.statement}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {status === undefined || status === "pending" ? "No longer pending" : `Already ${status} elsewhere`}
-          </Text>
-        </Stack>
-        <Group gap={6} wrap="nowrap">
-          <ButtonLink to="/derivations/$id" params={{ id: entry.id }} variant="subtle" color="gray" size="xs">
-            View decision
-          </ButtonLink>
-          <Button size="xs" variant="default" onClick={onContinue}>
-            Continue
-          </Button>
-        </Group>
-      </Group>
-    </Paper>
-  );
-}
-
-function useBatchAccept(onAccepted: (id: string) => void) {
-  const queryClient = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [failures, setFailures] = useState<ReadonlyArray<{ id: string; sentence: string }>>([]);
-  const acceptAll = async (ids: ReadonlyArray<string>) => {
-    setPending(true);
-    setFailures([]);
-    const failed: Array<{ id: string; sentence: string }> = [];
-    // One at a time, in the order shown: a later card may be refused because an earlier one landed.
-    const acceptInOrder = async (remaining: ReadonlyArray<string>): Promise<void> => {
-      const [id, ...rest] = remaining;
-      if (id === undefined) return;
-      const outcome = await sendReviewDecision(id, { outcome: "accept" }).catch((error: Error) => ({
-        ok: false as const,
-        failure: { sentence: error.message, category: "broken" as const, tag: "Network" },
-      }));
-      if (outcome.ok) onAccepted(id);
-      else failed.push({ id, sentence: outcome.failure.sentence });
-      await acceptInOrder(rest);
-    };
-    await acceptInOrder(ids);
-    setFailures(failed);
-    setPending(false);
-    void queryClient.invalidateQueries();
-  };
-  return { acceptAll, pending, failures };
-}
-
-function InboxGroupSection({
-  group,
-  entries,
-  kind,
-  owner,
-  drafts,
-  known,
-  renderEntry,
-  onAccepted,
-}: {
-  group: InboxGroup;
-  entries: ReadonlyArray<InboxQueueEntry>;
-  kind: DerivedKindView;
-  owner: string | undefined;
-  drafts: ReadonlyMap<string, ScopeDraft>;
-  known: KnownPlaces;
-  renderEntry: (entry: InboxQueueEntry) => React.ReactNode;
-  onAccepted: (id: string) => void;
-}) {
-  const batch = useBatchAccept(onAccepted);
-  const ready = entries.filter((entry) => isUnchangedAndClear(entry, drafts));
-  const needReview = entries.filter((entry) => !entry.gone).length - ready.length;
-  const about = subjectLabel(group.subject, owner);
-  const live = entries.filter((entry) => !entry.gone).length;
-  return (
-    <Stack gap="sm">
-      <Group justify="space-between" {...stylex.props(styles.groupHeader)}>
-        <Group gap={8}>
-          {about !== undefined && (
-            <Text size="sm" fw={600}>
-              {about}
-            </Text>
-          )}
-          <ScopeChips scope={group.scope} labels={known.labels} />
-          <Tooltip label={`${live} waiting in this scope`} withArrow>
-            <Text size="xs" c="dimmed">
-              {live}
-            </Text>
-          </Tooltip>
-        </Group>
-        {ready.length > 1 && (
-          <Group gap={6}>
-            <Tooltip
-              label="Edited cards and cards that overlap a near repeat are left for you to review one by one"
-              withArrow
-              multiline
-              w={260}
-              disabled={needReview === 0}
-            >
-              <Button
-                variant="subtle"
-                leftSection={<CheckCheck size={14} />}
-                loading={batch.pending}
-                onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
-              >
-                {kind.acceptLabel} {ready.length} unchanged proposals
-              </Button>
-            </Tooltip>
-            {needReview > 0 && (
-              <Text size="xs" c="dimmed">
-                · {needReview} need review
-              </Text>
-            )}
-          </Group>
-        )}
-      </Group>
-      {batch.failures.length > 0 && (
-        <Alert color="red" variant="light" title="Some weren't accepted">
-          <Stack gap={4}>
-            {batch.failures.map((failure) => (
-              <Text key={failure.id} size="sm">
-                {failure.sentence}
-              </Text>
-            ))}
-          </Stack>
-        </Alert>
-      )}
-      {entries.map(renderEntry)}
-    </Stack>
-  );
-}
 
 function KindTabLabel({ kind, count }: { kind: DerivedKindView; count: number }) {
   const catalog = useQuery(reviewShellQuery).data?.catalog;
@@ -244,7 +84,7 @@ function InboxScreen() {
   const queue = useStableInboxQueue(inbox.data?.groups, kindKey);
   const [drafts, setDrafts] = useState<ReadonlyMap<string, ScopeDraft>>(() => new Map());
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
-  const [engagedId, setEngagedId] = useState<string | undefined>(undefined);
+  const [engagedIds, setEngagedIds] = useState<ReadonlySet<string>>(() => new Set());
   const cardRefs = useRef(new Map<string, HTMLDivElement>()).current;
 
   useEffect(() => {
@@ -261,7 +101,7 @@ function InboxScreen() {
   const selectedIndex = selectedId === undefined ? -1 : order.indexOf(selectedId);
   if (selectedIndex >= 0 && selectedIndex !== lastIndex) setLastIndex(selectedIndex);
   const effectiveId = selectedIndex >= 0 ? selectedId : order[Math.min(lastIndex, order.length - 1)];
-  const engaged = engagedId !== undefined && engagedId === effectiveId;
+  const engaged = effectiveId !== undefined && engagedIds.has(effectiveId);
 
   const select = (id: string | undefined, scroll: boolean) => {
     setSelectedId(id);
@@ -279,7 +119,13 @@ function InboxScreen() {
 
   const onEngagedChange = useCallback(
     (id: string, isEngaged: boolean) =>
-      setEngagedId((previous) => (isEngaged ? id : previous === id ? undefined : previous)),
+      setEngagedIds((previous) => {
+        if (previous.has(id) === isEngaged) return previous;
+        const next = new Set(previous);
+        if (isEngaged) next.add(id);
+        else next.delete(id);
+        return next;
+      }),
     [],
   );
   const setDraft = (id: string, draft: ScopeDraft | undefined) =>
@@ -292,7 +138,6 @@ function InboxScreen() {
   const removeFromQueue = (id: string) => {
     queue.remove(id);
     setDraft(id, undefined);
-    if (engagedId === id) setEngagedId(undefined);
   };
 
   if (shell.error) return <QueryErrorAlert error={shell.error} />;
@@ -306,7 +151,7 @@ function InboxScreen() {
   }
 
   const othersWaiting = kinds.filter((other) => other.key !== kind.key && (pendingByKind.get(other.key) ?? 0) > 0);
-  const renderEntry = (entry: InboxQueueEntry) =>
+  const renderEntry = (entry: InboxQueueEntry, queued: boolean) =>
     entry.gone ? (
       <GoneProposalRow key={entry.id} entry={entry} onContinue={() => removeFromQueue(entry.id)} />
     ) : (
@@ -315,6 +160,7 @@ function InboxScreen() {
         entry={entry}
         kind={kind}
         selected={entry.id === effectiveId}
+        queued={queued}
         draft={drafts.get(entry.id)}
         known={known}
         onSelect={() => select(entry.id, false)}
@@ -418,7 +264,7 @@ function InboxScreen() {
           </Stack>
         </Center>
       ) : (
-        groupQueueEntries(queue.entries).map((bucket) => (
+        queue.buckets.map((bucket) => (
           <InboxGroupSection
             key={bucket.key}
             group={bucket.group}
@@ -426,6 +272,7 @@ function InboxScreen() {
             kind={kind}
             owner={catalog?.owner}
             drafts={drafts}
+            engagedIds={engagedIds}
             known={known}
             renderEntry={renderEntry}
             onAccepted={removeFromQueue}

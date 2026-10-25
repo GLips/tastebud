@@ -14,6 +14,7 @@ import {
   placeCovers,
   REPO_PLACE_SEPARATOR,
   scopeGroupKey,
+  scopePlacesOf,
 } from "../shared/places.ts";
 
 export type ScopeDraft =
@@ -23,8 +24,7 @@ export type ScopeDraft =
 export const isCompleteScope = (draft: ScopeDraft): draft is DerivationScope =>
   draft.scope === "global" || draft.places.length > 0;
 
-export const scopeDraftKey = (draft: ScopeDraft): string =>
-  isCompleteScope(draft) ? scopeGroupKey(draft) : "(no places)";
+const scopeDraftKey = (draft: ScopeDraft): string => (isCompleteScope(draft) ? scopeGroupKey(draft) : "(no places)");
 
 export const isSameScope = (left: ScopeDraft, right: ScopeDraft): boolean =>
   scopeDraftKey(left) === scopeDraftKey(right);
@@ -33,7 +33,7 @@ export const withoutPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft =>
   draft.scope === "global" ? draft : { scope: "places", places: draft.places.filter((kept) => kept !== place) };
 
 export const withPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft => {
-  const places = draft.scope === "global" ? [] : draft.places;
+  const places = scopePlacesOf(draft);
   return { scope: "places", places: places.includes(place) ? places : [...places, place] };
 };
 

@@ -18,10 +18,11 @@ import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronRight, Copy } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 
 import type { DerivedKindView } from "../shared/catalog-view.ts";
 import type { PlaceResolverName } from "../shared/vocabulary.ts";
+import { FactRow } from "../ui/fact-row.tsx";
 import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } from "../ui/kind-identity.tsx";
 import { reviewShellQuery } from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
@@ -51,17 +52,6 @@ const RESOLVER_WORDING: Record<PlaceResolverName, string> = {
   directories: "directories: always the working directory",
   custom: "custom: a function in taste.config.ts",
 };
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <div>{children}</div>
-    </>
-  );
-}
 
 function CopyableSnippet({ code, label }: { code: string; label: string }) {
   return (
@@ -115,24 +105,24 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
           </Badge>
         </Group>
         <div {...stylex.props(styles.facts)}>
-          <Fact label="Labels">
+          <FactRow label="Labels">
             <Text size="sm">
               {kind.singular} / {kind.plural}
             </Text>
-          </Fact>
-          <Fact label="Delivery">
+          </FactRow>
+          <FactRow label="Delivery">
             <Text size="sm">
               {RECALL_POLICY_LABELS[kind.recall]}. {describeKindDelivery(kind)}
             </Text>
-          </Fact>
-          <Fact label="Accept button">
+          </FactRow>
+          <FactRow label="Accept button">
             <Text size="sm">{kind.acceptLabel}</Text>
-          </Fact>
-          <Fact label="Cites">
+          </FactRow>
+          <FactRow label="Cites">
             <Text size="sm">
               {sources.length === 0 ? kind.sources.join(", ") : sources.map((source) => source.plural).join(" or ")}
             </Text>
-          </Fact>
+          </FactRow>
         </div>
         <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open}>
           <Group gap={4}>
@@ -191,23 +181,23 @@ function SettingsScreen() {
 
       <Paper p="md">
         <div {...stylex.props(styles.facts)}>
-          <Fact label="Owner">
+          <FactRow label="Owner">
             <Text size="sm">{catalog.owner}</Text>
-          </Fact>
-          <Fact label="Store">
+          </FactRow>
+          <FactRow label="Store">
             <Text {...stylex.props(styles.mono)}>{storeRoot}</Text>
-          </Fact>
-          <Fact label="Config">
+          </FactRow>
+          <FactRow label="Config">
             <Text {...stylex.props(styles.mono)}>{storeRoot.replace(/\/+$/, "")}/taste.config.ts</Text>
-          </Fact>
-          <Fact label="Place resolver">
+          </FactRow>
+          <FactRow label="Place resolver">
             <Text size="sm">{RESOLVER_WORDING[catalog.resolver]}</Text>
-          </Fact>
-          <Fact label="Prompt hook">
+          </FactRow>
+          <FactRow label="Prompt hook">
             <Text size="sm">
               At most {catalog.hook.limit} items, within {catalog.hook.budgetMs} ms
             </Text>
-          </Fact>
+          </FactRow>
         </div>
       </Paper>
 
@@ -223,7 +213,7 @@ function SettingsScreen() {
         <Paper p="md">
           <div {...stylex.props(styles.facts)}>
             {catalog.sourceKinds.map((kind) => (
-              <Fact key={kind.key} label={kind.key}>
+              <FactRow key={kind.key} label={kind.key}>
                 <Text size="sm">
                   {capitalize(kind.plural)}
                   {kind.description !== undefined && (
@@ -233,7 +223,7 @@ function SettingsScreen() {
                     </Text>
                   )}
                 </Text>
-              </Fact>
+              </FactRow>
             ))}
           </div>
         </Paper>

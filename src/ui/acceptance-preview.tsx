@@ -101,6 +101,7 @@ export function AcceptancePreview({
   proposedScope,
   changes,
   acceptLabel,
+  active,
   acknowledged,
   onAcknowledge,
   conflict,
@@ -116,6 +117,8 @@ export function AcceptancePreview({
   proposedScope: DerivationScope;
   changes: ReadonlyArray<string>;
   acceptLabel: string;
+  /** Only the preview on the selected card listens for ⌘↵ and Esc; other cards' previews stay put. */
+  active: boolean;
   acknowledged: ReadonlySet<string>;
   onAcknowledge: (id: string, checked: boolean) => void;
   /** The server found a match this preview didn't show; the draft is kept and nothing retried. */
@@ -132,9 +135,12 @@ export function AcceptancePreview({
   const confirm = () => {
     if (ready) onConfirm(matches.map((match) => match.id));
   };
+  const back = () => {
+    if (!pending) onBack();
+  };
   useHotkeys([
-    { hotkey: "Mod+Enter", callback: confirm, options: { ignoreInputs: false } },
-    { hotkey: "Escape", callback: () => !pending && onBack(), options: { ignoreInputs: false } },
+    { hotkey: "Mod+Enter", callback: confirm, options: { ignoreInputs: false, enabled: active } },
+    { hotkey: "Escape", callback: back, options: { ignoreInputs: false, enabled: active } },
   ]);
   const finalScope = preview.data?.effectiveScope ?? override ?? proposedScope;
 
@@ -202,7 +208,7 @@ export function AcceptancePreview({
         )}
 
         <Group justify="flex-end" gap={6}>
-          <Button size="xs" variant="default" onClick={onBack} disabled={pending}>
+          <Button size="xs" variant="default" onClick={back} disabled={pending}>
             Back{" "}
             <Kbd size="xs" ml={6}>
               Esc

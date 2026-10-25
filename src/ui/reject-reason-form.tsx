@@ -13,8 +13,12 @@ export function RejectReasonForm({
 }) {
   const [reason, setReason] = useState("");
   const trimmed = reason.trim();
+  // While a reject is in flight, every way out of the form is closed, so it can't land twice or vanish.
   const submit = () => {
-    if (trimmed !== "") onSubmit(trimmed);
+    if (trimmed !== "" && !pending) onSubmit(trimmed);
+  };
+  const cancel = () => {
+    if (!pending) onCancel();
   };
   return (
     <form
@@ -33,16 +37,17 @@ export function RejectReasonForm({
           minRows={1}
           style={{ flex: 1 }}
           value={reason}
+          readOnly={pending}
           onChange={(event) => setReason(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
               submit();
             }
-            if (event.key === "Escape") onCancel();
+            if (event.key === "Escape") cancel();
           }}
         />
-        <Button variant="subtle" color="gray" onClick={onCancel}>
+        <Button variant="subtle" color="gray" onClick={cancel} disabled={pending}>
           Cancel
         </Button>
         <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>

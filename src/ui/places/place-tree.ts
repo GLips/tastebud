@@ -5,7 +5,8 @@
  */
 import { Result } from "effect";
 
-import { parsePlaceKey, type PlaceKey, placeCovers, REPO_PLACE_SEPARATOR } from "../shared/places.ts";
+import type { AuditPlacesResult } from "../../core/index.ts";
+import { parsePlaceKey, type PlaceKey, placeCovers, REPO_PLACE_SEPARATOR } from "../../shared/places.ts";
 
 export interface PlaceTreeNode {
   /** Present when this node is a place in use; a bare repo container has none. */
@@ -90,3 +91,19 @@ export const filterPlaceTree = (nodes: ReadonlyArray<PlaceTreeNode>, needle: str
     return own || children.length > 0 ? [{ ...node, children: own ? node.children : children }] : [];
   });
 };
+
+/** The tree's "Everywhere" row: not a place key, so it can sit in the same `?place=` selection. */
+export const GLOBAL_PLACE_NODE = "(global)";
+
+/** The top place in tree order, so the details pane opens on the row the reviewer sees first. */
+export const firstPlaceShown = (nodes: ReadonlyArray<PlaceTreeNode>): string | undefined => {
+  for (const node of nodes) {
+    const found = node.place ?? firstPlaceShown(node.children);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+};
+
+/** Everything scoped to one place, across kinds and statuses. */
+export const totalPlaceCount = (counts: AuditPlacesResult["globalCounts"]): number =>
+  counts.reduce((sum, entry) => sum + entry.count, 0);
