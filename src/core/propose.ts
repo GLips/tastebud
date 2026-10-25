@@ -13,7 +13,7 @@ import { canonicalInputPlaces, requireAgentActor, resolveOperationContext, type 
 import { BUILT_IN_BELIEF_KIND, type DerivedKindDefinition, requireDerivedKind } from "./catalog.ts";
 import type { LoadedTasteConfig } from "./config.ts";
 import { InvalidTasteInput, NearRepeat, ScopeRequired } from "./errors.ts";
-import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { stampNewRecord } from "./ids.ts";
 import type { DerivationRecord, SourceRecord } from "./records.ts";
 import { SCHEMA_VERSION } from "./records.ts";
 import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
@@ -51,12 +51,6 @@ const defaultScopeFromContext = (config: LoadedTasteConfig, context: TasteContex
   return places.length === 0 ? undefined : { scope: "places", places };
 };
 
-const scopeRequired = (context: TasteContext) =>
-  new ScopeRequired({
-    context,
-    retryExamples: ["--place github.com/<owner>/<repo>:: (places)", "--global (global)", "--in <dir> (in)"],
-  });
-
 const chosenScope = (scope: DerivationScope, source: ScopeSource) => ({ scope, source });
 
 const chooseProposalScope = Effect.fn("taste.chooseProposalScope")(function* (
@@ -73,7 +67,7 @@ const chooseProposalScope = Effect.fn("taste.chooseProposalScope")(function* (
   }
   const context = yield* resolveOperationContext(input, caller);
   const defaulted = defaultScopeFromContext(config, context);
-  if (defaulted === undefined) return yield* scopeRequired(context);
+  if (defaulted === undefined) return yield* new ScopeRequired({ context });
   return chosenScope(defaulted, "defaulted");
 });
 
@@ -205,8 +199,9 @@ export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* 
   });
 
   const subject = input.subject ?? (kind.key === BUILT_IN_BELIEF_KIND ? OWNER_SUBJECT : undefined);
+  const stamp = yield* stampNewRecord;
   const derivation: DerivationRecord = {
-    id: newRecordId(),
+    id: stamp.id,
     type: "Derivation",
     schema_version: SCHEMA_VERSION,
     kind: kind.key,
@@ -220,7 +215,7 @@ export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* 
     ...(supersedes !== undefined && { supersedes: supersedes.id }),
     ...(despite.length > 0 && { despite: despite.map((record) => record.id) }),
     proposed_by: proposedBy,
-    proposed_at: formatLocalIsoTime(new Date()),
+    proposed_at: stamp.at,
     reasoning: input.reasoning ?? "",
     ...(input.despite_case !== undefined && { despite_case: input.despite_case }),
   };

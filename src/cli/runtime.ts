@@ -168,7 +168,7 @@ export const reportCliFailure = (
   }
   const { error } = failure;
   if (CliError.isCliError(error)) return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 2;
-  const described = describeTasteFailure(error);
+  const described = describeTasteFailure(error, "cli");
   if (json) {
     // The error's own fields (a near repeat's matches, a refusal's context) are what an agent retries with.
     const fields = Object.fromEntries(Object.entries(error).filter(([key]) => key !== "_tag"));

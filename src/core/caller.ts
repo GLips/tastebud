@@ -22,7 +22,15 @@ export interface TasteCaller {
 export const requireAgentActor = (caller: TasteCaller, purpose: string) => {
   const actor = caller.actor?.trim();
   if (actor === undefined || actor === "")
-    return Effect.fail(new InvalidTasteInput({ problems: [`${purpose} needs the acting agent's name (--by / --as)`] }));
+    return Effect.fail(
+      new InvalidTasteInput({
+        problems: [
+          caller.via === "mcp"
+            ? `${purpose} needs the acting agent's name: the MCP client sent none in its clientInfo`
+            : `${purpose} needs the acting agent's name (--by)`,
+        ],
+      }),
+    );
   if (isHumanAccount(actor) || /\s/.test(actor))
     return Effect.fail(
       new InvalidTasteInput({

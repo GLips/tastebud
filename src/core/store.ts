@@ -108,7 +108,7 @@ export class TasteStore extends Context.Service<
 >()("@taste/TasteStore") {}
 
 /** Opens the store at `root` (see `resolveStoreRoot`), loading its config. Closes the index when the scope ends. */
-export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInitialised | InvalidConfig> =>
+const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInitialised | InvalidConfig> =>
   Layer.effect(
     TasteStore,
     Effect.gen(function* () {

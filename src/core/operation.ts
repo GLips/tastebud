@@ -95,7 +95,7 @@ export interface TasteOperationDeclaration<
 const OPERATION_INPUT_DECODING = { errors: "all", onExcessProperty: "error" } as const;
 
 /** Keeps a declaration's literal name and types, and adds the decode-then-run every adapter calls. */
-export const declareTasteOperation = <
+const declareTasteOperation = <
   const Name extends string,
   Input extends TasteOperationInputSchema,
   Output extends Schema.Top,
@@ -366,8 +366,6 @@ export const renderTasteOperationText = <N extends TasteOperationName>(
   name: N,
   output: TasteOperationOutput<N>,
 ): string => TASTE_OPERATION_RUNNERS[name].renderText(output);
-
-export const isTasteOperationName = (name: string): name is TasteOperationName => Object.hasOwn(TASTE_OPERATIONS, name);
 
 /** An operation read for what shells list: names, audience, kind, description and schemas, types erased. */
 export interface TasteOperationListing {

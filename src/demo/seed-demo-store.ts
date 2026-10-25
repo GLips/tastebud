@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 
 import {
   appendOwnerThreadNote,
@@ -54,8 +54,54 @@ const callerAs = (actor: string): TasteCaller => ({ via: "cli", actor, context: 
 type CaptureInput = TasteOperationInput<"capture">;
 type ProposeInput = TasteOperationInput<"propose">;
 
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+/** The story runs September to late October 2026; no stamp lands after this. */
+const SEED_STORY_END_MS = Date.parse("2026-10-24T17:00:00-07:00");
+
+/**
+ * The seed's clock: record stamps follow the story rather than the machine. Each record's time is
+ * kept in `seedTimeline`, so a proposal lands after its evidence and a decision after its proposal.
+ */
+let seedNowMs = 0;
+const seedTimeline = new Map<string, number>();
+
+const setSeedNow = (ms: number) => {
+  seedNowMs = Math.min(ms, SEED_STORY_END_MS);
+};
+const latestSeedTimeOf = (refs: ReadonlyArray<string | undefined>) =>
+  Math.max(0, ...refs.map((ref) => (ref === undefined ? 0 : (seedTimeline.get(ref) ?? 0))));
+
+/** Runs `effect` with record stamps read from the seed's clock; sleeps and monotonic time stay live. */
+const withSeedClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.clockWith((live) =>
+    Effect.provideService(effect, Clock.Clock, {
+      currentTimeMillisUnsafe: () => seedNowMs,
+      currentTimeMillis: Effect.sync(() => seedNowMs),
+      currentTimeNanosUnsafe: () => BigInt(seedNowMs) * 1_000_000n,
+      currentTimeNanos: Effect.sync(() => BigInt(seedNowMs) * 1_000_000n),
+      monotonicTimeNanosUnsafe: () => live.monotonicTimeNanosUnsafe(),
+      monotonicTimeNanos: live.monotonicTimeNanos,
+      sleep: (duration) => live.sleep(duration),
+    }),
+  );
+
+/** Stamps `effect`'s record `gapMs` after the latest of `refs`, and remembers when that record changed. */
+const seedStep = <E, R>(refs: ReadonlyArray<string | undefined>, gapMs: number, effect: Effect.Effect<string, E, R>) =>
+  Effect.suspend(() => {
+    setSeedNow(latestSeedTimeOf(refs) + gapMs);
+    return effect.pipe(Effect.tap((id) => Effect.sync(() => seedTimeline.set(id, seedNowMs))));
+  });
+
 const capture = (actor: string, input: CaptureInput) =>
-  runTasteOperation("capture", input, callerAs(actor)).pipe(Effect.map((result) => result.source.source.id));
+  Effect.suspend(() => {
+    // Captured a couple of minutes after it was said; a capture with no said_at happens "now".
+    if (input.said_at !== undefined) seedNowMs = Date.parse(input.said_at) + 2 * MINUTE_MS;
+    return runTasteOperation("capture", input, callerAs(actor)).pipe(
+      Effect.map((result) => result.source.source.id),
+      Effect.tap((id) => Effect.sync(() => seedTimeline.set(id, seedNowMs))),
+    );
+  });
 
 /** Dana's words in a coding session, captured where they said them. */
 const dana = (place: string, saidAt: string, quote: string, extra: Partial<CaptureInput> = {}) =>
@@ -88,21 +134,44 @@ const callQuote = (
   });
 
 const propose = (actor: string, input: ProposeInput) =>
-  runTasteOperation("propose", input, callerAs(actor)).pipe(Effect.map((result) => result.derivation.id));
+  seedStep(
+    [...input.supports, ...(input.contradicts ?? []), ...(input.despite ?? []), input.supersedes],
+    35 * MINUTE_MS,
+    runTasteOperation("propose", input, callerAs(actor)).pipe(Effect.map((result) => result.derivation.id)),
+  );
+
+/** Dana reviews the inbox about a day after a proposal arrives. */
+const REVIEW_GAP_MS = 20 * HOUR_MS;
+const decisionStep = (target: string, gapMs: number, decide: ReturnType<typeof decideDerivation>) =>
+  seedStep([target], gapMs, decide.pipe(Effect.as(target)));
 
 const accept = (target: string, amended?: ReadonlyArray<string>) =>
-  decideDerivation(
-    { target, outcome: "accept", ...(amended !== undefined && { scope: "places", places: amended }) },
-    { via: SEED_PROCESS },
+  decisionStep(
+    target,
+    REVIEW_GAP_MS,
+    decideDerivation(
+      { target, outcome: "accept", ...(amended !== undefined && { scope: "places", places: amended }) },
+      { via: SEED_PROCESS },
+    ),
   );
 const reject = (target: string, reason: string) =>
-  decideDerivation({ target, outcome: "reject", reason }, { via: SEED_PROCESS });
+  decisionStep(target, REVIEW_GAP_MS, decideDerivation({ target, outcome: "reject", reason }, { via: SEED_PROCESS }));
+/** A retraction follows the incident that prompted it, days after the accept. */
 const retract = (target: string, reason: string) =>
-  decideDerivation({ target, outcome: "retract", reason }, { via: SEED_PROCESS });
+  decisionStep(
+    target,
+    6 * 24 * HOUR_MS,
+    decideDerivation({ target, outcome: "retract", reason }, { via: SEED_PROCESS }),
+  );
 
-const danaNote = (derivation: string, text: string) => appendOwnerThreadNote({ derivation, text });
-const agentReply = (derivation: string, text: string) =>
-  runTasteOperation("thread-reply", { derivation, text }, callerAs(CODING_AGENT));
+const danaNote = (derivation: string, text: string) =>
+  seedStep([derivation], 3 * HOUR_MS, appendOwnerThreadNote({ derivation, text }).pipe(Effect.as(derivation)));
+const agentReply = (derivation: string, text: string, actor = CODING_AGENT) =>
+  seedStep(
+    [derivation],
+    25 * MINUTE_MS,
+    runTasteOperation("thread-reply", { derivation, text }, callerAs(actor)).pipe(Effect.as(derivation)),
+  );
 
 const seedBeliefs = Effect.gen(function* () {
   const effectErrors = yield* dana(
@@ -656,13 +725,10 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
       "Jordan flagged the mismatch on Priya's call, and Lena said product-shot ads wouldn't have reached them.",
   });
   yield* danaNote(adsIdea, "Do we have a guide that would work as a 15-second video?");
-  yield* runTasteOperation(
-    "thread-reply",
-    {
-      derivation: adsIdea,
-      text: "The cold brew guide would: four steps, each a single shot, and it's the one Priya named. The pour-over guide has too much text on screen.",
-    },
-    callerAs(RESEARCH_AGENT),
+  yield* agentReply(
+    adsIdea,
+    "The cold brew guide would: four steps, each a single shot, and it's the one Priya named. The pour-over guide has too much text on screen.",
+    RESEARCH_AGENT,
   );
   yield* idea({
     statement: "Test a free-shipping-over-$40 banner in Meta ads",
@@ -716,6 +782,8 @@ export const seedTasteDemoStore = Effect.fn("taste.seedTasteDemoStore")(function
   if (recordCount > 0) return yield* new StoreNotEmpty({ root, recordCount });
   if (existsSync(join(root, TASTE_CONFIG_FILE))) return yield* new StoreAlreadyExists({ root });
   yield* writeDemoConfig(root);
-  yield* provideTasteStore(root)(Effect.andThen(seedBeliefs, seedCallsInsightsAndIdeas));
+  seedNowMs = 0;
+  seedTimeline.clear();
+  yield* provideTasteStore(root)(withSeedClock(Effect.andThen(seedBeliefs, seedCallsInsightsAndIdeas)));
   return { root, owner: DEMO_OWNER, recordCount: listRecordFiles(root).length };
 });

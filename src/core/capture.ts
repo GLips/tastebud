@@ -13,7 +13,7 @@ import { SAID_AT_PRECISIONS, type SaidAtPrecision } from "../shared/vocabulary.t
 import { type TasteCaller, requireAgentActor, resolveOperationContext } from "./caller.ts";
 import { requireSourceKind, type TasteCatalog } from "./catalog.ts";
 import { InvalidTasteInput } from "./errors.ts";
-import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { stampNewRecord } from "./ids.ts";
 import { SCHEMA_VERSION, type SourceRecord } from "./records.ts";
 import { resolveSourceRef, TasteStore } from "./store.ts";
 import { viewSource } from "./views.ts";
@@ -66,10 +66,11 @@ export const captureSource = Effect.fn("taste.captureSource")(function* (
     ...(input.address !== undefined && { address: input.address }),
     saidBy: input.said_by,
   });
-  const now = formatLocalIsoTime(new Date());
+  const stamp = yield* stampNewRecord;
+  const now = stamp.at;
   const saidAt = input.said_at ?? now;
   const source: SourceRecord = {
-    id: newRecordId(),
+    id: stamp.id,
     type: "Source",
     schema_version: SCHEMA_VERSION,
     kind: kind.key,

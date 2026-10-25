@@ -6,7 +6,7 @@
 import { Schema } from "effect";
 
 /** The four record types; `type` in every file's frontmatter. */
-export const TASTE_RECORD_TYPES = ["Source", "Derivation", "Decision", "ThreadEntry"] as const;
+const TASTE_RECORD_TYPES = ["Source", "Derivation", "Decision", "ThreadEntry"] as const;
 export type TasteRecordType = (typeof TASTE_RECORD_TYPES)[number];
 
 /** Computed on read, never stored. `superseded` means an accepted derivation names it in `supersedes`. */

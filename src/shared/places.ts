@@ -159,7 +159,7 @@ export const formatScopeLabel = (scope: DerivationScope): string =>
   scope.scope === "global" ? "global" : scope.places.map(formatPlaceLabel).join(", ");
 
 /** How the caller's context was found: `--in`, `--at`, the cwd, an MCP root, or not at all. */
-export const CONTEXT_ORIGINS = ["in", "at", "cwd", "mcp-root", "unknown"] as const;
+const CONTEXT_ORIGINS = ["in", "at", "cwd", "mcp-root", "unknown"] as const;
 export type ContextOrigin = (typeof CONTEXT_ORIGINS)[number];
 
 /** The places the caller is in now. Unknown context has no places: only global derivations apply. */

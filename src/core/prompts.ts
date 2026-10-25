@@ -1,7 +1,7 @@
 /**
  * The shipped instruction for the built-in `belief` kind. `taste catalog` hands it to agents, so it is
- * written to be followed as-is. CLI flags are shown; MCP tools take the same names as fields
- * (`--place` is `place`, `--why` is `despite_case`).
+ * written to be followed as-is. It spells inputs as CLI flags; the catalog's text tells MCP callers
+ * how those map to `taste_propose` fields.
  */
 export const BELIEF_PROPOSAL_PROMPT = `Propose a belief when the owner's own words show a durable preference or judgment: how they like work done, or what they hold true about their world. A belief is one line a future agent can act on. It counts only once the owner accepts it in the review UI; you never decide.
 
@@ -21,7 +21,7 @@ The statement
 - One line, in the owner's terms, specific enough to act on: "Use named exports, never default exports", not "Cares about exports".
 - One idea per belief. Split compound statements.
 - Don't overstate. An "always" in a quote does not widen anything by itself.
-- --reason: two or three sentences on why the cited words support it, and what would make it wrong.
+- --reasoning: two or three sentences on why the cited words support it, and what would make it wrong.
 
 Evidence
 - --supports: every memory the belief rests on, at least one. Memories are the owner's exact words. Never cite your own words or another agent's.

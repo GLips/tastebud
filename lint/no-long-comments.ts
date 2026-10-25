@@ -14,8 +14,8 @@ const HOLDS_A_WORD = /[\p{L}\p{N}]/u;
 const JSX_BETWEEN_COMMENTS = /^\s*\}\s*\{\s*$/u;
 
 const numericOption = (option: unknown, key: string, fallback: number): number => {
-  if (typeof option !== "object" || option === null || !(key in option)) return fallback;
-  const value = (option as Record<string, unknown>)[key];
+  if (typeof option !== "object" || option === null) return fallback;
+  const value: unknown = Reflect.get(option, key);
   return typeof value === "number" ? value : fallback;
 };
 

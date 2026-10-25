@@ -28,7 +28,7 @@ export const renderProposeText = (result: {
   [
     `Proposed ${result.derivation.kindLabel} ${result.derivation.id}`,
     `  ${result.derivation.statement}  ${formatScopeBraces(result.derivation)}${result.derivation.scopeSource === "defaulted" ? " (scope defaulted from your context)" : ""}`,
-    "  Pending until the owner decides in the review UI (taste review-url gives the link).",
+    "  Pending until the owner decides in the review UI (review-url gives the link).",
     ...result.warnings.map((warning) => `  Warning: ${warning}`),
     ...formatRepeatMatches("Related:", result.related),
   ].join("\n");
@@ -142,6 +142,11 @@ export const renderRepointText = (result: RepointPlaceResult) =>
 
 export const renderReindexText = (result: IndexRefreshResult) => `Reindexed ${result.recordCount} records.`;
 
+/** Kind prompts are config text written once for both surfaces, so the catalog says how to read their flags. */
+const PROMPT_SPELLING_NOTE =
+  "Prompts spell inputs as CLI flags. Over MCP, each is the taste_propose field of the same name, " +
+  "except --place (places) and --why (despite_case).";
+
 export const renderCatalogText = (result: {
   readonly catalog: CatalogView;
   readonly storeRoot: string;
@@ -165,4 +170,5 @@ export const renderCatalogText = (result: {
             .join("\n"),
       ),
     ),
+    PROMPT_SPELLING_NOTE,
   ].join("\n\n");

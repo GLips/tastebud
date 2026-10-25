@@ -7,7 +7,7 @@ import { Effect, Schema } from "effect";
 import { TrimmedText } from "../shared/input-text.ts";
 import { requireAgentActor, type TasteCaller } from "./caller.ts";
 import { InvalidTasteInput } from "./errors.ts";
-import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { stampNewRecord } from "./ids.ts";
 import { SCHEMA_VERSION, type ThreadEntryRecord } from "./records.ts";
 import { resolveDerivationRef, TasteStore } from "./store.ts";
 
@@ -17,21 +17,22 @@ export const ThreadEntryInput = Schema.Struct({
 });
 export type ThreadEntryInput = typeof ThreadEntryInput.Type;
 
-/** The command an agent runs to answer a note. The listener prints it, so it is spelled here once. */
+/** How an agent answers a note. The listener prints it, so it is spelled here once, for both surfaces. */
 export const threadReplyInstruction = (derivationId: string, agent: string): string =>
-  `taste thread reply ${derivationId} --as ${agent} "…"`;
+  `taste thread-reply ${derivationId} "…" --by ${agent} (MCP: taste_thread_reply)`;
 
 const appendThreadEntry = Effect.fn("taste.appendThreadEntry")(function* (input: ThreadEntryInput, author: string) {
   const store = yield* TasteStore;
   if (input.text === "") return yield* new InvalidTasteInput({ problems: ["text: a thread entry needs words"] });
   const derivation = yield* resolveDerivationRef(yield* store.snapshot, input.derivation);
+  const stamp = yield* stampNewRecord;
   const entry: ThreadEntryRecord = {
-    id: newRecordId(),
+    id: stamp.id,
     type: "ThreadEntry",
     schema_version: SCHEMA_VERSION,
     thread: derivation.id,
     author,
-    at: formatLocalIsoTime(new Date()),
+    at: stamp.at,
     text: input.text,
   };
   yield* store.write(entry);

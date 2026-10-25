@@ -13,7 +13,7 @@ import { scopeGroupKey, scopePlacesOf } from "../shared/places.ts";
 import { canonicalInputPlaces } from "./caller.ts";
 import { findDerivedKind } from "./catalog.ts";
 import { InvalidTasteInput } from "./errors.ts";
-import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { stampNewRecord } from "./ids.ts";
 import { checkDerivationProposal } from "./propose.ts";
 import { type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
 import { derivationStateOf, resolveEvidenceRef, TasteStore } from "./store.ts";
@@ -107,8 +107,9 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
       });
       continue;
     }
+    const stamp = yield* stampNewRecord;
     const revision: DerivationRecord = {
-      id: newRecordId(),
+      id: stamp.id,
       type: "Derivation",
       schema_version: SCHEMA_VERSION,
       kind: target.kind,
@@ -121,7 +122,7 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
       ...(target.contradicts !== undefined && { contradicts: target.contradicts }),
       supersedes: target.id,
       proposed_by: REPOINT_ACTOR,
-      proposed_at: formatLocalIsoTime(new Date()),
+      proposed_at: stamp.at,
       reasoning: `Repointed from ${from} to ${to}; the statement is unchanged.`,
     };
     const written = yield* store.write(revision);

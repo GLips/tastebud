@@ -147,7 +147,7 @@ const callTasteTool = async (
   if (Exit.isSuccess(exit))
     return { ...textResult(exit.value.text), structuredContent: exit.value.output as Record<string, unknown> };
   const failed = exit.cause.reasons.find(Cause.isFailReason);
-  if (failed !== undefined) return textResult(describeTasteFailure(failed.error).sentence, true);
+  if (failed !== undefined) return textResult(describeTasteFailure(failed.error, "mcp").sentence, true);
   // A defect is a bug in Taste: the log gets the stack, the agent a sentence it can act on.
   process.stderr.write(`taste mcp: ${name} failed unexpectedly\n${Cause.pretty(exit.cause)}\n`);
   return textResult(`Taste failed unexpectedly running ${name}; the server's stderr has the details.`, true);

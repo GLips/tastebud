@@ -31,7 +31,7 @@ import {
   StoreWriteFailed,
   WideningNeedsAcknowledgement,
 } from "./errors.ts";
-import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { stampNewRecord } from "./ids.ts";
 import { decisionInvalidReason, type DerivationLookup } from "./lifecycle.ts";
 import { type DecisionRecord, type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
 import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
@@ -290,14 +290,15 @@ export const decideDerivation = Effect.fn("taste.decideDerivation")(function* (
         if (missing.length > 0)
           return yield* new WideningNeedsAcknowledgement({ target: derivation.id, matches: missing });
       }
+      const stamp = yield* stampNewRecord;
       const decision: DecisionRecord = {
-        id: newRecordId(),
+        id: stamp.id,
         type: "Decision",
         schema_version: SCHEMA_VERSION,
         target: derivation.id,
         outcome: input.outcome,
         by: config.owner,
-        at: formatLocalIsoTime(new Date()),
+        at: stamp.at,
         ...(input.reason !== undefined && { reason: input.reason }),
         ...(override !== undefined && { scope: override.scope }),
         ...(override?.scope === "places" && { places: scopePlacesOf(override) }),

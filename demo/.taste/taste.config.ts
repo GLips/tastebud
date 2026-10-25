@@ -41,7 +41,7 @@ The statement
 - One line, in the owner's terms, specific enough to act on: "Use named exports, never default exports", not "Cares about exports".
 - One idea per belief. Split compound statements.
 - Don't overstate. An "always" in a quote does not widen anything by itself.
-- --reason: two or three sentences on why the cited words support it, and what would make it wrong.
+- --reasoning: two or three sentences on why the cited words support it, and what would make it wrong.
 
 Evidence
 - --supports: every memory the belief rests on, at least one. Memories are the owner's exact words. Never cite your own words or another agent's.

@@ -107,22 +107,41 @@ export class RetiredKind extends Data.TaggedError("RetiredKind")<{
   }
 }
 
+/**
+ * Where a failure is shown. Retry hints name inputs the way that surface spells them: CLI flags
+ * (`--despite`) for the CLI, argument names (`despite`) for MCP tools.
+ */
+export type TasteSurface = "cli" | "mcp" | "review" | "hook";
+
+const isArgumentSurface = (surface: TasteSurface) => surface === "mcp";
+
 /** Recall or context asked for a kind whose policy is `never`. */
 export class KindNotRecallable extends Data.TaggedError("KindNotRecallable")<{
   readonly kind: string;
 }> {
+  sentenceFor(surface: TasteSurface) {
+    const instead = isArgumentSurface(surface)
+      ? `taste_list with kind: "${this.kind}"`
+      : `\`taste list --kind ${this.kind}\``;
+    return `"${this.kind}" has recall: never; use ${instead} instead.`;
+  }
   override get message() {
-    return `"${this.kind}" has recall: never; use \`taste list --kind ${this.kind}\` instead.`;
+    return this.sentenceFor("cli");
   }
 }
 
 /** A proposal with no scope given, from an unknown context. */
 export class ScopeRequired extends Data.TaggedError("ScopeRequired")<{
   readonly context: TasteContext;
-  readonly retryExamples: ReadonlyArray<string>;
 }> {
+  sentenceFor(surface: TasteSurface) {
+    const retries = isArgumentSurface(surface)
+      ? ['places: ["github.com/<owner>/<repo>::"]', "global: true", 'in: "<your working directory>"']
+      : ["--place github.com/<owner>/<repo>::", "--global", "--in <your working directory>"];
+    return `No scope: the context is unknown, so this proposal must say where it applies. Retry with ${retries.join(", or ")}.`;
+  }
   override get message() {
-    return `No scope: the context is unknown, so this proposal must say where it applies. Retry with ${this.retryExamples.join(", or ")}.`;
+    return this.sentenceFor("cli");
   }
 }
 
@@ -151,13 +170,22 @@ export class NearRepeat extends Data.TaggedError("NearRepeat")<{
   readonly kind: string;
   readonly matches: ReadonlyArray<RepeatMatch>;
 }> {
-  override get message() {
-    const ids = this.matches.map((match) => match.id).join(" --despite ");
+  sentenceFor(surface: TasteSurface) {
+    const ids = this.matches.map((match) => match.id);
+    const retry =
+      surface === "review"
+        ? "each match ticked and what is different now"
+        : isArgumentSurface(surface)
+          ? `despite: ${JSON.stringify(ids)} and despite_case: "<what is different now>"`
+          : `${ids.map((id) => `--despite ${id}`).join(" ")} --why "<what is different now>"`;
     return [
       `Refused: this is a near repeat of an existing ${this.kind} whose scope overlaps.`,
       ...formatMatchLines(this.matches),
-      `Usually the right move is to drop it. If something genuinely changed, re-propose with --despite ${ids} --why "<what is different now>".`,
+      `Usually the right move is to drop it. If something genuinely changed, re-propose with ${retry}.`,
     ].join("\n");
+  }
+  override get message() {
+    return this.sentenceFor("cli");
   }
 }
 
@@ -275,8 +303,12 @@ export interface TasteFailureDescription {
   readonly exitCode: number;
 }
 
-/** The sentence, category and CLI exit code for any core failure. Exhaustive over `TasteError`. */
-export const describeTasteFailure = (error: TasteError): TasteFailureDescription => {
+/** The sentence, category and CLI exit code for any core failure, worded for `surface`. Exhaustive over `TasteError`. */
+export const describeTasteFailure = (error: TasteError, surface: TasteSurface): TasteFailureDescription => {
   const category = categoryOf(error);
-  return { sentence: error.message, category, exitCode: EXIT_CODE_BY_CATEGORY[category] };
+  const sentence =
+    error._tag === "NearRepeat" || error._tag === "ScopeRequired" || error._tag === "KindNotRecallable"
+      ? error.sentenceFor(surface)
+      : error.message;
+  return { sentence, category, exitCode: EXIT_CODE_BY_CATEGORY[category] };
 };

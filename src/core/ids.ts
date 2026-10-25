@@ -1,3 +1,5 @@
+import { Clock, Effect } from "effect";
+
 let lastIdMs = 0;
 
 /**
@@ -5,9 +7,9 @@ let lastIdMs = 0;
  * (`7000…`), which would leave short ids almost no randomness. The time part never repeats within a
  * process, so ids sort in creation order: replay breaks same-millisecond ties by id.
  */
-export const newRecordId = (): string => {
+const newRecordId = (nowMs: number): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
-  lastIdMs = Math.max(Date.now(), lastIdMs + 1);
+  lastIdMs = Math.max(nowMs, lastIdMs + 1);
   let ms = lastIdMs;
   for (let index = 5; index >= 0; index -= 1) {
     bytes[index] = ms % 256;
@@ -32,6 +34,15 @@ export const formatLocalIsoTime = (date: Date): string => {
     `${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`
   );
 };
+
+/**
+ * A new record's id and timestamp, read from Effect's `Clock` so the demo seed can write a store
+ * whose history spans weeks. Lock waits and listener heartbeats stay on wall time.
+ */
+export const stampNewRecord = Effect.map(Clock.currentTimeMillis, (nowMs) => ({
+  id: newRecordId(nowMs),
+  at: formatLocalIsoTime(new Date(nowMs)),
+}));
 
 /** Orders ISO times across offsets; string comparison would not. */
 export const compareIsoTimes = (left: string, right: string): number => Date.parse(left) - Date.parse(right);
