@@ -2,7 +2,16 @@ import { ActionIcon, Badge, Button, createTheme, type MantineColorsTuple, Paper,
 
 // The logo's green, as a Mantine ramp: shade 6 is the mark itself (#3BB273).
 const tasteGreen: MantineColorsTuple = [
-  "#e9f8f0", "#d6efe2", "#aedcc4", "#83c9a4", "#5fba89", "#47b078", "#3bb273", "#2c9560", "#228454", "#107345",
+  "#e9f8f0",
+  "#d6efe2",
+  "#aedcc4",
+  "#83c9a4",
+  "#5fba89",
+  "#47b078",
+  "#3bb273",
+  "#2c9560",
+  "#228454",
+  "#107345",
 ];
 
 /** A quiet, light reviewing tool: neutral ground, the logo's green as the one accent, colour reserved for state. */

@@ -4,9 +4,10 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, MessageSquare, X } from "lucide-react";
 import type { Ref } from "react";
+
 import type { InboxCard } from "../core/index.ts";
-import { BeliefSummaryLine } from "./belief-link.tsx";
 import { DespiteNotice, SupersedesNotice } from "./belief-asides.tsx";
+import { BeliefSummaryLine } from "./belief-link.tsx";
 import { formatReviewTime, formatTimeAgo } from "./format.ts";
 import { MemoryQuote } from "./memory-quote.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
@@ -31,7 +32,15 @@ const styles = stylex.create({
 });
 
 /** Mounted only inside the selected card, so a/r/d always act on exactly one proposal. */
-function SelectedCardHotkeys({ onAccept, onReject, onDiscuss }: { onAccept: () => void; onReject: () => void; onDiscuss: () => void }) {
+function SelectedCardHotkeys({
+  onAccept,
+  onReject,
+  onDiscuss,
+}: {
+  onAccept: () => void;
+  onReject: () => void;
+  onDiscuss: () => void;
+}) {
   useHotkeys([
     { hotkey: "A", callback: onAccept },
     { hotkey: "R", callback: onReject },
@@ -76,7 +85,13 @@ export function InboxProposalCard({
       <Stack gap={8}>
         <Group justify="space-between" wrap="nowrap" align="flex-start" gap="md">
           <Stack gap={2} style={{ minWidth: 0 }}>
-            <AnchorLink to="/beliefs/$id" params={{ id: belief.id }} c="inherit" underline="never" {...stylex.props(styles.statement)}>
+            <AnchorLink
+              to="/beliefs/$id"
+              params={{ id: belief.id }}
+              c="inherit"
+              underline="never"
+              {...stylex.props(styles.statement)}
+            >
               {belief.statement}
             </AnchorLink>
             <Text size="xs" c="dimmed" lineClamp={1} title={reasoning === "" ? undefined : reasoning}>
@@ -101,13 +116,20 @@ export function InboxProposalCard({
                     </Text>
                     <Stack gap={6}>
                       {similar.map((match) => (
-                        <BeliefSummaryLine key={match.id} summary={match} note={`${Math.round(match.similarity * 100)}%`} />
+                        <BeliefSummaryLine
+                          key={match.id}
+                          summary={match}
+                          note={`${Math.round(match.similarity * 100)}%`}
+                        />
                       ))}
                     </Stack>
                   </HoverCard.Dropdown>
                 </HoverCard>
               )}
-              <Tooltip label={view.thread.length > 0 ? `Discuss (${view.thread.length}) · D` : "Discuss with an agent · D"} withArrow>
+              <Tooltip
+                label={view.thread.length > 0 ? `Discuss (${view.thread.length}) · D` : "Discuss with an agent · D"}
+                withArrow
+              >
                 <ButtonLink
                   to="/beliefs/$id"
                   params={{ id: belief.id }}
@@ -127,7 +149,12 @@ export function InboxProposalCard({
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Accept · A" withArrow>
-                <ActionIcon size="md" aria-label="Accept" loading={decision.pending} onClick={() => void decision.decide("accept")}>
+                <ActionIcon
+                  size="md"
+                  aria-label="Accept"
+                  loading={decision.pending}
+                  onClick={() => void decision.decide("accept")}
+                >
                   <Check size={16} strokeWidth={2.5} />
                 </ActionIcon>
               </Tooltip>
@@ -168,4 +195,3 @@ export function InboxProposalCard({
     </Paper>
   );
 }
-

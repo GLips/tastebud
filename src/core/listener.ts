@@ -1,10 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { Effect, Schema } from "effect";
+
 import { type CorruptRecordFile, InvalidRecordInput, StoreWriteFailed } from "./errors.ts";
 import { compareIsoTimes, formatLocalIsoTime } from "./ids.ts";
-import { loadStoreSnapshot, TasteStore } from "./store.ts";
 import { indexDirOf, writeFileAtomicSync } from "./store-files.ts";
+import { loadStoreSnapshot, TasteStore } from "./store.ts";
 
 export const LISTEN_POLL_MS = 500;
 export const LISTEN_HEARTBEAT_MS = 5_000;

@@ -2,7 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { Effect } from "effect";
+
 import {
   appendAgentThreadReply,
   appendOwnerThreadNote,
@@ -81,7 +83,10 @@ describe("taste core", () => {
     const { belief } = await inStore(root, proposeBelief(proposal));
     await inStore(root, decideBelief({ target: belief.belief.id, outcome: "reject", reason: "only acme-web" }));
 
-    const refusal = await inStore(root, Effect.flip(proposeBelief({ ...proposal, statement: "Use Tailwind everywhere for styling." })));
+    const refusal = await inStore(
+      root,
+      Effect.flip(proposeBelief({ ...proposal, statement: "Use Tailwind everywhere for styling." })),
+    );
     expect(refusal._tag).toBe("NearRepeatRefused");
     if (refusal._tag !== "NearRepeatRefused") throw refusal;
     expect(refusal.matches[0]).toMatchObject({
@@ -127,7 +132,12 @@ describe("taste core", () => {
     const { memory } = await inStore(root, capture("Use Effect for errors in acme-web.", ["acme-web"]));
     const { belief } = await inStore(
       root,
-      proposeBelief({ statement: "Use Effect for error handling", supports: [memory.id], applies_to: ["acme-web"], proposed_by: "claude-code/2.x" }),
+      proposeBelief({
+        statement: "Use Effect for error handling",
+        supports: [memory.id],
+        applies_to: ["acme-web"],
+        proposed_by: "claude-code/2.x",
+      }),
     );
     await inStore(root, decideBelief({ target: belief.belief.id, outcome: "accept" }));
     const query = recallBeliefs({ query: "effect errors", history: true });
@@ -161,14 +171,24 @@ describe("taste core", () => {
     expect(await inStore(root, pollListenerEvents("agent-1"))).toEqual([]);
 
     await inStore(root, appendOwnerThreadNote({ belief: belief.belief.id, text: "How small?" }));
-    await inStore(root, appendAgentThreadReply({ belief: belief.belief.id, agent: "agent-1", text: "Under 400 lines." }));
+    await inStore(
+      root,
+      appendAgentThreadReply({ belief: belief.belief.id, agent: "agent-1", text: "Under 400 lines." }),
+    );
     // An agent can never post as the owner, however it pads the name; otherwise it would wake listeners.
     expect(
-      await failureTag(root, appendAgentThreadReply({ belief: belief.belief.id, agent: " human:tester", text: "Me again." })),
+      await failureTag(
+        root,
+        appendAgentThreadReply({ belief: belief.belief.id, agent: " human:tester", text: "Me again." }),
+      ),
     ).toBe("InvalidRecordInput");
     const events = await inStore(root, pollListenerEvents("agent-1"));
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ belief: belief.belief.id, note: "How small?", statement: "Keep pull requests small" });
+    expect(events[0]).toMatchObject({
+      belief: belief.belief.id,
+      note: "How small?",
+      statement: "Keep pull requests small",
+    });
     expect(events[0]?.reply).toBe(`taste thread reply ${belief.belief.id} --as agent-1 "…"`);
 
     // A restart is a fresh process reading the same cursor file.

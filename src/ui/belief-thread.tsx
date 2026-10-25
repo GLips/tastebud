@@ -1,8 +1,9 @@
 import { ActionIcon, Alert, Badge, Group, Paper, Stack, Text, Textarea, Tooltip } from "@mantine/core";
-import { SendHorizontal } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { SendHorizontal } from "lucide-react";
 import { useState } from "react";
+
 import type { ListenerHeartbeat, ThreadEntryRecord } from "../core/index.ts";
 import { postOwnerThreadNote } from "../server/review-functions.ts";
 import { describeAuthor, formatReviewTime, formatTimeAgo } from "./format.ts";
@@ -32,7 +33,12 @@ export function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArra
     );
   }
   return (
-    <Tooltip label="Run `taste review listen --as <name>` in an agent session so notes wake it" withArrow multiline w={260}>
+    <Tooltip
+      label="Run `taste review listen --as <name>` in an agent session so notes wake it"
+      withArrow
+      multiline
+      w={260}
+    >
       <Group gap={8}>
         <span {...stylex.props(styles.dot, styles.dotIdle)} />
         <Text size="xs" c="dimmed">
@@ -90,7 +96,11 @@ export function BeliefThread({
         );
       })}
       <Textarea
-        placeholder={thread.length === 0 ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send" : "Reply  ·  ⌘↵ to send"}
+        placeholder={
+          thread.length === 0
+            ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send"
+            : "Reply  ·  ⌘↵ to send"
+        }
         autosize
         minRows={1}
         value={draft}
@@ -103,7 +113,13 @@ export function BeliefThread({
         }}
         rightSection={
           <Tooltip label={`Post as ${owner} · ⌘↵`} withArrow>
-            <ActionIcon variant="subtle" aria-label="Post note" onClick={submit} loading={post.isPending} disabled={draft.trim() === ""}>
+            <ActionIcon
+              variant="subtle"
+              aria-label="Post note"
+              onClick={submit}
+              loading={post.isPending}
+              disabled={draft.trim() === ""}
+            >
               <SendHorizontal size={15} />
             </ActionIcon>
           </Tooltip>

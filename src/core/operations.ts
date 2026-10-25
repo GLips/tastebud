@@ -1,6 +1,8 @@
 import { closeSync, openSync, rmSync, statSync, writeSync } from "node:fs";
 import { join } from "node:path";
+
 import { Effect, Schema } from "effect";
+
 import type { DecisionOutcome } from "../shared/vocabulary.ts";
 import {
   type AmbiguousRecordRef,
@@ -32,8 +34,8 @@ import {
   tokenJaccard,
 } from "./similarity.ts";
 import { decisionInvalidReason } from "./status.ts";
-import { resolveRecordRef, type StoreSnapshot, TasteStore } from "./store.ts";
 import { indexDirOf } from "./store-files.ts";
+import { resolveRecordRef, type StoreSnapshot, TasteStore } from "./store.ts";
 import { type BeliefView, buildBeliefView, type RepeatMatch, summarizeBelief } from "./views.ts";
 
 type WriteError = InvalidRecordInput | StoreWriteFailed | CorruptRecordFile;
@@ -155,11 +157,17 @@ export const proposeBelief = (
   Effect.gen(function* () {
     const store = yield* TasteStore;
     const snapshot = yield* store.snapshot;
-    const { supports: supportRefs, contradicts: contradictRefs, supersedes: supersedesRef, despite: despiteRef, ...fields } =
-      input;
+    const {
+      supports: supportRefs,
+      contradicts: contradictRefs,
+      supersedes: supersedesRef,
+      despite: despiteRef,
+      ...fields
+    } = input;
     const supports = yield* Effect.forEach(supportRefs, (ref) => resolveRecordRef(snapshot, ref, "Memory"));
     const contradicts = yield* Effect.forEach(contradictRefs ?? [], (ref) => resolveRecordRef(snapshot, ref, "Memory"));
-    const supersedes = supersedesRef === undefined ? undefined : yield* resolveRecordRef(snapshot, supersedesRef, "Belief");
+    const supersedes =
+      supersedesRef === undefined ? undefined : yield* resolveRecordRef(snapshot, supersedesRef, "Belief");
     const despite = despiteRef === undefined ? undefined : yield* resolveRecordRef(snapshot, despiteRef, "Belief");
     if (despite !== undefined && input.despite_case === undefined) {
       return yield* new InvalidRecordInput({ message: "--despite needs --why with the case for re-proposing" });
@@ -356,7 +364,10 @@ export const listInboxGroups: Effect.Effect<Array<InboxGroup>, CorruptRecordFile
   function* () {
     const store = yield* TasteStore;
     const snapshot = yield* store.snapshot;
-    const groups = new Map<string, { subject: string; appliesTo: ReadonlyArray<string> | undefined; cards: Array<InboxCard> }>();
+    const groups = new Map<
+      string,
+      { subject: string; appliesTo: ReadonlyArray<string> | undefined; cards: Array<InboxCard> }
+    >();
     const pending = snapshot.beliefs
       .filter((belief) => snapshot.beliefStates.get(belief.id)?.status === "pending")
       .sort((left, right) => left.proposed_at.localeCompare(right.proposed_at) || left.id.localeCompare(right.id));

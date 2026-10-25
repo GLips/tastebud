@@ -1,10 +1,12 @@
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/core";
-import type { QueryClient } from "@tanstack/react-query";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
+import type { QueryClient } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+
 import { ReviewAppShell } from "../ui/review-app-shell.tsx";
 import { tasteMantineTheme } from "../ui/theme.ts";
+
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -14,7 +16,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Taste" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", type: "image/svg+xml", href: "/brand/icon.svg" }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: "/brand/icon.svg" },
+    ],
   }),
   shellComponent: RootDocument,
   component: () => (

@@ -2,6 +2,7 @@
 /** `taste`: the CLI. Exit codes: 0 ok, 2 invalid input, 3 near repeat refused, 1 unexpected. */
 import { Cause, Effect, Exit } from "effect";
 import { Command } from "effect/cli";
+
 import {
   captureCommand,
   contextCommand,

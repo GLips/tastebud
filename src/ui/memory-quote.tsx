@@ -1,12 +1,20 @@
 import { ActionIcon, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { ExternalLink, History, TextQuote } from "lucide-react";
+
 import type { MemoryRecord } from "../core/index.ts";
 import { formatReviewTime } from "./format.ts";
 
 const styles = stylex.create({
   quote: { display: "flex", gap: "8px", alignItems: "baseline" },
-  mark: { fontSize: "18px", lineHeight: 0, fontWeight: 700, color: "var(--mantine-color-taste-4)", flexShrink: 0, transform: "translateY(4px)" },
+  mark: {
+    fontSize: "18px",
+    lineHeight: 0,
+    fontWeight: 700,
+    color: "var(--mantine-color-taste-4)",
+    flexShrink: 0,
+    transform: "translateY(4px)",
+  },
   against: { color: "var(--mantine-color-red-5)" },
   body: { minWidth: 0, flex: 1 },
   words: { whiteSpace: "pre-wrap" },
@@ -58,7 +66,16 @@ export function MemoryQuote({ memory, contradicts = false }: { memory: MemoryRec
           )}
           {memory.address !== undefined && (
             <Tooltip label="Open the source" withArrow>
-              <ActionIcon component="a" href={memory.address} target="_blank" rel="noreferrer" variant="subtle" color="gray" size="xs" aria-label="Open the source">
+              <ActionIcon
+                component="a"
+                href={memory.address}
+                target="_blank"
+                rel="noreferrer"
+                variant="subtle"
+                color="gray"
+                size="xs"
+                aria-label="Open the source"
+              >
                 <ExternalLink size={12} />
               </ActionIcon>
             </Tooltip>

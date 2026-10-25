@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import YAML from "yaml";
+
 import { CorruptRecordFile } from "./errors.ts";
 import { type TasteRecord, TasteRecordSchema } from "./records.ts";
 
@@ -12,9 +13,11 @@ const section = (heading: string, text: string | undefined) =>
 const renderBody = (record: TasteRecord): string => {
   switch (record.type) {
     case "Memory":
-      return [...section("Quote", record.quote), ...section("Before", record.before), ...section("After", record.after)].join(
-        "\n",
-      );
+      return [
+        ...section("Quote", record.quote),
+        ...section("Before", record.before),
+        ...section("After", record.after),
+      ].join("\n");
     case "Belief": {
       const reasoning = record.reasoning.trim();
       return [...(reasoning ? [reasoning, ""] : []), ...section("Despite", record.despite_case)].join("\n");

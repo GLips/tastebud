@@ -1,12 +1,14 @@
 import { Group, Text } from "@mantine/core";
-import { AnchorLink } from "./router-links.tsx";
+
 import type { BeliefSummary } from "../core/index.ts";
 import { BeliefStatusDot } from "./belief-chips.tsx";
 import { formatReviewDate } from "./format.ts";
+import { AnchorLink } from "./router-links.tsx";
 
 /** Another belief in one line: a status dot, its exact wording (linked), and the decision's reason if it has one. */
 export function BeliefSummaryLine({ summary, note }: { summary: BeliefSummary; note?: string }) {
-  const decided = summary.decidedAt !== undefined ? `${summary.status} ${formatReviewDate(summary.decidedAt)}` : undefined;
+  const decided =
+    summary.decidedAt !== undefined ? `${summary.status} ${formatReviewDate(summary.decidedAt)}` : undefined;
   return (
     <Group gap={8} wrap="nowrap" align="baseline">
       <BeliefStatusDot status={summary.status} />

@@ -3,6 +3,7 @@
 // `taste-store.server.ts` door. Decisions are written here and nowhere else.
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
+
 import { OptionalTrimmedText } from "../shared/input-text.ts";
 import { BeliefStatusSchema, type DecisionOutcome, DecisionOutcomeSchema } from "../shared/vocabulary.ts";
 import {
@@ -56,7 +57,11 @@ export const fetchBeliefDetail = createServerFn({ method: "GET" })
     runTasteEffect(
       Effect.gen(function* () {
         const store = yield* TasteStore;
-        return { view: yield* getBeliefView(data.id), listeners: yield* listListenerHeartbeats, owner: store.config.owner };
+        return {
+          view: yield* getBeliefView(data.id),
+          listeners: yield* listListenerHeartbeats,
+          owner: store.config.owner,
+        };
       }),
     ),
   );
@@ -93,7 +98,9 @@ export type ReviewDecisionResult =
 const decideOne = (target: string, outcome: DecisionOutcome, reason: string | undefined) =>
   decideBelief({ target, outcome, reason }).pipe(
     Effect.map((): ReviewDecisionResult => ({ ok: true, target })),
-    Effect.catch((error) => Effect.succeed<ReviewDecisionResult>({ ok: false, target, message: describeTasteFailure(error) })),
+    Effect.catch((error) =>
+      Effect.succeed<ReviewDecisionResult>({ ok: false, target, message: describeTasteFailure(error) }),
+    ),
   );
 
 const DecideInput = Schema.Struct({

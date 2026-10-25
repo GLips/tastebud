@@ -1,14 +1,27 @@
-import { Center, Group, Loader, Paper, SegmentedControl, Select, Stack, Table, Text, Title, Tooltip } from "@mantine/core";
-import { CornerDownRight, MessageSquare } from "lucide-react";
+import {
+  Center,
+  Group,
+  Loader,
+  Paper,
+  SegmentedControl,
+  Select,
+  Stack,
+  Table,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { AnchorLink } from "../ui/router-links.tsx";
 import { Schema } from "effect";
+import { CornerDownRight, MessageSquare } from "lucide-react";
+
+import { BELIEF_STATUSES, type BeliefStatus, BeliefStatusSchema } from "../shared/vocabulary.ts";
 import { BeliefScopeChips, BeliefStatusDot } from "../ui/belief-chips.tsx";
 import { formatReviewDate } from "../ui/format.ts";
-import { BELIEF_STATUSES, type BeliefStatus, BeliefStatusSchema } from "../shared/vocabulary.ts";
 import { beliefListQuery, reviewStoreInfoQuery } from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
+import { AnchorLink } from "../ui/router-links.tsx";
 
 const STATUS_CHOICES = ["all", ...BELIEF_STATUSES] as const;
 
@@ -47,10 +60,10 @@ function BeliefListScreen() {
             <Title order={3}>Beliefs</Title>
           </Tooltip>
           <SegmentedControl
-          size="xs"
-          value={search.status ?? "all"}
-          data={STATUS_CHOICES.map((value) => ({ value, label: value[0]?.toUpperCase() + value.slice(1) }))}
-          onChange={(value) => setFilter({ status: value === "all" ? undefined : (value as BeliefStatus) })}
+            size="xs"
+            value={search.status ?? "all"}
+            data={STATUS_CHOICES.map((value) => ({ value, label: value[0]?.toUpperCase() + value.slice(1) }))}
+            onChange={(value) => setFilter({ status: value === "all" ? undefined : (value as BeliefStatus) })}
           />
         </Group>
         <Select
@@ -83,13 +96,26 @@ function BeliefListScreen() {
                     <BeliefStatusDot status={belief.status} />
                   </Table.Td>
                   <Table.Td>
-                    <AnchorLink to="/beliefs/$id" params={{ id: belief.id }} c="inherit" fw={500} size="sm" underline="hover">
+                    <AnchorLink
+                      to="/beliefs/$id"
+                      params={{ id: belief.id }}
+                      c="inherit"
+                      fw={500}
+                      size="sm"
+                      underline="hover"
+                    >
                       {belief.statement}
                     </AnchorLink>
                     {belief.replacedBy !== undefined && (
                       <Group gap={4} wrap="nowrap">
                         <CornerDownRight size={12} color="var(--mantine-color-gray-5)" />
-                        <AnchorLink to="/beliefs/$id" params={{ id: belief.replacedBy.id }} size="xs" c="dimmed" lineClamp={1}>
+                        <AnchorLink
+                          to="/beliefs/$id"
+                          params={{ id: belief.replacedBy.id }}
+                          size="xs"
+                          c="dimmed"
+                          lineClamp={1}
+                        >
                           {belief.replacedBy.statement}
                         </AnchorLink>
                       </Group>
@@ -102,7 +128,10 @@ function BeliefListScreen() {
                   </Table.Td>
                   <Table.Td w={48}>
                     {belief.threadCount > 0 && (
-                      <Tooltip label={`${belief.threadCount} ${belief.threadCount === 1 ? "note" : "notes"} in the thread`} withArrow>
+                      <Tooltip
+                        label={`${belief.threadCount} ${belief.threadCount === 1 ? "note" : "notes"} in the thread`}
+                        withArrow
+                      >
                         <Group gap={3} wrap="nowrap" c="dimmed">
                           <MessageSquare size={13} />
                           <Text size="xs">{belief.threadCount}</Text>

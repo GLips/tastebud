@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+
 import { acceptReviewGroup, decideReviewBelief } from "../server/review-functions.ts";
 import type { DecisionOutcome } from "../shared/vocabulary.ts";
 
@@ -19,7 +20,8 @@ export function useReviewDecision(target: string) {
     onSettled: () => queryClient.invalidateQueries(),
   });
   return {
-    decide: (outcome: DecisionOutcome, reason?: string) => mutation.mutateAsync(reason === undefined ? { outcome } : { outcome, reason }),
+    decide: (outcome: DecisionOutcome, reason?: string) =>
+      mutation.mutateAsync(reason === undefined ? { outcome } : { outcome, reason }),
     pending: mutation.isPending,
     error,
     clearError: () => setError(undefined),

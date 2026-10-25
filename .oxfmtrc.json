@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "experimentalSortImports": { "order": "asc" },
+  "experimentalSortPackageJson": true,
+  "ignorePatterns": [
+    "**/*.md",
+    ".claude/**",
+    "docs/**",
+    ".agent_cache/**",
+    "demo/**",
+    ".tanstack/**",
+    "**/routeTree.gen.ts"
+  ]
+}

@@ -1,7 +1,9 @@
 /** The store, write and read commands. Each parses its input, calls core, and prints the result. */
 import { userInfo } from "node:os";
+
 import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
+
 import {
   appendAgentThreadReply,
   buildHookPayload,
@@ -33,7 +35,10 @@ const optionalString = (name: string, description: string) =>
 const repeatableString = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.atLeast(0), Flag.withDescription(description));
 const appliesToFlag = repeatableString("applies-to", "A scope, e.g. a project name (repeatable)");
-const scopeFlag = optionalString("applies-to", "Only beliefs in scope for this (missing applies_to counts as everywhere)");
+const scopeFlag = optionalString(
+  "applies-to",
+  "Only beliefs in scope for this (missing applies_to counts as everywhere)",
+);
 
 const parseStdinJson = Effect.gen(function* () {
   const text = yield* readCliStdin;
@@ -56,7 +61,10 @@ export const initCommand = Command.make(
   ({ owner, json, store }) =>
     Effect.gen(function* () {
       const root = resolveCliStoreRoot(store);
-      const config = yield* initStore(root, Option.getOrElse(owner, () => `human:${userInfo().username}`));
+      const config = yield* initStore(
+        root,
+        Option.getOrElse(owner, () => `human:${userInfo().username}`),
+      );
       yield* emitCliResult(json, { root, ...config }, () => `Created a store at ${root} owned by ${config.owner}.`);
     }),
 ).pipe(Command.withDescription("Create a store"));
@@ -85,7 +93,9 @@ export const captureCommand = Command.make(
     appliesTo: appliesToFlag,
     revises: optionalString("revises", "A memory this one revises (an edited message)"),
     via: optionalString("via", "The capturing agent, e.g. claude-code/2.x"),
-    json: jsonFlag.pipe(Flag.withDescription("Read a capture object from stdin (when --quote is absent) and print JSON")),
+    json: jsonFlag.pipe(
+      Flag.withDescription("Read a capture object from stdin (when --quote is absent) and print JSON"),
+    ),
     store: storeFlag,
   },
   (flags) =>

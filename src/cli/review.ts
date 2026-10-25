@@ -1,7 +1,9 @@
 /** `taste review` (starts the UI dev server) and `taste review listen` (wakes an agent on human notes). */
 import { fileURLToPath } from "node:url";
+
 import { Effect } from "effect";
 import { Command, Flag } from "effect/cli";
+
 import {
   LISTEN_HEARTBEAT_MS,
   LISTEN_POLL_MS,
@@ -28,7 +30,10 @@ const listenCommand = Command.make(
         Effect.andThen(Effect.sleep(LISTEN_POLL_MS)),
         Effect.forever,
       );
-      const heartbeat = writeListenerHeartbeat(as).pipe(Effect.andThen(Effect.sleep(LISTEN_HEARTBEAT_MS)), Effect.forever);
+      const heartbeat = writeListenerHeartbeat(as).pipe(
+        Effect.andThen(Effect.sleep(LISTEN_HEARTBEAT_MS)),
+        Effect.forever,
+      );
       // stderr, so stdout stays one JSON object per line for Monitor.
       yield* printErrorLine(`taste: listening as ${as} on ${resolveCliStoreRoot(store)}`);
       yield* inCliStore(store, Effect.all([poll, heartbeat], { concurrency: "unbounded", discard: true }));
@@ -58,7 +63,4 @@ export const reviewCommand = Command.make(
       const code = yield* Effect.promise(() => child.exited);
       if (code !== 0) process.exitCode = code;
     }),
-).pipe(
-  Command.withDescription("Start the review UI on localhost"),
-  Command.withSubcommands([listenCommand]),
-);
+).pipe(Command.withDescription("Start the review UI on localhost"), Command.withSubcommands([listenCommand]));

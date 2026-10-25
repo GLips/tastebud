@@ -4,6 +4,7 @@
  * Refs accept a full id, the file's short id, or a unique id prefix.
  */
 import { Effect } from "effect";
+
 import type { InvalidRecordInput, StoreNotInitialised } from "./errors.ts";
 import { makeTasteStoreLayer, type TasteStore } from "./store.ts";
 
@@ -56,5 +57,7 @@ export {
 /** Provides an open store to `effect` and closes its index afterwards. */
 export const provideTasteStore =
   (root: string) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | StoreNotInitialised | InvalidRecordInput, Exclude<R, TasteStore>> =>
+  <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E | StoreNotInitialised | InvalidRecordInput, Exclude<R, TasteStore>> =>
     Effect.provide(effect, makeTasteStoreLayer(root));

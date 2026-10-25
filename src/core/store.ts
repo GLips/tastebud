@@ -1,7 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { statSync } from "node:fs";
 import { join } from "node:path";
+
 import { Context, Effect, Layer, Schema } from "effect";
+
 import {
   AmbiguousRecordRef,
   type CorruptRecordFile,
@@ -33,7 +35,13 @@ import type {
 } from "./records.ts";
 import { TasteRecordSchema } from "./records.ts";
 import { type BeliefState, deriveBeliefStates } from "./status.ts";
-import { readStoreConfig, recordRelativePath, type StoreConfig, uniqueShortId, writeFileExclusive } from "./store-files.ts";
+import {
+  readStoreConfig,
+  recordRelativePath,
+  type StoreConfig,
+  uniqueShortId,
+  writeFileExclusive,
+} from "./store-files.ts";
 
 interface IndexHandle {
   current: Database;
@@ -93,7 +101,10 @@ export class TasteStore extends Context.Service<
     /** Validates with Schema, writes the file with exclusive create, then refreshes the index. */
     readonly write: <R extends TasteRecord>(
       record: R,
-    ) => Effect.Effect<IndexedRecord & { readonly record: R }, InvalidRecordInput | StoreWriteFailed | CorruptRecordFile>;
+    ) => Effect.Effect<
+      IndexedRecord & { readonly record: R },
+      InvalidRecordInput | StoreWriteFailed | CorruptRecordFile
+    >;
     /** `taste reindex`: deletes the sqlite files and rebuilds from the record files. */
     readonly rebuild: Effect.Effect<IndexRefreshResult, CorruptRecordFile>;
   }
@@ -130,7 +141,9 @@ export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, Store
         search: (text, types) => Effect.map(freshIndex, (db) => searchIndex(db, text, types)),
         write: (record) =>
           Effect.gen(function* () {
-            yield* validateRecord(record).pipe(Effect.mapError((error) => new InvalidRecordInput({ message: error.message })));
+            yield* validateRecord(record).pipe(
+              Effect.mapError((error) => new InvalidRecordInput({ message: error.message })),
+            );
             const shortId = uniqueShortId(record.id, loadIndexedShortIds(yield* freshIndex));
             const path = recordRelativePath(record, shortId);
             yield* writeFileExclusive(join(root, path), renderRecordFile(record));

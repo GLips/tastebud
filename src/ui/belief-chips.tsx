@@ -1,6 +1,7 @@
 import { Badge, Group, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { Globe } from "lucide-react";
+
 import { type BeliefStatus, formatScopeLabel } from "../shared/vocabulary.ts";
 
 const STATUS_COLORS: Record<BeliefStatus, string> = {
@@ -45,7 +46,13 @@ export function BeliefStatusDot({ status }: { status: BeliefStatus }) {
 
 /** The word form, for a record's own header where the status is the headline. */
 export function BeliefStatusBadge({ status }: { status: BeliefStatus }) {
-  const colors: Record<BeliefStatus, string> = { pending: "blue", accepted: "teal", rejected: "red", retracted: "gray", superseded: "gray" };
+  const colors: Record<BeliefStatus, string> = {
+    pending: "blue",
+    accepted: "teal",
+    rejected: "red",
+    retracted: "gray",
+    superseded: "gray",
+  };
   return (
     <Badge color={colors[status]} variant="light" style={{ flexShrink: 0 }}>
       {status}
@@ -58,7 +65,13 @@ export function BeliefScopeChips({ appliesTo }: { appliesTo: ReadonlyArray<strin
   if (appliesTo === undefined) {
     return (
       <Tooltip label="No scope: this would apply in every project" withArrow>
-        <Badge color="orange" variant="light" tt="none" styles={UNCLIPPED_LABEL} leftSection={<Globe size={11} strokeWidth={2.25} />}>
+        <Badge
+          color="orange"
+          variant="light"
+          tt="none"
+          styles={UNCLIPPED_LABEL}
+          leftSection={<Globe size={11} strokeWidth={2.25} />}
+        >
           {formatScopeLabel(appliesTo)}
         </Badge>
       </Tooltip>

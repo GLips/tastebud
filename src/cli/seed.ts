@@ -5,6 +5,7 @@
  */
 import { Effect } from "effect";
 import { Command } from "effect/cli";
+
 import {
   appendAgentThreadReply,
   appendOwnerThreadNote,
@@ -53,9 +54,13 @@ const writeSeedRecords = Effect.gen(function* () {
     ),
   );
   const namedExports = yield* capture(
-    dana("No default exports, ever. Named exports only, so grep finds the thing by its name.", "2026-09-05T15:40:00-07:00", {
-      address: "https://example.com/acme/pull/430#discussion_r7",
-    }),
+    dana(
+      "No default exports, ever. Named exports only, so grep finds the thing by its name.",
+      "2026-09-05T15:40:00-07:00",
+      {
+        address: "https://example.com/acme/pull/430#discussion_r7",
+      },
+    ),
   );
   const integrationTests = yield* capture(
     dana(
@@ -66,10 +71,14 @@ const writeSeedRecords = Effect.gen(function* () {
   );
   const tailwindFirst = yield* capture(dana("Use Tailwind for the styling.", "2026-09-15T11:20:00-07:00"));
   const tailwindRevised = yield* capture(
-    dana("Only use Tailwind in acme-web, not billing-api. billing-api has no UI worth a CSS framework.", "2026-09-15T11:26:00-07:00", {
-      revises: tailwindFirst,
-      after: "Agent: Got it, leaving billing-api's admin pages on plain CSS.",
-    }),
+    dana(
+      "Only use Tailwind in acme-web, not billing-api. billing-api has no UI worth a CSS framework.",
+      "2026-09-15T11:26:00-07:00",
+      {
+        revises: tailwindFirst,
+        after: "Agent: Got it, leaving billing-api's admin pages on plain CSS.",
+      },
+    ),
   );
   const taggedErrors = yield* capture(
     dana(
@@ -117,8 +126,10 @@ const writeSeedRecords = Effect.gen(function* () {
     supports: [tailwindFirst, tailwindRevised],
     applies_to: ["acme-web", "billing-api"],
     despite: tailwindEverywhere,
-    despite_case: "The rejection said only acme-web, but billing-api has since grown an admin dashboard that reuses acme-web components, which already depend on Tailwind.",
-    reasoning: "Reusing acme-web's components in the billing-api dashboard would mean duplicating their styles without Tailwind.",
+    despite_case:
+      "The rejection said only acme-web, but billing-api has since grown an admin dashboard that reuses acme-web components, which already depend on Tailwind.",
+    reasoning:
+      "Reusing acme-web's components in the billing-api dashboard would mean duplicating their styles without Tailwind.",
   });
 
   yield* appendOwnerThreadNote({

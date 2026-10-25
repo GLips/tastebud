@@ -1,6 +1,7 @@
 import { Group, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { CornerDownRight, RotateCcw, TriangleAlert } from "lucide-react";
+
 import type { BeliefSummary } from "../core/index.ts";
 import { formatReviewDate } from "./format.ts";
 import { AnchorLink } from "./router-links.tsx";
@@ -32,7 +33,12 @@ export function SupersedesNotice({ replaces }: { replaces: BeliefSummary }) {
 export function DespiteNotice({ despite, agentCase }: { despite: BeliefSummary; agentCase: string | undefined }) {
   return (
     <div {...stylex.props(styles.aside)}>
-      <Tooltip label="An agent re-proposed this after you turned down something close to it" withArrow multiline w={240}>
+      <Tooltip
+        label="An agent re-proposed this after you turned down something close to it"
+        withArrow
+        multiline
+        w={240}
+      >
         <TriangleAlert size={14} color="var(--mantine-color-orange-6)" {...stylex.props(styles.icon)} />
       </Tooltip>
       <Stack gap={2}>

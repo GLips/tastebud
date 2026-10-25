@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { RouteErrorPanel, RouteNotFoundPanel } from "./ui/route-panels.tsx";
+
 import { routeTree } from "./routeTree.gen.ts";
+import { RouteErrorPanel, RouteNotFoundPanel } from "./ui/route-panels.tsx";
 
 export function getRouter() {
   // No retries: the server reads files on this machine, so a failure is an answer, not a blip.

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+
 import {
   OptionalTrimmedText,
   OptionalTrimmedTextList,
@@ -16,7 +17,9 @@ export const ISO_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9}
 const SAID_AT_PRECISIONS = ["second", "minute", "day"] as const;
 
 const NonEmpty = Schema.String.check(Schema.isMinLength(1));
-const IsoTime = Schema.String.check(Schema.isPattern(ISO_TIME_PATTERN, { message: "expected ISO 8601 with an offset" }));
+const IsoTime = Schema.String.check(
+  Schema.isPattern(ISO_TIME_PATTERN, { message: "expected ISO 8601 with an offset" }),
+);
 /** `kind:rest`, e.g. `slack:acme/U123`, `human:demo`, `claude-code/2.x` is NOT an account. */
 const Account = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]*:\S+$/, { message: "expected <kind>:<id>" }));
 const HumanAccount = Schema.String.check(Schema.isPattern(/^human:\S+$/, { message: "expected human:<id>" }));

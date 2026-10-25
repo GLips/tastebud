@@ -1,7 +1,9 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+
 import { Effect } from "effect";
+
 import type { CorruptRecordFile } from "./errors.ts";
 import { parseRecordFile } from "./frontmatter.ts";
 import type { RecordType, TasteRecord } from "./records.ts";
@@ -121,7 +123,12 @@ export const refreshIndex = (db: Database, root: string): Effect.Effect<IndexRef
   });
 
 export const loadIndexedShortIds = (db: Database): Set<string> =>
-  new Set(db.query<{ short_id: string }, []>("select short_id from records").all().map((row) => row.short_id));
+  new Set(
+    db
+      .query<{ short_id: string }, []>("select short_id from records")
+      .all()
+      .map((row) => row.short_id),
+  );
 
 export const loadIndexedRecords = (db: Database): Array<IndexedRecord> =>
   db

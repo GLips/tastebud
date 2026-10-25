@@ -1,0 +1,18 @@
+# One writer first (format re-stages what it touched), then the readers in parallel.
+pre-commit:
+  jobs:
+    - name: format
+      glob: "*.{ts,tsx,js,mjs,cjs,json}"
+      run: bunx oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    - name: gate
+      group:
+        parallel: true
+        jobs:
+          - name: lint
+            glob: "*.{ts,tsx}"
+            run: bunx oxlint --no-error-on-unmatched-pattern {staged_files}
+          - name: typecheck
+            run: bun run typecheck
+          - name: test
+            run: bun test

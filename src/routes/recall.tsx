@@ -21,6 +21,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { FolderTree, History, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
+
 import type { RecalledBelief, RecallResult } from "../core/index.ts";
 import { BeliefScopeChips, BeliefStatusDot } from "../ui/belief-chips.tsx";
 import { formatReviewDate } from "../ui/format.ts";
@@ -65,7 +66,13 @@ function RecallSectionHeading({ children, count }: { children: ReactNode; count:
 }
 
 /** One recalled belief as a row: status dot, wording, scope, and whatever should travel with it. */
-function RecallBeliefRow({ id, status, statement, appliesTo, children }: Pick<RecalledBelief, "id" | "status" | "statement" | "appliesTo"> & { children?: ReactNode }) {
+function RecallBeliefRow({
+  id,
+  status,
+  statement,
+  appliesTo,
+  children,
+}: Pick<RecalledBelief, "id" | "status" | "statement" | "appliesTo"> & { children?: ReactNode }) {
   return (
     <div {...stylex.props(styles.row)}>
       <BeliefStatusDot status={status} />
@@ -102,7 +109,13 @@ function RecallSections({ recall }: { recall: RecallResult }) {
         <Stack gap={8}>
           <RecallSectionHeading count={recall.notBelieved.length}>Not believed</RecallSectionHeading>
           {recall.notBelieved.map((rejection) => (
-            <RecallBeliefRow key={rejection.id} id={rejection.id} status="rejected" statement={rejection.statement} appliesTo={rejection.appliesTo}>
+            <RecallBeliefRow
+              key={rejection.id}
+              id={rejection.id}
+              status="rejected"
+              statement={rejection.statement}
+              appliesTo={rejection.appliesTo}
+            >
               <Text size="xs" c="dimmed">
                 “{rejection.reason}” · {formatReviewDate(rejection.decidedAt)}
               </Text>
@@ -137,7 +150,12 @@ function HookPayloadPanel({ context, stdout }: { context: string; stdout: string
   return (
     <Paper p="sm">
       <Group justify="space-between" mb="xs">
-        <Tooltip label="The exact text the prompt hook would add before the agent sees the prompt" withArrow multiline w={260}>
+        <Tooltip
+          label="The exact text the prompt hook would add before the agent sees the prompt"
+          withArrow
+          multiline
+          w={260}
+        >
           <Text size="sm" fw={600}>
             Injected
           </Text>
@@ -199,8 +217,23 @@ function RecallInspectorScreen() {
             style={{ flex: 1 }}
             autoFocus
           />
-          <Autocomplete aria-label="Scope" placeholder="Any scope" leftSection={<FolderTree size={14} />} data={scopes} value={scope} onChange={setScope} w={180} />
-          <Tooltip label={submitted.history ? "Hiding nothing: replaced and retracted included" : "Include replaced and retracted beliefs"} withArrow>
+          <Autocomplete
+            aria-label="Scope"
+            placeholder="Any scope"
+            leftSection={<FolderTree size={14} />}
+            data={scopes}
+            value={scope}
+            onChange={setScope}
+            w={180}
+          />
+          <Tooltip
+            label={
+              submitted.history
+                ? "Hiding nothing: replaced and retracted included"
+                : "Include replaced and retracted beliefs"
+            }
+            withArrow
+          >
             <ActionIcon
               size="lg"
               variant={submitted.history ? "light" : "default"}
@@ -235,7 +268,10 @@ function RecallInspectorScreen() {
               Nothing matched, so the hook stays silent and the prompt goes through untouched.
             </Alert>
           ) : (
-            <HookPayloadPanel context={inspection.data.hook.additionalContext} stdout={inspection.data.hook.hookOutput} />
+            <HookPayloadPanel
+              context={inspection.data.hook.additionalContext}
+              stdout={inspection.data.hook.hookOutput}
+            />
           )}
         </div>
       )}

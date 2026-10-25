@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { UserRound } from "lucide-react";
 import type { ReactNode } from "react";
+
 import { reviewStoreInfoQuery } from "./review-queries.ts";
 
 const styles = stylex.create({
@@ -38,7 +39,9 @@ const styles = stylex.create({
 });
 
 // TanStack's `activeProps` styles the current tab; StyleX can't express "this link is active", so this is inline.
-const ACTIVE_NAV = { style: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" } };
+const ACTIVE_NAV = {
+  style: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
+};
 
 export function ReviewAppShell({ children }: { children: ReactNode }) {
   const info = useQuery(reviewStoreInfoQuery);

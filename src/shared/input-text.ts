@@ -31,7 +31,10 @@ const trimList = (values: ReadonlyArray<string>): Array<string> =>
 export const TrimmedTextList = Schema.Array(Schema.String).pipe(
   Schema.decodeTo(
     Schema.Array(Schema.String),
-    SchemaTransformation.transform<ReadonlyArray<string>, ReadonlyArray<string>>({ decode: trimList, encode: (values) => values }),
+    SchemaTransformation.transform<ReadonlyArray<string>, ReadonlyArray<string>>({
+      decode: trimList,
+      encode: (values) => values,
+    }),
   ),
 );
 

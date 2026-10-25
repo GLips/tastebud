@@ -1,4 +1,5 @@
 import { Data } from "effect";
+
 import type { BeliefStatus, DecisionOutcome } from "../shared/vocabulary.ts";
 import type { RepeatMatch } from "./views.ts";
 

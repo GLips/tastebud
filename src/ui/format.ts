@@ -1,6 +1,11 @@
 /** Time and id formatting shared by every screen. Pure, so the browser can use it. */
 
-const dateTime = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const dateTime = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
 const dateOnly = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 export const formatReviewTime = (iso: string | undefined): string =>

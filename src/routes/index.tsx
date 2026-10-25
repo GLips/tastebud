@@ -1,10 +1,11 @@
 import { ActionIcon, Alert, Button, Center, Group, Kbd, Loader, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCheck, Keyboard, PartyPopper } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
 import type { InboxGroup } from "../core/index.ts";
 import { BeliefScopeChips } from "../ui/belief-chips.tsx";
 import { InboxProposalCard } from "../ui/inbox-card.tsx";
@@ -16,7 +17,13 @@ export const Route = createFileRoute("/")({ component: InboxScreen });
 
 const styles = stylex.create({
   screen: { maxWidth: "820px", marginInline: "auto" },
-  groupHeader: { position: "sticky", top: "48px", zIndex: 5, paddingBlock: "6px", backgroundColor: "var(--mantine-color-gray-0)" },
+  groupHeader: {
+    position: "sticky",
+    top: "48px",
+    zIndex: 5,
+    paddingBlock: "6px",
+    backgroundColor: "var(--mantine-color-gray-0)",
+  },
   keys: { display: "grid", gridTemplateColumns: "auto auto", columnGap: "10px", rowGap: "4px", alignItems: "center" },
 });
 
@@ -69,7 +76,12 @@ function InboxGroupSection({
           </Tooltip>
         </Group>
         {group.cards.length > 1 && (
-          <Button variant="subtle" leftSection={<CheckCheck size={14} />} loading={accept.pending} onClick={() => accept.acceptAll(targets)}>
+          <Button
+            variant="subtle"
+            leftSection={<CheckCheck size={14} />}
+            loading={accept.pending}
+            onClick={() => accept.acceptAll(targets)}
+          >
             Accept all {group.cards.length}
           </Button>
         )}
@@ -146,7 +158,13 @@ function InboxScreen() {
   return (
     <Stack gap="md" {...stylex.props(styles.screen)}>
       <Group justify="space-between" align="center">
-        <Tooltip label="What agents proposed from what you said. Nothing is believed until you accept it." withArrow multiline w={260} position="bottom-start">
+        <Tooltip
+          label="What agents proposed from what you said. Nothing is believed until you accept it."
+          withArrow
+          multiline
+          w={260}
+          position="bottom-start"
+        >
           <Title order={3}>Inbox</Title>
         </Tooltip>
         <Tooltip

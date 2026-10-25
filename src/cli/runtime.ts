@@ -5,6 +5,7 @@
 import { Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect";
 import { CliError, Flag } from "effect/cli";
 import { ChildProcessSpawner } from "effect/process";
+
 import { provideTasteStore, resolveStoreRoot, type TasteError, type TasteStore } from "../core/index.ts";
 import { formatTasteErrorText } from "./format.ts";
 
@@ -77,7 +78,9 @@ const EXIT_CODE_BY_TASTE_ERROR: Record<TasteError["_tag"], number> = {
  * errors (exit 2, or 0 for a bare help request). A defect prints its stack and exits 1.
  */
 export const reportCliFailure = (
-  failure: { readonly _tag: "Fail"; readonly error: TasteError | CliError.CliError } | { readonly _tag: "Die"; readonly defect: unknown },
+  failure:
+    | { readonly _tag: "Fail"; readonly error: TasteError | CliError.CliError }
+    | { readonly _tag: "Die"; readonly defect: unknown },
   json: boolean,
 ): number => {
   if (failure._tag === "Die") {

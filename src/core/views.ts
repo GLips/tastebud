@@ -1,8 +1,9 @@
 import { Effect } from "effect";
+
+import type { BeliefStatus } from "../shared/vocabulary.ts";
 import type { AmbiguousRecordRef, CorruptRecordFile, UnknownRecordRef } from "./errors.ts";
 import { compareIsoTimes } from "./ids.ts";
 import type { BeliefRecord, DecisionRecord, MemoryRecord, TasteRecord, ThreadEntryRecord } from "./records.ts";
-import type { BeliefStatus } from "../shared/vocabulary.ts";
 import { isBeliefInScope } from "./status.ts";
 import {
   loadStoreSnapshot,

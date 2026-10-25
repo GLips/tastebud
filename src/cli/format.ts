@@ -1,5 +1,6 @@
 /** Readable (non-`--json`) renderings of core results. Pure string building, no IO. */
 import { Match } from "effect";
+
 import type {
   BeliefSummary,
   BeliefView,
@@ -28,7 +29,8 @@ const quoted = (text: string) => `"${text.replace(/\s+/g, " ").trim()}"`;
 export const formatAttribution = (memory: MemoryRecord) =>
   [`${memory.said_by_label} (${memory.said_by})`, minute(memory.said_at), memory.address].filter(Boolean).join(" · ");
 
-const formatQuoteLine = (memory: MemoryRecord) => `${quoted(memory.quote)}\n  — ${formatAttribution(memory)}  [${memory.id}]`;
+const formatQuoteLine = (memory: MemoryRecord) =>
+  `${quoted(memory.quote)}\n  — ${formatAttribution(memory)}  [${memory.id}]`;
 
 const formatSummary = (belief: BeliefSummary) => {
   const decided = belief.decidedAt ? ` ${day(belief.decidedAt)}` : "";
@@ -64,14 +66,21 @@ export const formatRecallText = (result: RecallResult, history: boolean) =>
       result.memories.map((memory) => `- ${formatQuoteLine(memory).replace("\n", "\n  ")}`),
     ),
     ...(history
-      ? [section("History", result.history.map((belief) => formatRecalledBelief(belief, ` (${belief.status})`)))]
+      ? [
+          section(
+            "History",
+            result.history.map((belief) => formatRecalledBelief(belief, ` (${belief.status})`)),
+          ),
+        ]
       : []),
   ].join("\n\n");
 
 export const formatContextText = (beliefs: ReadonlyArray<RecalledBelief>) =>
   beliefs.length === 0
     ? "(no accepted beliefs in scope)"
-    : beliefs.map((belief) => `- ${belief.statement}  {${formatScopeLabel(belief.appliesTo)}}  [${belief.id}]`).join("\n");
+    : beliefs
+        .map((belief) => `- ${belief.statement}  {${formatScopeLabel(belief.appliesTo)}}  [${belief.id}]`)
+        .join("\n");
 
 const formatMatches = (title: string, matches: ReadonlyArray<RepeatMatch>) =>
   matches.length === 0
@@ -123,7 +132,9 @@ const formatBeliefView = (view: BeliefView) => {
       ? ["Contradicts", ...view.contradicts.map((memory) => indent(formatQuoteLine(memory), "  "))]
       : []),
     ...(view.supersedes ? ["", `Supersedes ${formatSummary(view.supersedes)}`] : []),
-    ...(view.revisions.length > 0 ? ["", "Revised by", ...view.revisions.map((other) => `  ${formatSummary(other)}`)] : []),
+    ...(view.revisions.length > 0
+      ? ["", "Revised by", ...view.revisions.map((other) => `  ${formatSummary(other)}`)]
+      : []),
     ...(view.despite ? ["", `Proposed despite ${formatSummary(view.despite)}`] : []),
     ...(view.decisions.length > 0
       ? [
@@ -143,7 +154,9 @@ const formatBeliefView = (view: BeliefView) => {
 export const formatShowText = (result: ShowResult) => {
   const { record } = result;
   const reverse = [
-    ...(result.citedBy.length > 0 ? ["", "Cited by", ...result.citedBy.map((belief) => `  ${formatSummary(belief)}`)] : []),
+    ...(result.citedBy.length > 0
+      ? ["", "Cited by", ...result.citedBy.map((belief) => `  ${formatSummary(belief)}`)]
+      : []),
     ...(result.revisedBy.length > 0
       ? ["", "Revised by", ...result.revisedBy.map((memory) => `  ${quoted(memory.quote)}  [${memory.id}]`)]
       : []),
@@ -195,10 +208,12 @@ export const formatTasteErrorText = (error: TasteError): string =>
     StoreNotInitialised: (missing) =>
       `taste: No store at ${missing.root}. Run \`taste init\` or \`taste seed\`, or pass --store / set TASTE_STORE.`,
     StoreAlreadyExists: (existing) => `taste: A store already exists at ${existing.root}.`,
-    StoreNotEmpty: (full) => `taste: The store at ${full.root} already holds ${full.recordCount} records; seed needs an empty store.`,
+    StoreNotEmpty: (full) =>
+      `taste: The store at ${full.root} already holds ${full.recordCount} records; seed needs an empty store.`,
     InvalidRecordInput: (invalid) => `taste: ${invalid.message}`,
     UnknownRecordRef: (unknown) => `taste: No ${unknown.expected} matches "${unknown.ref}".`,
-    AmbiguousRecordRef: (ambiguous) => `taste: "${ambiguous.ref}" matches several records: ${ambiguous.candidates.join(", ")}`,
+    AmbiguousRecordRef: (ambiguous) =>
+      `taste: "${ambiguous.ref}" matches several records: ${ambiguous.candidates.join(", ")}`,
     CorruptRecordFile: (corrupt) => `taste: Unreadable record file ${corrupt.path}: ${corrupt.message}`,
     DecisionNotAllowed: (refused) => `taste: ${refused.message}`,
     DecisionLockTimeout: (timeout) => `taste: Another process held ${timeout.lockPath} too long.`,

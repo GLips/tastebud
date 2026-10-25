@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+
 import { formatScopeLabel } from "../shared/vocabulary.ts";
 import type { CorruptRecordFile } from "./errors.ts";
 import { recallBeliefs } from "./recall.ts";

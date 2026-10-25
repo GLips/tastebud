@@ -6,6 +6,7 @@
  * if set, else every scope (each item is labelled with its scope).
  */
 import { Effect } from "effect";
+
 import { buildHookPayload, provideTasteStore, resolveStoreRoot } from "../src/core/index.ts";
 
 /** A prompt must never wait on taste: past this, print nothing and let the prompt through. */
@@ -16,7 +17,9 @@ const input = JSON.parse(await Bun.stdin.text()) as { readonly prompt?: string; 
 const root = resolveStoreRoot({ env: process.env.TASTE_STORE, cwd: input.cwd ?? process.cwd() });
 
 const payload = await Effect.runPromise(
-  provideTasteStore(root)(buildHookPayload({ prompt: input.prompt ?? "", scope: process.env.TASTE_SCOPE || undefined })).pipe(
+  provideTasteStore(root)(
+    buildHookPayload({ prompt: input.prompt ?? "", scope: process.env.TASTE_SCOPE || undefined }),
+  ).pipe(
     // Installed globally, the hook runs in projects that have no store; that is not an error.
     Effect.catchTag("StoreNotInitialised", () => Effect.succeed(undefined)),
   ),

@@ -1,15 +1,29 @@
-import { ActionIcon, Alert, Button, Center, CopyButton, Group, Loader, Paper, Stack, Text, Timeline, Title, Tooltip } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Center,
+  CopyButton,
+  Group,
+  Loader,
+  Paper,
+  Stack,
+  Text,
+  Timeline,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Check, Undo2, X } from "lucide-react";
 import { useState } from "react";
+
 import type { BeliefSummary } from "../core/index.ts";
+import { shortIdOf } from "../shared/vocabulary.ts";
 import { DespiteNotice, SupersedesNotice } from "../ui/belief-asides.tsx";
 import { BeliefScopeChips, BeliefStatusBadge } from "../ui/belief-chips.tsx";
 import { BeliefSummaryLine } from "../ui/belief-link.tsx";
 import { BeliefThread } from "../ui/belief-thread.tsx";
-import { shortIdOf } from "../shared/vocabulary.ts";
 import { describeAuthor, formatReviewTime, formatTimeAgo } from "../ui/format.ts";
 import { MemoryQuote } from "../ui/memory-quote.tsx";
 import { RejectReasonForm } from "../ui/reject-reason-form.tsx";
@@ -118,7 +132,9 @@ function BeliefScreen() {
             <span title={formatReviewTime(belief.proposed_at)}>
               {belief.proposed_by} · {formatTimeAgo(belief.proposed_at)}
             </span>
-            {belief.reasoning.trim() !== "" && <span {...stylex.props(styles.prose)}> — {belief.reasoning.trim()}</span>}
+            {belief.reasoning.trim() !== "" && (
+              <span {...stylex.props(styles.prose)}> — {belief.reasoning.trim()}</span>
+            )}
           </Text>
         </Stack>
         {view.status === "pending" && !rejecting && (
@@ -126,7 +142,11 @@ function BeliefScreen() {
             <Button variant="default" leftSection={<X size={14} />} onClick={() => setRejecting(true)}>
               Reject
             </Button>
-            <Button leftSection={<Check size={14} />} loading={decision.pending} onClick={() => void decision.decide("accept")}>
+            <Button
+              leftSection={<Check size={14} />}
+              loading={decision.pending}
+              onClick={() => void decision.decide("accept")}
+            >
               Accept
             </Button>
           </Group>

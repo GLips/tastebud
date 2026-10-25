@@ -1,5 +1,5 @@
-import { compareIsoTimes } from "./ids.ts";
 import type { BeliefStatus, DecisionOutcome } from "../shared/vocabulary.ts";
+import { compareIsoTimes } from "./ids.ts";
 import type { BeliefRecord, DecisionRecord } from "./records.ts";
 
 export interface BeliefState {
@@ -28,7 +28,8 @@ export const decisionInvalidReason = (
   statusOf: (id: string) => BeliefStatus | undefined,
 ): string | undefined => {
   const status = statusOf(belief.id);
-  if (outcome === "retract") return status === "accepted" ? undefined : `can only retract an accepted belief (it is ${status})`;
+  if (outcome === "retract")
+    return status === "accepted" ? undefined : `can only retract an accepted belief (it is ${status})`;
   if (status !== "pending") return `can only ${outcome} a pending belief (it is ${status})`;
   if (outcome === "accept" && belief.supersedes !== undefined) {
     const replaced = statusOf(belief.supersedes);
@@ -50,7 +51,9 @@ export const deriveBeliefStates = (
   const history = new Map<string, Array<DecisionRecord>>();
 
   const supersedersOf = (id: string) =>
-    beliefs.filter((belief) => belief.supersedes === id && base.get(belief.id) === "accepted").map((belief) => belief.id);
+    beliefs
+      .filter((belief) => belief.supersedes === id && base.get(belief.id) === "accepted")
+      .map((belief) => belief.id);
   const statusOf = (id: string): BeliefStatus | undefined => {
     const status = base.get(id);
     if (status === "accepted" && supersedersOf(id).length > 0) return "superseded";
@@ -62,7 +65,10 @@ export const deriveBeliefStates = (
     if (!belief) continue;
     history.set(belief.id, [...(history.get(belief.id) ?? []), decision]);
     if (decisionInvalidReason(decision.outcome, belief, statusOf) !== undefined) continue;
-    base.set(belief.id, decision.outcome === "accept" ? "accepted" : decision.outcome === "reject" ? "rejected" : "retracted");
+    base.set(
+      belief.id,
+      decision.outcome === "accept" ? "accepted" : decision.outcome === "reject" ? "rejected" : "retracted",
+    );
     deciding.set(belief.id, decision);
   }
 
