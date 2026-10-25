@@ -142,7 +142,7 @@ function useScopeRevision(target: string) {
     mutationFn: (request: ScopeRevisionRequest) =>
       proposeScopeRevision({
         data: {
-          target,
+          ref: target,
           ...request.scope,
           ...(request.despite !== undefined && {
             despite: [...request.despite.ids],

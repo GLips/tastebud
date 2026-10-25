@@ -75,6 +75,7 @@ export const callerFor = (root: string, request: TasteContextRequest, actor: str
       via: "cli",
       context,
       ...(actor !== undefined && { actor }),
+      ...(request.cwd !== undefined && { cwd: request.cwd }),
     })),
   );
 

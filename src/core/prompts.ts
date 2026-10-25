@@ -35,7 +35,7 @@ Scope
 
 When refused as a near repeat
 - The refusal shows each earlier statement with its status, date and reason. Usually, tell the owner it was already decided and stop.
-- Re-propose only when something genuinely changed: --despite <id> for every match, and --why saying what changed. Never reword a statement to slip past the check.
+- Re-propose only when something genuinely changed: --despite <id> for every match, and --despite-case saying what changed. Never reword a statement to slip past the check.
 
 Never
 - Propose from a paraphrase, a summary or an agent's output.

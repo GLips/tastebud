@@ -43,14 +43,14 @@ export const knownPlacesQuery = queryOptions({
   refetchInterval: 5_000,
 });
 
-export const acceptPreviewQuery = (target: string, scope: DerivationScope | undefined) =>
+export const acceptPreviewQuery = (ref: string, scope: DerivationScope | undefined) =>
   queryOptions({
-    queryKey: ["accept-preview", target, scope ?? null],
+    queryKey: ["accept-preview", ref, scope ?? null],
     queryFn: async () =>
       unwrapReviewOutcome(
         await fetchAcceptPreview({
           data: {
-            target,
+            ref,
             ...(scope !== undefined && { scope: scope.scope }),
             ...(scope?.scope === "places" && { places: [...scope.places] }),
           },
@@ -112,7 +112,7 @@ const INSPECTOR_RECALL_LIMIT = 10;
 
 export const recallInspectionQuery = (request: RecallInspectionRequest) =>
   queryOptions({
-    queryKey: ["recall", request.query, request.kind ?? null, request.history, request.dir ?? null, request.at ?? null],
+    queryKey: ["recall", request.query, request.kind ?? null, request.history, request.in ?? null, request.at ?? null],
     queryFn: async () =>
       unwrapReviewOutcome(
         await fetchRecallInspection({
@@ -121,7 +121,7 @@ export const recallInspectionQuery = (request: RecallInspectionRequest) =>
             limit: INSPECTOR_RECALL_LIMIT,
             ...(request.kind !== undefined && { kind: [request.kind] }),
             ...(request.history && { history: true }),
-            ...(request.dir !== undefined && { dir: request.dir }),
+            ...(request.in !== undefined && { in: request.in }),
             ...(request.at !== undefined && { at: [...request.at] }),
           },
         }),
@@ -144,7 +144,7 @@ export const recallExplanationQuery = (request: RecallExplanationRequest) =>
       request.lookup,
       request.kind ?? null,
       request.history,
-      request.dir ?? null,
+      request.in ?? null,
       request.at ?? null,
     ],
     queryFn: async () =>
@@ -154,7 +154,7 @@ export const recallExplanationQuery = (request: RecallExplanationRequest) =>
             ...request.lookup,
             ...(request.kind !== undefined && { kind: [request.kind] }),
             ...(request.history && { history: true }),
-            ...(request.dir !== undefined && { dir: request.dir }),
+            ...(request.in !== undefined && { in: request.in }),
             ...(request.at !== undefined && { at: [...request.at] }),
           },
         }),
@@ -179,7 +179,7 @@ export const placesAuditQuery = (probes: ReadonlyArray<string>) =>
               probes: probes.filter((probe) => looksLikeDirectory(probe)),
             }),
             ...(probes.some((probe) => !looksLikeDirectory(probe)) && {
-              probePlaces: probes.filter((probe) => !looksLikeDirectory(probe)),
+              probe_places: probes.filter((probe) => !looksLikeDirectory(probe)),
             }),
           },
         }),
@@ -196,15 +196,15 @@ const looksLikeDirectory = (probe: string): boolean => probe.startsWith("/") || 
 
 export const reviewContextQuery = (request: ReviewContextRequest) =>
   queryOptions({
-    queryKey: ["context", request.dir ?? null, request.at ?? null],
+    queryKey: ["context", request.in ?? null, request.at ?? null],
     queryFn: async () =>
       unwrapReviewOutcome(
         await resolveReviewContext({
           data: {
-            ...(request.dir !== undefined && { dir: request.dir }),
+            ...(request.in !== undefined && { in: request.in }),
             ...(request.at !== undefined && { at: [...request.at] }),
           },
         }),
       ),
-    enabled: request.dir !== undefined || (request.at?.length ?? 0) > 0,
+    enabled: request.in !== undefined || (request.at?.length ?? 0) > 0,
   });

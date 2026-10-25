@@ -35,7 +35,7 @@ const acceptedDerivation = async (root: string, caller: TasteCaller, kind: strin
   const sourceKind = kind === "belief" ? "memory" : "call-quote";
   const source = await captureOwnerWords(root, caller, `About exports: ${statement}`, sourceKind);
   const { derivation } = await runOperation(root, "propose", { kind, statement, supports: [source] }, caller);
-  await runOperation(root, "decide", { target: derivation.id, outcome: "accept" }, reviewer);
+  await runOperation(root, "decide", { ref: derivation.id, outcome: "accept" }, reviewer);
   return derivation.id;
 };
 

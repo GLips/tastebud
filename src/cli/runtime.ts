@@ -3,24 +3,20 @@
  * building the caller, running an operation and printing its text or JSON, and turning a failure
  * into its exit code (from `describeTasteFailure`: 1 broken, 2 input, 3 refused, 4 conflict).
  */
-import { resolve } from "node:path";
-
 import { Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect";
 import { CliError, Flag } from "effect/cli";
 import { ChildProcessSpawner } from "effect/process";
 
 import {
+  buildTasteOperationCaller,
   describeTasteFailure,
   provideTasteStore,
   renderTasteOperationText,
   resolveStoreRoot,
-  resolveTasteContext,
   runTasteOperation,
-  type TasteCaller,
   type TasteError,
   type TasteOperationName,
   type TasteOperationOutput,
-  TASTE_OPERATIONS,
   type TasteStore,
 } from "../core/index.ts";
 
@@ -80,9 +76,6 @@ export const definedFields = (fields: Record<string, unknown>) =>
       .filter(([, value]) => value !== undefined && value !== false && !(Array.isArray(value) && value.length === 0)),
   );
 
-/** Operations whose input has `in`, i.e. the ones that read where the caller is. */
-const readsCallerContext = (name: TasteOperationName) => Object.hasOwn(TASTE_OPERATIONS[name].input.fields, "in");
-
 export interface CliOperationOptions {
   readonly store: Option.Option<string>;
   readonly json: boolean;
@@ -91,7 +84,7 @@ export interface CliOperationOptions {
 
 /**
  * The CLI's adapter: the caller is this process (its cwd, and `--by`), then the operation decodes
- * and runs `input`. Relative `--in` paths resolve against the cwd inside core.
+ * and runs `input`. Relative `--in` and `--probe` paths resolve against the cwd inside core.
  */
 export const runCliOperation = <N extends TasteOperationName>(
   name: N,
@@ -99,19 +92,11 @@ export const runCliOperation = <N extends TasteOperationName>(
   options: CliOperationOptions,
 ) =>
   Effect.gen(function* () {
-    const cwd = process.cwd();
     const output = yield* inCliStore(
       options.store,
       Effect.gen(function* () {
-        // Resolving the cwd runs git, so only operations that read the context pay for it.
-        const context = readsCallerContext(name)
-          ? yield* resolveTasteContext({ cwd })
-          : { places: [], origin: "unknown" as const, cwd };
-        const caller: TasteCaller = {
-          via: "cli",
-          context,
-          ...(options.actor !== undefined && { actor: options.actor }),
-        };
+        const origin = { via: "cli" as const, actor: options.actor, cwd: process.cwd() };
+        const caller = yield* buildTasteOperationCaller(name, origin, input);
         return yield* runTasteOperation(name, input, caller);
       }),
     );
@@ -120,12 +105,6 @@ export const runCliOperation = <N extends TasteOperationName>(
     );
     return output;
   });
-
-/** Directories typed on the command line, absolute so core resolves them the same from anywhere. */
-export const absoluteDirectories = (directories: ReadonlyArray<string>) =>
-  directories.map((directory) =>
-    directory === "~" || directory.startsWith("~/") ? directory : resolve(process.cwd(), directory),
-  );
 
 /**
  * effect/cli needs these services, but taste never uses its file, path-completion, prompt or
@@ -168,12 +147,8 @@ export const reportCliFailure = (
   }
   const { error } = failure;
   if (CliError.isCliError(error)) return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 2;
-  const described = describeTasteFailure(error, "cli");
-  if (json) {
-    // The error's own fields (a near repeat's matches, a refusal's context) are what an agent retries with.
-    const fields = Object.fromEntries(Object.entries(error).filter(([key]) => key !== "_tag"));
-    const body = { error: { tag: error._tag, category: described.category, message: described.sentence, ...fields } };
-    process.stdout.write(`${JSON.stringify(body, null, 2)}\n`);
-  } else process.stderr.write(`taste: ${described.sentence}\n`);
-  return described.exitCode;
+  const { envelope, exitCode } = describeTasteFailure(error, "cli");
+  if (json) process.stdout.write(`${JSON.stringify({ error: envelope }, null, 2)}\n`);
+  else process.stderr.write(`taste: ${envelope.sentence}\n`);
+  return exitCode;
 };

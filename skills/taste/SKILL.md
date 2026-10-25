@@ -17,10 +17,10 @@ Use the CLI or the MCP tools; they are the same operations with the same field n
 | Capture words | `taste capture --kind … --said-by … --label … --quote … --by <you>` | `taste_capture {kind, said_by, said_by_label, quote, …}` |
 | Propose | `taste propose --kind … --statement … --supports <id> --reasoning … --by <you>` | `taste_propose {kind, statement, supports, reasoning, …}` |
 | Look something up | `taste list`, `taste show <ref>` | `taste_list`, `taste_show {ref}` |
-| Answer a note | `taste thread-reply <ref> "<text>" --by <you>` | `taste_thread_reply {derivation, text}` |
+| Answer a note | `taste thread-reply <ref> "<text>" --by <you>` | `taste_thread_reply {ref, text}` |
 | Hand the owner a link | `taste review-url [<ref>]` | `taste_review_url {ref}` |
 
-On the CLI, `--by` is your own name as an agent (`claude-code/2.x`), never `human:…`. Over MCP your client's name is used. Where a CLI flag is repeatable (`--supports`, `--place`, `--at`, `--kind`), the MCP field is a list. `--why` is `despite_case`, and `--place` is `places`.
+On the CLI, `--by` is your own name as an agent (`claude-code/2.x`), never `human:…`. Over MCP your client's name is used. Where a CLI flag is repeatable (`--supports`, `--place`, `--at`, `--kind`), the MCP field is a list, and a dashed flag is the underscored field (`--despite-case` is `despite_case`). Scope is one shape: `--place <key>` is `scope: "places"` with `places: [<key>]`, and `--global` is `scope: "global"`.
 
 ## 1. Read the catalog first
 
@@ -79,16 +79,16 @@ taste propose --kind belief --statement "Use named exports, never default export
 **Refused as a near repeat (exit 3).** Something close already exists in an overlapping scope, often a rejection. Read each match's status, date and reason. Usually, tell the user it was already decided and stop. Re-propose only when something genuinely changed, naming every match:
 
 ```bash
-taste propose … --despite <id> --why "billing-api now has an admin UI, which the rejection predates"
+taste propose … --despite <id> --despite-case "billing-api now has an admin UI, which the rejection predates"
 ```
 
-`--why` goes in front of the owner next to the earlier decision. Never reword a statement to slip past the check.
+`--despite-case` goes in front of the owner next to the earlier decision. Never reword a statement to slip past the check.
 
 ## 5. Scope: default to the repo, never widen
 
 Every derivation is `global` or scoped to places (`github.com/acme/web::`, `github.com/acme/web::apps/checkout`, `clients/acme`).
 
-- **Working in a repo:** leave scope off. It defaults to the root of the repo you're in, which suits a correction made there. The owner can narrow it to a subdirectory when they accept.
+- **Working in a repo:** leave scope off. It defaults to where you are, as the store's resolver sees it: `taste catalog` names the resolver and shows your context. Under the `git` resolver that is the root of the repo you're in, which suits a correction made there; other resolvers give other places. Don't assume git. The owner can narrow it when they accept.
 - **Sweeps and imports** (a folder of notes, a batch of call transcripts): always pass the scope explicitly, with `--place <key>` (repeatable) or `--global`.
 - **`--global`** only when the owner's words say it holds for all their work ("in every repo", "for every client"). An "always" in one repo is about that repo.
 - **Never widen on your own.** Don't turn a repo rule into a global one, or add places the evidence doesn't name. Widening is the owner's call.

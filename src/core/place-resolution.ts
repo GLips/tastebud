@@ -200,12 +200,13 @@ export interface TasteContextRequest {
   readonly source?: PlaceContext["source"];
 }
 
-const expandDirectory = (directory: string, cwd: string | undefined) => {
+/** A directory from input, absolute: `~/…` under home, a relative path only against the caller's cwd. */
+export const expandInputDirectory = (field: string, directory: string, cwd: string | undefined) => {
   if (directory === "~" || directory.startsWith("~/")) return Effect.succeed(join(homedir(), directory.slice(1)));
   if (isAbsolute(directory)) return Effect.succeed(directory);
   if (cwd === undefined)
     return Effect.fail(
-      new InvalidTasteInput({ problems: [`in: "${directory}" is relative, and this caller has no cwd`] }),
+      new InvalidTasteInput({ problems: [`${field}: "${directory}" is relative, and this caller has no cwd`] }),
     );
   return Effect.succeed(resolve(cwd, directory));
 };
@@ -242,7 +243,7 @@ export const resolveTasteContext = Effect.fn("taste.resolveTasteContext")(functi
   if (request.in !== undefined && at.length > 0)
     return yield* new InvalidTasteInput({ problems: ["in and at are mutually exclusive"] });
   if (request.in !== undefined) {
-    const directory = yield* expandDirectory(request.in, request.cwd);
+    const directory = yield* expandInputDirectory("in", request.in, request.cwd);
     return yield* contextFromDirectory(config, directory, "in", request.source);
   }
   if (at.length > 0) {

@@ -85,5 +85,9 @@ test("capture, propose and recall work from an `in` directory; bad input is an e
   expect(unscoped.isError).toBe(true);
 
   const invalid = await client.callTool({ name: "taste_recall", arguments: { query: "x", bogus: true } });
-  expect(invalid).toMatchObject({ isError: true, content: [{ type: "text", text: expect.stringContaining("bogus") }] });
+  expect(invalid).toMatchObject({
+    isError: true,
+    content: [{ type: "text", text: expect.stringContaining("bogus") }],
+    structuredContent: { error: { tag: "InvalidTasteInput", category: "input" } },
+  });
 });

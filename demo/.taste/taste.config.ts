@@ -55,7 +55,7 @@ Scope
 
 When refused as a near repeat
 - The refusal shows each earlier statement with its status, date and reason. Usually, tell the owner it was already decided and stop.
-- Re-propose only when something genuinely changed: --despite <id> for every match, and --why saying what changed. Never reword a statement to slip past the check.
+- Re-propose only when something genuinely changed: --despite <id> for every match, and --despite-case saying what changed. Never reword a statement to slip past the check.
 
 Never
 - Propose from a paraphrase, a summary or an agent's output.
@@ -92,7 +92,7 @@ Scope
 - --place clients/<client> for the client whose customers said it. Sweeps always pass the scope.
 
 When refused as a near repeat
-- Usually the insight already exists or was turned down; stop. Re-propose only with --despite <id> for every match and --why saying what changed.`,
+- Usually the insight already exists or was turned down; stop. Re-propose only with --despite <id> for every match and --despite-case saying what changed.`,
     },
     idea: {
       singular: "idea",
@@ -123,7 +123,7 @@ Scope
 - --place clients/<client> for one client's site or ads. --global only for ideas Dana means for every site they work on.
 
 When refused as a near repeat
-- Someone already had this idea. Stop, unless something changed: then --despite <id> for every match and --why saying what.`,
+- Someone already had this idea. Stop, unless something changed: then --despite <id> for every match and --despite-case saying what.`,
     },
   },
 

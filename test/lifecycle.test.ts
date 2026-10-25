@@ -59,7 +59,7 @@ describe("lifecycle", () => {
     expect(belief.proposedScope).toEqual({ scope: "places", places: [WEB] });
     expect(belief.scopeSource).toBe("defaulted");
 
-    await decide(root, { target: belief.id, outcome: "accept", scope: "places", places: [CHECKOUT] });
+    await decide(root, { ref: belief.id, outcome: "accept", scope: "places", places: [CHECKOUT] });
     const shown = await runOperation(root, "show", { ref: belief.id }, inWeb);
     expect(shown.derivation?.proposedScope).toEqual({ scope: "places", places: [WEB] });
     expect(shown.derivation?.effectiveScope).toEqual({ scope: "places", places: [CHECKOUT] });
@@ -89,7 +89,7 @@ describe("lifecycle", () => {
     const quote = await captureOwnerWords(root, inWeb, "Our buyers abandon long checkout forms.", "call-quote");
     const derive = async (kind: string, statement: string, supports: string) => {
       const derivation = await propose(root, inWeb, { kind, statement, supports: [supports] });
-      await decide(root, { target: derivation.id, outcome: "accept" });
+      await decide(root, { ref: derivation.id, outcome: "accept" });
       return derivation.id;
     };
     const belief = await derive("belief", "Keep checkout forms short", memory);
@@ -100,7 +100,7 @@ describe("lifecycle", () => {
       statement: "Checkout forms need a coupon field",
       supports: [memory],
     });
-    await decide(root, { target: rejected.id, outcome: "reject", reason: "coupons hurt conversion" });
+    await decide(root, { ref: rejected.id, outcome: "reject", reason: "coupons hurt conversion" });
 
     const recall = await runOperation(root, "recall", { query: "checkout forms" }, inWeb);
     expect(new Set(recall.accepted.map((hit) => hit.id))).toEqual(new Set([belief, second, insight]));
@@ -125,7 +125,7 @@ describe("lifecycle", () => {
     const quote = await captureOwnerWords(root, inWeb, "Our buyers abandon long checkout forms.", "call-quote");
     const derive = async (kind: string, statement: string, supports: string) => {
       const derivation = await propose(root, inWeb, { kind, statement, supports: [supports] });
-      await decide(root, { target: derivation.id, outcome: "accept" });
+      await decide(root, { ref: derivation.id, outcome: "accept" });
       return derivation.id;
     };
     const belief = await derive("belief", "Keep checkout forms short", memory);
@@ -170,7 +170,7 @@ describe("lifecycle", () => {
       statement: "Use Tailwind for styling everywhere",
       supports: [memory],
     });
-    await decide(root, { target: original.id, outcome: "reject", reason: "only acme-web" });
+    await decide(root, { ref: original.id, outcome: "reject", reason: "only acme-web" });
 
     const repeat = { statement: "Use Tailwind everywhere for styling.", supports: [memory] };
     const refusal = await failOperation(root, "propose", { kind: "belief", ...repeat }, inWeb);
@@ -178,8 +178,10 @@ describe("lifecycle", () => {
     expect(refusal.matches.map((match) => [match.id, match.status, match.reason])).toEqual([
       [original.id, "rejected", "only acme-web"],
     ]);
-    expect(describeTasteFailure(refusal, "cli").sentence).toContain(`--despite ${original.id}`);
-    expect(describeTasteFailure(refusal, "mcp").sentence).toContain(`despite: ["${original.id}"] and despite_case:`);
+    expect(describeTasteFailure(refusal, "cli").envelope.sentence).toContain(`--despite ${original.id}`);
+    expect(describeTasteFailure(refusal, "mcp").envelope.sentence).toContain(
+      `despite: ["${original.id}"] and despite_case:`,
+    );
 
     // A disjoint scope makes the same words only related; another kind never matches at all.
     const { related } = await runOperation(root, "propose", { kind: "belief", ...repeat }, inBilling);
@@ -202,9 +204,10 @@ describe("lifecycle", () => {
     const original = await propose(root, inWeb, {
       statement: "Prefer integration tests",
       supports: [memory],
+      scope: "places",
       places: [WEB, "clients/acme"],
     });
-    await decide(root, { target: original.id, outcome: "accept" });
+    await decide(root, { ref: original.id, outcome: "accept" });
 
     const STOREFRONT = "github.com/acme/storefront::";
     const recordCount = async () => (await runOperation(root, "list", {}, inWeb)).derivations.length;
@@ -234,9 +237,9 @@ describe("lifecycle", () => {
       supports: [memory],
       supersedes: original.id,
     });
-    await decide(root, { target: revision?.id, outcome: "accept" });
+    await decide(root, { ref: revision?.id, outcome: "accept" });
     expect((await runOperation(root, "show", { ref: original.id }, inWeb)).derivation?.status).toBe("superseded");
-    expect((await failOperation(root, "decide", { target: rival.id, outcome: "accept" }, reviewer))._tag).toBe(
+    expect((await failOperation(root, "decide", { ref: rival.id, outcome: "accept" }, reviewer))._tag).toBe(
       "DecisionNotAllowed",
     );
 
@@ -245,9 +248,10 @@ describe("lifecycle", () => {
     const twin = await propose(root, inWeb, {
       statement: "Prefer integration tests.",
       supports: [memory],
+      scope: "places",
       places: [MOBILE],
     });
-    await decide(root, { target: twin.id, outcome: "accept" });
+    await decide(root, { ref: twin.id, outcome: "accept" });
     const blocked = await runOperation(root, "repoint", { from: STOREFRONT, to: MOBILE }, inWeb);
     expect(blocked.proposals).toEqual([]);
     expect(blocked.blocked.map((entry) => entry.derivation.id)).toEqual([revision?.id ?? "missing"]);
@@ -258,10 +262,10 @@ describe("lifecycle", () => {
     const { root, inWeb } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "No default exports, ever.");
     const original = await propose(root, inWeb, { statement: "Use named exports only", supports: [memory] });
-    await decide(root, { target: original.id, outcome: "accept" });
+    await decide(root, { ref: original.id, outcome: "accept" });
 
     const CLIENTS = "clients/acme";
-    const input = { target: original.id, scope: "places", places: [WEB, CLIENTS] };
+    const input = { ref: original.id, scope: "places", places: [WEB, CLIENTS] };
     expect((await failOperation(root, "revise-scope", input, inWeb))._tag).toBe("OperationNotAllowed");
     const { derivation } = await runOperation(root, "revise-scope", input, reviewer);
     expect(derivation.status).toBe("pending");
@@ -283,26 +287,34 @@ describe("lifecycle", () => {
       statement: "Mock only the network in tests",
       supports: [memory],
     });
-    await decide(root, { target: billingOnly.id, outcome: "reject", reason: "billing mocks its queue too" });
+    await decide(root, { ref: billingOnly.id, outcome: "reject", reason: "billing mocks its queue too" });
     const narrow = await propose(root, inWeb, { statement: "Mock only the network in tests.", supports: [memory] });
 
-    const preview = await runOperation(root, "accept-preview", { target: narrow.id, scope: "global" }, reviewer);
+    const preview = await runOperation(root, "accept-preview", { ref: narrow.id, scope: "global" }, reviewer);
     expect(preview.needsAcknowledgement.map((match) => match.id)).toEqual([billingOnly.id]);
     const widened = await failOperation(
       root,
       "decide",
-      { target: narrow.id, outcome: "accept", scope: "global" },
+      { ref: narrow.id, outcome: "accept", scope: "global" },
       reviewer,
     );
     expect(widened._tag).toBe("WideningNeedsAcknowledgement");
+    // Under its own scope nothing needs acknowledging, so naming billing's rejection is refused.
+    const stray = await failOperation(
+      root,
+      "decide",
+      { ref: narrow.id, outcome: "accept", acknowledges: [billingOnly.id] },
+      reviewer,
+    );
+    expect(stray).toMatchObject({ _tag: "InvalidTasteInput", problems: [expect.stringContaining(billingOnly.id)] });
     // Human operations run only behind the review server, whatever an agent surface sends.
-    const forged = { target: narrow.id, outcome: "accept", acknowledges: [billingOnly.id] };
+    const forged = { ref: narrow.id, outcome: "accept", scope: "global", acknowledges: [billingOnly.id] };
     const refusals = await Promise.all(
       (["mcp", "cli"] as const).map((via) => failOperation(root, "decide", forged, { ...inWeb, via })),
     );
     expect(refusals.map((error) => error._tag)).toEqual(["OperationNotAllowed", "OperationNotAllowed"]);
 
-    await decide(root, { target: narrow.id, outcome: "accept", scope: "global", acknowledges: [billingOnly.id] });
+    await decide(root, { ref: narrow.id, outcome: "accept", scope: "global", acknowledges: [billingOnly.id] });
     const shown = await runOperation(root, "show", { ref: billingOnly.id }, inWeb);
     expect(shown.acknowledgedBy.map((summary) => summary.id)).toEqual([narrow.id]);
   });
@@ -311,7 +323,7 @@ describe("lifecycle", () => {
     const { root, inWeb } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "Use Effect for errors in acme-web.");
     const belief = await propose(root, inWeb, { statement: "Use Effect for error handling", supports: [memory] });
-    await decide(root, { target: belief.id, outcome: "accept" });
+    await decide(root, { ref: belief.id, outcome: "accept" });
     // Words that look like the file's own section headings, escapes and edge whitespace survive exactly.
     const tricky = { quote: "  first\n## After\n\\second\n\n", before: "## Quote\n\\\\x", after: "\nlast " };
     const { source } = await runOperation(
@@ -355,11 +367,11 @@ describe("lifecycle", () => {
     const exited = Bun.spawnSync(["true"]);
     const lockPath = join(root, ".index", "decide.lock");
     writeFileSync(lockPath, `${exited.pid} stale-token\n`);
-    await decide(root, { target: first.id, outcome: "accept" });
+    await decide(root, { ref: first.id, outcome: "accept" });
     expect(existsSync(lockPath)).toBe(false);
 
     rmSync(join(root, ".index"), { recursive: true, force: true });
-    await decide(root, { target: second.id, outcome: "accept" });
+    await decide(root, { ref: second.id, outcome: "accept" });
     expect((await runOperation(root, "show", { ref: second.id }, inWeb)).derivation?.status).toBe("accepted");
   });
 
@@ -370,13 +382,13 @@ describe("lifecycle", () => {
     const listener = "agent-1";
     expect(await inStore(root, pollListenerEvents(listener))).toEqual([]);
 
-    await runOperation(root, "thread-note", { derivation: belief.id, text: "How small?" }, reviewer);
-    await runOperation(root, "thread-reply", { derivation: belief.id, text: "Under 400 lines." }, inWeb);
+    await runOperation(root, "thread-note", { ref: belief.id, text: "How small?" }, reviewer);
+    await runOperation(root, "thread-reply", { ref: belief.id, text: "Under 400 lines." }, inWeb);
     // An agent can never post as the owner, however it pads the name: that would wake listeners.
     const impostor = await failOperation(
       root,
       "thread-reply",
-      { derivation: belief.id, text: "Me again." },
+      { ref: belief.id, text: "Me again." },
       { ...inWeb, actor: " human:tester" },
     );
     expect(impostor._tag).toBe("InvalidTasteInput");

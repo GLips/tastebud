@@ -7,8 +7,8 @@ import { Effect, Schema } from "effect";
 
 import { OptionalTrimmedText, OptionalTrimmedTextList, TrimmedText } from "../shared/input-text.ts";
 import { requireDerivedKind } from "./catalog.ts";
-import { readChosenScope } from "./decide.ts";
 import { appendDerivationProposal, resolveDespiteRefs } from "./propose.ts";
+import { readChosenScope, ScopeChoiceSchema } from "./scope-input.ts";
 import { resolveDerivationRef, resolveEvidenceRef, TasteStore } from "./store.ts";
 import type { ViewSource } from "./views.ts";
 
@@ -19,8 +19,8 @@ import type { ViewSource } from "./views.ts";
 const REVISE_SCOPE_ACTOR = "process:review";
 
 export const ReviseScopeInput = Schema.Struct({
-  target: TrimmedText.annotate({ description: "The accepted derivation whose scope to revise" }),
-  scope: Schema.Literals(["global", "places"]).annotate({ description: "The revision's scope" }),
+  ref: TrimmedText.annotate({ description: "The accepted derivation whose scope to revise" }),
+  scope: ScopeChoiceSchema.annotate({ description: "The revision's scope" }),
   places: OptionalTrimmedTextList.annotate({ description: "The places, when scope is places" }),
   despite: OptionalTrimmedTextList.annotate({ description: "Every blocking near repeat under the new scope" }),
   despite_case: OptionalTrimmedText.annotate({ description: "What changed since those matches" }),
@@ -32,7 +32,7 @@ export const reviseDerivationScope = Effect.fn("taste.reviseDerivationScope")(fu
   const { config } = store;
   const snapshot = yield* store.snapshot;
   const view: ViewSource = { snapshot, catalog: config.catalog };
-  const target = yield* resolveDerivationRef(snapshot, input.target);
+  const target = yield* resolveDerivationRef(snapshot, input.ref);
   const kind = yield* requireDerivedKind(config.catalog, target.kind);
   const evidenceOf = (ids: ReadonlyArray<string>) => Effect.forEach(ids, (id) => resolveEvidenceRef(snapshot, id));
   return yield* appendDerivationProposal(

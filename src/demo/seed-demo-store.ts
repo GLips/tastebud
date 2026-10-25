@@ -2,7 +2,8 @@
  * `taste seed`: a fictional demo store. Dana (`human:dana`) is a developer on Acme's storefront
  * (`github.com/acme/web`) and billing API; the call quotes are Acme's customers, all invented. Every
  * record goes through core's operations, so the repeat check, evidence rules and status rules apply
- * to the seed exactly as to an agent. Decisions and Dana's notes are written `via: process:seed`.
+ * to the seed exactly as to an agent. Decisions and Dana's notes are human operations, run by a
+ * `via: "seed"` caller acting as `process:seed`, which each decision records as its `via`.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,8 +11,6 @@ import { join } from "node:path";
 import { Clock, Effect } from "effect";
 
 import {
-  appendOwnerThreadNote,
-  decideDerivation,
   listRecordFiles,
   provideTasteStore,
   runTasteOperation,
@@ -49,7 +48,7 @@ const CALL_PRIYA = "granola://meetings/2026-09-18-subscriber-interview-priya";
 const CALL_TOM = "granola://meetings/2026-09-25-wholesale-call-tom";
 const CALL_LENA = "granola://meetings/2026-10-08-churn-call-lena";
 
-const callerAs = (actor: string): TasteCaller => ({ via: "cli", actor, context: UNKNOWN_TASTE_CONTEXT });
+const callerAs = (actor: string): TasteCaller => ({ via: "seed", actor, context: UNKNOWN_TASTE_CONTEXT });
 
 type CaptureInput = TasteOperationInput<"capture">;
 type ProposeInput = TasteOperationInput<"propose">;
@@ -142,35 +141,31 @@ const propose = (actor: string, input: ProposeInput) =>
 
 /** Dana reviews the inbox about a day after a proposal arrives. */
 const REVIEW_GAP_MS = 20 * HOUR_MS;
-const decisionStep = (target: string, gapMs: number, decide: ReturnType<typeof decideDerivation>) =>
-  seedStep([target], gapMs, decide.pipe(Effect.as(target)));
+type DecideInput = TasteOperationInput<"decide">;
 
-const accept = (target: string, amended?: ReadonlyArray<string>) =>
+const decisionStep = (input: DecideInput, gapMs: number) =>
+  seedStep([input.ref], gapMs, runTasteOperation("decide", input, callerAs(SEED_PROCESS)).pipe(Effect.as(input.ref)));
+
+const accept = (ref: string, amended?: ReadonlyArray<string>) =>
   decisionStep(
-    target,
+    { ref, outcome: "accept", ...(amended !== undefined && { scope: "places", places: amended }) },
     REVIEW_GAP_MS,
-    decideDerivation(
-      { target, outcome: "accept", ...(amended !== undefined && { scope: "places", places: amended }) },
-      { via: SEED_PROCESS },
-    ),
   );
-const reject = (target: string, reason: string) =>
-  decisionStep(target, REVIEW_GAP_MS, decideDerivation({ target, outcome: "reject", reason }, { via: SEED_PROCESS }));
+const reject = (ref: string, reason: string) => decisionStep({ ref, outcome: "reject", reason }, REVIEW_GAP_MS);
 /** A retraction follows the incident that prompted it, days after the accept. */
-const retract = (target: string, reason: string) =>
-  decisionStep(
-    target,
-    6 * 24 * HOUR_MS,
-    decideDerivation({ target, outcome: "retract", reason }, { via: SEED_PROCESS }),
-  );
+const retract = (ref: string, reason: string) => decisionStep({ ref, outcome: "retract", reason }, 6 * 24 * HOUR_MS);
 
-const danaNote = (derivation: string, text: string) =>
-  seedStep([derivation], 3 * HOUR_MS, appendOwnerThreadNote({ derivation, text }).pipe(Effect.as(derivation)));
-const agentReply = (derivation: string, text: string, actor = CODING_AGENT) =>
+const danaNote = (ref: string, text: string) =>
   seedStep(
-    [derivation],
+    [ref],
+    3 * HOUR_MS,
+    runTasteOperation("thread-note", { ref, text }, callerAs(SEED_PROCESS)).pipe(Effect.as(ref)),
+  );
+const agentReply = (ref: string, text: string, actor = CODING_AGENT) =>
+  seedStep(
+    [ref],
     25 * MINUTE_MS,
-    runTasteOperation("thread-reply", { derivation, text }, callerAs(actor)).pipe(Effect.as(derivation)),
+    runTasteOperation("thread-reply", { ref, text }, callerAs(actor)).pipe(Effect.as(ref)),
   );
 
 const seedBeliefs = Effect.gen(function* () {
@@ -315,6 +310,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Keep the storefront's Lighthouse performance score above 90",
       supports: [lighthouse],
+      scope: "places",
       places: [STOREFRONT],
       reasoning: "Dana set it as a merge bar: a PR that drops the score waits.",
     }),
@@ -324,6 +320,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Lazy-load images below the fold, but never the hero image",
       supports: [lazyImages],
+      scope: "places",
       places: [STOREFRONT],
       reasoning: "Stated as a rule for the storefront, with the hero image as the explicit exception.",
     }),
@@ -333,6 +330,7 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Model failures in acme/web with Effect instead of try/catch",
     supports: [effectErrors],
+    scope: "places",
     places: [WEB],
     reasoning: "Dana rejected a try/catch around a fetch and asked for failures to show up in the type.",
   });
@@ -342,7 +340,7 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Use named exports, never default exports",
     supports: [namedExports, namedExportsAgain],
-    global: true,
+    scope: "global",
     reasoning:
       "Said in acme/web and again in billing-api, with a reason (grep) that holds in any repo, and 'every repo' in their own words.",
   });
@@ -358,7 +356,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Comments explain why, never restate what the code does",
       supports: [commentsWhy],
-      global: true,
+      scope: "global",
       reasoning: "A general rule about comments, not tied to acme/web's code.",
     }),
   );
@@ -368,6 +366,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Test billing-api against a real Postgres, not mocks",
       supports: [integrationTests],
+      scope: "places",
       places: [BILLING],
       reasoning: "Dana's stated preference for billing-api, with the failure mode they want to avoid.",
     }),
@@ -377,7 +376,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Prefer a few integration tests over many mocked unit tests",
       supports: [integrationTests],
-      global: true,
+      scope: "global",
       reasoning: "The billing-api preference reads like a general testing philosophy.",
     }),
     "I said that about billing-api. The web UI has plenty of good unit tests.",
@@ -387,6 +386,7 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Run database migrations automatically on deploy",
     supports: [migrationsOnDeploy],
+    scope: "places",
     places: [BILLING],
     reasoning: "Dana wants no manual step in billing-api deploys.",
   });
@@ -396,7 +396,7 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Use Tailwind for styling in every repo",
     supports: [tailwindFirst],
-    global: true,
+    scope: "global",
     reasoning: "Dana asked for Tailwind without naming a project.",
   });
   yield* reject(tailwindEverywhere, "Only acme/web. billing-api has no UI worth a CSS framework.");
@@ -405,6 +405,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Use Tailwind for styling in acme/web",
       supports: [tailwindFirst, tailwindRevised],
+      scope: "places",
       places: [WEB],
       reasoning: "Dana narrowed their first request to acme/web the same morning.",
     }),
@@ -415,7 +416,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Name tests after the behaviour a user sees, not the function under test",
       supports: [testNames],
-      global: true,
+      scope: "global",
       reasoning: "Dana gave a before-and-after example; nothing in it is specific to acme/web.",
     }),
   );
@@ -424,6 +425,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Store money as integer cents, never floats",
       supports: [cents],
+      scope: "places",
       places: [BILLING],
       reasoning: "Stated as a revert-worthy rule in a billing-api review.",
     }),
@@ -433,6 +435,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "Keep product photos on the CDN, never in the repo",
       supports: [cdnImages],
+      scope: "places",
       places: [WEB],
       reasoning: "Dana gave the cost (a 2 GB clone) and said 'never again'.",
     }),
@@ -444,6 +447,7 @@ const seedBeliefs = Effect.gen(function* () {
       kind: "belief",
       statement: "In acme/web, model each failure as its own Data.TaggedError and handle it with catchTag",
       supports: [effectErrors, taggedErrors],
+      scope: "places",
       places: [WEB],
       supersedes: effectBelief,
       reasoning: "Sharpens the accepted Effect belief with Dana's follow-up about one tagged error per failure.",
@@ -456,6 +460,7 @@ const seedBeliefs = Effect.gen(function* () {
     statement: "Run billing-api migrations by hand, with someone watching",
     supports: [migrationsByHand],
     contradicts: [migrationsOnDeploy],
+    scope: "places",
     places: [BILLING],
     reasoning: "Dana reversed the automatic-migrations rule after the lock incident.",
   });
@@ -491,13 +496,14 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Spell names out in full; no abbreviations like cfg or usr",
     supports: [abbreviations],
-    global: true,
+    scope: "global",
     reasoning: "Said in billing-api, but about naming in general, and none of it is billing-specific.",
   });
   yield* propose(CODING_AGENT, {
     kind: "belief",
     statement: "Render prices on the server; no loading spinner where a price goes",
     supports: [serverRenderedPrices],
+    scope: "places",
     places: [WEB],
     reasoning: "Dana's rule for acme/web's product pages.",
   });
@@ -505,6 +511,7 @@ const seedBeliefs = Effect.gen(function* () {
     kind: "belief",
     statement: "Use Tailwind for styling in every repo with a UI",
     supports: [tailwindRevised, adminDashboard],
+    scope: "places",
     places: [WEB, BILLING],
     despite: [tailwindEverywhere],
     despite_case:
@@ -516,6 +523,7 @@ const seedBeliefs = Effect.gen(function* () {
     statement: "Write ad headlines in sentence case",
     supports: [sentenceCase],
     subject: JORDAN.said_by,
+    scope: "places",
     places: [ACME],
     reasoning: "Jordan's rule for Acme's ads, so the subject is Jordan, not Dana.",
   });
@@ -645,8 +653,8 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     at: [ACME],
   });
 
-  const insight = (input: Omit<ProposeInput, "kind" | "places">) =>
-    propose(RESEARCH_AGENT, { kind: "insight", places: [ACME], ...input });
+  const insight = (input: Omit<ProposeInput, "kind" | "scope" | "places">) =>
+    propose(RESEARCH_AGENT, { kind: "insight", scope: "places", places: [ACME], ...input });
   const idea = (input: Omit<ProposeInput, "kind">) => propose(RESEARCH_AGENT, { kind: "idea", ...input });
 
   const skipInsight = yield* insight({
@@ -687,6 +695,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
   const skipIdea = yield* idea({
     statement: "Add a 'Skip next delivery' link to the shipping confirmation email",
     supports: [priyaSkip, lenaPause, skipInsight],
+    scope: "places",
     places: [ACME],
     reasoning: "Follows from the skip insight. Measure: cancellations in the week after a shipping email.",
   });
@@ -695,6 +704,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     yield* idea({
       statement: "Show estimated shipping on the product page, before the cart",
       supports: [priyaShipping, tomShipping, shippingInsight],
+      scope: "places",
       places: [ACME],
       reasoning: "Follows from the shipping insight. Measure: drop-off between cart and payment.",
     }),
@@ -703,6 +713,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     yield* idea({
       statement: "Add a grind-size quiz as a step in checkout",
       supports: [priyaGrind, lenaGrind],
+      scope: "places",
       places: [ACME],
       reasoning: "Both grind complaints came from a choice made at purchase, so ask at purchase.",
     }),
@@ -712,6 +723,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     yield* idea({
       statement: "Put the grind guide next to the grind selector on the product page",
       supports: [grindGuide, lenaGrind, lenaMissedGuide],
+      scope: "places",
       places: [ACME],
       reasoning:
         "Dana's suggestion. Lena made the wrong choice at the selector and never found the guide in the footer.",
@@ -720,6 +732,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
   const adsIdea = yield* idea({
     statement: "Run Meta ads that lead with a brew guide instead of a product shot",
     supports: [jordanAds, priyaGuides, lenaGuides],
+    scope: "places",
     places: [ACME],
     reasoning:
       "Jordan flagged the mismatch on Priya's call, and Lena said product-shot ads wouldn't have reached them.",
@@ -733,6 +746,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
   yield* idea({
     statement: "Test a free-shipping-over-$40 banner in Meta ads",
     supports: [freeShippingAd],
+    scope: "places",
     places: [ACME],
     reasoning: "Jordan's suggestion: a threshold just above the $34 average cart. Measure: average order value.",
   });
@@ -740,6 +754,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     yield* idea({
       statement: "Add a PO number field to wholesale checkout and print it on the invoice",
       supports: [tomPurchaseOrder],
+      scope: "places",
       places: [ACME],
       reasoning: "Tom writes PO numbers on invoices by hand for their accountant.",
     }),
@@ -747,6 +762,7 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
   yield* idea({
     statement: "Add a one-click reorder of the last order for wholesale accounts",
     supports: [tomReorder],
+    scope: "places",
     places: [ACME],
     reasoning: "Tom places the same order every two weeks.",
   });
@@ -754,14 +770,14 @@ const seedCallsInsightsAndIdeas = Effect.gen(function* () {
     yield* idea({
       statement: "Offer a one-month pause anywhere a subscription can be cancelled",
       supports: [pauseEverywhere, lenaPause],
-      global: true,
+      scope: "global",
       reasoning: "Dana said it goes for every client, which is why it's global.",
     }),
   );
   yield* idea({
     statement: "Open every landing page with a real customer quote, in their words",
     supports: [landingQuote],
-    global: true,
+    scope: "global",
     reasoning: "Dana's rule of thumb for any landing page, not one client's.",
   });
 });

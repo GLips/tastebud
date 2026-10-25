@@ -1,7 +1,7 @@
 /**
  * Taste core: the one module the CLI, MCP server, review server, hook and tests import. Shells open a
- * store with `provideTasteStore(resolveStoreRoot(…))`, resolve the caller's context with
- * `resolveTasteContext`, then call `runTasteOperation` and print `renderTasteOperationText`.
+ * store with `provideTasteStore(resolveStoreRoot(…))`, build the caller with
+ * `buildTasteOperationCaller`, then call `runTasteOperation` and print `renderTasteOperationText`.
  * Browser-safe vocabulary and place logic live in `src/shared`.
  */
 export type { TasteCaller } from "./caller.ts";
@@ -20,7 +20,6 @@ export {
   TASTE_CONFIG_FILE,
   type TasteConfig,
 } from "./config.ts";
-export { decideDerivation, type DecideDerivationInput, type DecideDerivationOptions } from "./decide.ts";
 export {
   describeTasteFailure,
   type TasteSurface,
@@ -30,6 +29,7 @@ export {
   type TasteError,
   type TasteFailureCategory,
   type TasteFailureDescription,
+  type TasteFailureEnvelope,
 } from "./errors.ts";
 export { buildHookPayload, type HookItem, type HookPayload } from "./hook-payload.ts";
 export type { InboxCard, InboxGroup, InboxResult } from "./inbox.ts";
@@ -43,11 +43,13 @@ export {
   writeListenerHeartbeat,
 } from "./listener.ts";
 export {
+  buildTasteOperationCaller,
   listTasteOperations,
   mcpToolNameOf,
   renderTasteOperationText,
   runTasteOperation,
   TASTE_OPERATIONS,
+  type TasteCallerOrigin,
   type TasteOperationAudience,
   type TasteOperationInput,
   type TasteOperationKind,
@@ -69,7 +71,7 @@ export type { DecisionRecord, DerivationRecord, SourceRecord, TasteRecord, Threa
 export type { RepointPlaceResult, RepointPreviewResult } from "./repoint.ts";
 export { listRecordFiles } from "./store-files.ts";
 export { provideTasteStore, TasteStore } from "./store.ts";
-export { appendOwnerThreadNote, threadReplyInstruction } from "./threads.ts";
+export { threadReplyInstruction } from "./threads.ts";
 export type {
   ContextResult,
   DerivationSummary,

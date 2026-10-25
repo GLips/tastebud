@@ -31,6 +31,5 @@ export const tokenJaccard = (left: string, right: string): number => {
 
 /** At or above: a near repeat, which blocks a proposal when scopes overlap. */
 export const REPEAT_THRESHOLD = 0.75;
-/** At or above (or a top full-text hit): related, shown but never blocking. */
+/** At or above: related, shown but never blocking. */
 export const RELATED_THRESHOLD = 0.35;
-export const RELATED_FTS_TOP = 3;

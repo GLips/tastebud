@@ -2,14 +2,12 @@
  * `propose`: append a pending derivation of a kind, with a scope and the repeat check. Only a human
  * decides it; the proposal itself changes nothing anyone recalls.
  */
-import { homedir } from "node:os";
-
 import { Effect, Schema } from "effect";
 
 import { OptionalTrimmedText, OptionalTrimmedTextList, TrimmedText, TrimmedTextList } from "../shared/input-text.ts";
 import { type DerivationScope, repoRootPlace, scopePlacesOf, type TasteContext } from "../shared/places.ts";
 import { OWNER_SUBJECT, type ScopeSource } from "../shared/vocabulary.ts";
-import { canonicalInputPlaces, requireAgentActor, resolveOperationContext, type TasteCaller } from "./caller.ts";
+import { requireAgentActor, resolveOperationContext, type TasteCaller } from "./caller.ts";
 import { BUILT_IN_BELIEF_KIND, type DerivedKindDefinition, requireDerivedKind } from "./catalog.ts";
 import type { LoadedTasteConfig } from "./config.ts";
 import { InvalidTasteInput, NearRepeat, ScopeRequired } from "./errors.ts";
@@ -17,6 +15,7 @@ import { stampNewRecord } from "./ids.ts";
 import type { DerivationRecord, SourceRecord } from "./records.ts";
 import { SCHEMA_VERSION } from "./records.ts";
 import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
+import { readScopeOverride, ScopeOverrideFields } from "./scope-input.ts";
 import {
   derivationStateOf,
   resolveDerivationRef,
@@ -35,11 +34,10 @@ export const ProposeDerivationInput = Schema.Struct({
   contradicts: OptionalTrimmedTextList.annotate({ description: "Refs that cut against it" }),
   supersedes: OptionalTrimmedText.annotate({ description: "An accepted derivation of the same kind this revises" }),
   despite: OptionalTrimmedTextList.annotate({ description: "Every blocking near repeat, when re-proposing anyway" }),
-  despite_case: OptionalTrimmedText.annotate({ description: "What changed since those matches (--why)" }),
+  despite_case: OptionalTrimmedText.annotate({ description: "What changed since those matches" }),
   reasoning: OptionalTrimmedText.annotate({ description: "Why the cited words support it" }),
   subject: OptionalTrimmedText.annotate({ description: "owner, or the account whose preference it is" }),
-  places: OptionalTrimmedTextList.annotate({ description: "Explicit scope: place keys (--place)" }),
-  global: Schema.optionalKey(Schema.Boolean).annotate({ description: "Explicit scope: everywhere" }),
+  ...ScopeOverrideFields,
   in: OptionalTrimmedText.annotate({ description: "Propose as if in this directory" }),
   at: OptionalTrimmedTextList.annotate({ description: "Propose as if at these places" }),
 });
@@ -58,13 +56,8 @@ const chooseProposalScope = Effect.fn("taste.chooseProposalScope")(function* (
   input: ProposeDerivationInput,
   caller: TasteCaller,
 ) {
-  if (input.global === true && input.places !== undefined)
-    return yield* new InvalidTasteInput({ problems: ["global and places are mutually exclusive"] });
-  if (input.global === true) return chosenScope({ scope: "global" }, "explicit");
-  if (input.places !== undefined) {
-    const places = yield* canonicalInputPlaces("places", input.places, homedir());
-    return chosenScope({ scope: "places", places }, "explicit");
-  }
+  const explicit = yield* readScopeOverride(input);
+  if (explicit !== undefined) return chosenScope(explicit, "explicit");
   const context = yield* resolveOperationContext(input, caller);
   const defaulted = defaultScopeFromContext(config, context);
   if (defaulted === undefined) return yield* new ScopeRequired({ context });
@@ -147,7 +140,7 @@ export const checkDerivationProposal = Effect.fn("taste.checkDerivationProposal"
 ) {
   yield* checkEvidence(kind, parts.supports, parts.contradicts);
   if (parts.supersedes !== undefined) yield* checkSupersedes(view.snapshot, kind, parts.supersedes);
-  const repeat = yield* findRepeatMatches(view, {
+  const repeat = findRepeatMatches(view, {
     kind: kind.key,
     statement: parts.statement,
     scope: parts.scope,
@@ -175,9 +168,9 @@ export const resolveDespiteRefs = Effect.fn("taste.resolveDespiteRefs")(function
 ) {
   const despite = yield* Effect.forEach(despiteRefs ?? [], (ref) => resolveDerivationRef(snapshot, ref));
   if (despite.length > 0 && despiteCase === undefined)
-    return yield* new InvalidTasteInput({ problems: ["despite needs despite_case (--why) with what changed"] });
+    return yield* new InvalidTasteInput({ problems: ["despite needs despite_case with what changed"] });
   if (despite.length === 0 && despiteCase !== undefined)
-    return yield* new InvalidTasteInput({ problems: ["despite_case (--why) only applies together with despite"] });
+    return yield* new InvalidTasteInput({ problems: ["despite_case only applies together with despite"] });
   return despite;
 });
 

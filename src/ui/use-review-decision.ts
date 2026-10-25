@@ -18,7 +18,7 @@ export interface ReviewDecisionInput {
 export const sendReviewDecision = async (target: string, input: ReviewDecisionInput) => {
   const outcome = await decideReviewDerivation({
     data: {
-      target,
+      ref: target,
       outcome: input.outcome,
       ...(input.reason !== undefined && { reason: input.reason }),
       ...(input.scope !== undefined && { scope: input.scope }),

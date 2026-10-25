@@ -7,8 +7,8 @@ import { Effect, Schema } from "effect";
 
 import { CatalogViewSchema } from "../shared/catalog-view.ts";
 import { OptionalTrimmedText, OptionalTrimmedTextList } from "../shared/input-text.ts";
-import { DerivationScopeSchema, TasteContextSchema } from "../shared/places.ts";
-import { resolveOperationContext, type TasteCaller } from "./caller.ts";
+import { DerivationScopeSchema, TasteContextSchema, UNKNOWN_TASTE_CONTEXT } from "../shared/places.ts";
+import { hasContextOverride, resolveOperationContext, type TasteCaller } from "./caller.ts";
 import { captureSource, CaptureSourceInput } from "./capture.ts";
 import { buildCatalogView } from "./catalog.ts";
 import { formatSchemaProblems } from "./config.ts";
@@ -20,9 +20,10 @@ import {
 } from "./decide.ts";
 import { InvalidTasteInput, OperationNotAllowed, type TasteError } from "./errors.ts";
 import { HookPayloadSchema, HookPreviewInput, previewHookPayload } from "./hook-payload.ts";
-import { InboxResultSchema, listInboxGroups } from "./inbox.ts";
+import { countPendingByKind, InboxResultSchema, listInboxGroups } from "./inbox.ts";
 import { ListRecordsInput, ListRecordsResultSchema, listTasteRecords } from "./list.ts";
 import { ListenerHeartbeatSchema, listListenerHeartbeats } from "./listener.ts";
+import { resolveTasteContext } from "./place-resolution.ts";
 import { AuditPlacesInput, AuditPlacesResultSchema, auditTastePlaces } from "./places-audit.ts";
 import { ProposeDerivationInput, proposeDerivation } from "./propose.ts";
 import { ExplainRecallInput, explainRecallEligibility, RecallExplainResultSchema } from "./recall-explain.ts";
@@ -80,7 +81,7 @@ import {
 /** Every service an operation may require. A shell provides it with `provideTasteStore(root)`. */
 export type TasteServices = TasteStore;
 
-/** `agent` operations are on the CLI and MCP; `human` ones only behind the review server (and seed). */
+/** `agent` operations are on the CLI and MCP; `human` ones only behind the review server and the seed. */
 export type TasteOperationAudience = "agent" | "human";
 /** A query only reads; a command appends records (or rebuilds the index). */
 export type TasteOperationKind = "query" | "command";
@@ -120,6 +121,8 @@ const declareTasteOperation = <
   declaration: TasteOperationDeclaration<Name, Input, Output, E>,
 ) => ({
   ...declaration,
+  /** Whether the operation reads where the caller is, so a shell must resolve the caller's context. */
+  readsContext: Object.hasOwn(declaration.input.fields, "in"),
   /** For input as it crossed a wire or a flag parser: decoded whole, transformations included. */
   decodeAndRun: (input: unknown, caller: TasteCaller) =>
     Schema.decodeUnknownEffect(declaration.input)(input, OPERATION_INPUT_DECODING).pipe(
@@ -152,12 +155,20 @@ export const TASTE_OPERATIONS = {
     description:
       "Read first: the kinds this store holds, how to propose each (its prompt), where you are, and the store root.",
     input: ContextOverrideInput,
-    output: Schema.Struct({ catalog: CatalogViewSchema, storeRoot: Schema.String, context: TasteContextSchema }),
+    output: Schema.Struct({
+      catalog: CatalogViewSchema,
+      storeRoot: Schema.String,
+      context: TasteContextSchema,
+      /** Pending derivations per live kind, awaiting the owner in the review UI. */
+      pendingByKind: Schema.Record(Schema.String, Schema.Finite),
+    }),
     run: (input, caller) =>
       Effect.gen(function* () {
         const store = yield* TasteStore;
         const { config } = store;
+        const snapshot = yield* store.snapshot;
         return {
+          pendingByKind: countPendingByKind({ snapshot, catalog: config.catalog }),
           catalog: buildCatalogView({
             owner: config.owner,
             resolver: config.resolver.name,
@@ -347,7 +358,7 @@ export const TASTE_OPERATIONS = {
     description: "Accept (optionally with a scope and acknowledgements), reject or retract a derivation.",
     input: DecideDerivationInput,
     output: Schema.Struct({ decision: DecisionRecordSchema, derivation: DerivationViewSchema }),
-    run: (input) => decideDerivation(input),
+    run: (input, caller) => decideDerivation(input, { writtenBy: caller.actor }),
     renderText: renderDecideText,
   }),
   "thread-note": declareTasteOperation({
@@ -409,19 +420,67 @@ type TasteOperationRunners = {
 };
 const TASTE_OPERATION_RUNNERS: TasteOperationRunners = TASTE_OPERATIONS;
 
+/** The callers that may run human operations: the review server, and the seed writing as the owner. */
+const HUMAN_OPERATION_CALLERS: ReadonlySet<TasteCaller["via"]> = new Set(["review", "seed"]);
+
 /**
  * Decodes `input` with the operation's schema (every issue, no excess fields), then runs it against a
- * freshly read config. Human operations run only for `via: "review"`; the seed calls their functions
- * directly instead.
+ * freshly read config. Human operations run only for `via: "review"` or `"seed"`.
  */
 export const runTasteOperation = <N extends TasteOperationName>(
   name: N,
   input: unknown,
   caller: TasteCaller,
 ): Effect.Effect<TasteOperationOutput<N>, TasteError, TasteServices> =>
-  TASTE_OPERATIONS[name].audience === "human" && caller.via !== "review"
+  TASTE_OPERATIONS[name].audience === "human" && !HUMAN_OPERATION_CALLERS.has(caller.via)
     ? Effect.fail(new OperationNotAllowed({ operation: name, via: caller.via }))
     : withFreshTasteConfig(TASTE_OPERATION_RUNNERS[name].decodeAndRun(input, caller));
+
+/** What a shell knows about its caller before reading the input. */
+export interface TasteCallerOrigin {
+  readonly via: TasteCaller["via"];
+  readonly actor?: string | undefined;
+  /** The process's own directory: the CLI's cwd. MCP and the review server have none worth trusting. */
+  readonly cwd?: string | undefined;
+  /** The MCP client's roots, listed only when the context must come from them. */
+  readonly roots?: Effect.Effect<ReadonlyArray<string>> | undefined;
+}
+
+const contextOverrideOf = (input: unknown): { in?: string; at?: ReadonlyArray<string> } => {
+  if (typeof input !== "object" || input === null) return {};
+  const fields: { in?: unknown; at?: unknown } = input;
+  return {
+    ...(typeof fields.in === "string" && { in: fields.in }),
+    ...(Array.isArray(fields.at) && { at: fields.at.filter((place) => typeof place === "string") }),
+  };
+};
+
+/**
+ * The caller every shell builds before `runTasteOperation(name, input, caller)`. Only operations that
+ * read the context resolve one, and an explicit `in` / `at` in the input wins before the cwd or roots
+ * are touched, so a cwd the resolver can't read never fails a call that said where it is.
+ */
+export const buildTasteOperationCaller = Effect.fn("taste.buildTasteOperationCaller")(function* (
+  name: TasteOperationName,
+  origin: TasteCallerOrigin,
+  input: unknown,
+) {
+  const needsContext = TASTE_OPERATIONS[name].readsContext && !hasContextOverride(contextOverrideOf(input));
+  const context = !needsContext
+    ? UNKNOWN_TASTE_CONTEXT
+    : origin.cwd !== undefined
+      ? yield* resolveTasteContext({ cwd: origin.cwd })
+      : origin.roots !== undefined
+        ? yield* resolveTasteContext({ mcpRoots: yield* origin.roots })
+        : UNKNOWN_TASTE_CONTEXT;
+  const caller: TasteCaller = {
+    via: origin.via,
+    context,
+    ...(origin.actor !== undefined && { actor: origin.actor }),
+    ...(origin.cwd !== undefined && { cwd: origin.cwd }),
+  };
+  return caller;
+});
 
 /** The operation's own text for a result, identical across the CLI and MCP. */
 export const renderTasteOperationText = <N extends TasteOperationName>(
@@ -435,6 +494,8 @@ export interface TasteOperationListing {
   readonly audience: TasteOperationAudience;
   readonly kind: TasteOperationKind;
   readonly description: string;
+  /** Whether it reads where the caller is (its input has `in`). */
+  readonly readsContext: boolean;
   readonly input: TasteOperationInputSchema;
   readonly output: Schema.Top;
 }

@@ -578,7 +578,7 @@ function RecallInspectorScreen() {
     query: search.q ?? "",
     kind: search.kind,
     history: search.history ?? false,
-    dir: search.dir,
+    in: search.dir,
     at: search.at === undefined ? undefined : [search.at],
   };
   const inspection = useQuery(recallInspectionQuery(submitted));
@@ -726,7 +726,7 @@ function RecallInspectorScreen() {
           <Stack gap="lg" {...stylex.props(stale && styles.stale)}>
             <RecallCandidateGroups recall={inspection.data.recall} hook={inspection.data.hook} catalog={catalog} />
             <FindSpecificItem
-              request={{ kind: submitted.kind, history: submitted.history, dir: submitted.dir, at: submitted.at }}
+              request={{ kind: submitted.kind, history: submitted.history, in: submitted.in, at: submitted.at }}
               recall={inspection.data.recall}
               hook={inspection.data.hook}
             />

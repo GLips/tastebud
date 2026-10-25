@@ -11,7 +11,7 @@ import { OptionalTrimmedText, OptionalTrimmedTextList } from "../shared/input-te
 import { formatPlaceLabel, placeCovers, scopePlacesOf, TasteContextSchema } from "../shared/places.ts";
 import { DerivationStatusSchema, type DerivationStatus } from "../shared/vocabulary.ts";
 import { canonicalInputPlaces, resolveOperationContext, type TasteCaller } from "./caller.ts";
-import { resolvePlacesForDirectory } from "./place-resolution.ts";
+import { expandInputDirectory, resolvePlacesForDirectory } from "./place-resolution.ts";
 import { derivationStateOf, TasteStore } from "./store.ts";
 import { DerivationSummarySchema } from "./view-schemas.ts";
 import { summarizeDerivation, type ViewSource } from "./views.ts";
@@ -19,8 +19,10 @@ import { summarizeDerivation, type ViewSource } from "./views.ts";
 export const AuditPlacesInput = Schema.Struct({
   in: OptionalTrimmedText.annotate({ description: "Resolve the context as if in this directory" }),
   at: OptionalTrimmedTextList.annotate({ description: "Take these places as the context" }),
-  probes: OptionalTrimmedTextList.annotate({ description: "Directories to resolve and audit against" }),
-  probePlaces: OptionalTrimmedTextList.annotate({ description: "Place keys to audit against" }),
+  probes: OptionalTrimmedTextList.annotate({
+    description: "Directories to resolve and audit against: absolute, ~/…, or relative to the caller's cwd",
+  }),
+  probe_places: OptionalTrimmedTextList.annotate({ description: "Place keys to audit against" }),
 });
 export type AuditPlacesInput = typeof AuditPlacesInput.Type;
 
@@ -75,13 +77,13 @@ export const auditTastePlaces = Effect.fn("taste.auditTastePlaces")(function* (
     for (const place of scopePlacesOf(state.effectiveScope)) byPlace.set(place, [...(byPlace.get(place) ?? []), entry]);
   }
 
-  const resolvedProbes = yield* Effect.forEach(input.probes ?? [], (directory) =>
-    Effect.map(resolvePlacesForDirectory(store.config, directory), (places) => ({
-      probe: directory,
-      places: [...places],
-    })),
+  const resolvedProbes = yield* Effect.forEach(input.probes ?? [], (probe) =>
+    Effect.gen(function* () {
+      const directory = yield* expandInputDirectory("probes", probe, caller.cwd);
+      return { probe, places: [...(yield* resolvePlacesForDirectory(store.config, directory))] };
+    }),
   );
-  const keyedProbes = yield* canonicalInputPlaces("probePlaces", input.probePlaces ?? [], homedir());
+  const keyedProbes = yield* canonicalInputPlaces("probe_places", input.probe_places ?? [], homedir());
   const probes =
     resolvedProbes.length === 0 && keyedProbes.length === 0
       ? [{ probe: context.cwd ?? "(context)", places: [...context.places] }]

@@ -30,7 +30,7 @@ Scope
 - --place clients/<client> for the client whose customers said it. Sweeps always pass the scope.
 
 When refused as a near repeat
-- Usually the insight already exists or was turned down; stop. Re-propose only with --despite <id> for every match and --why saying what changed.`;
+- Usually the insight already exists or was turned down; stop. Re-propose only with --despite <id> for every match and --despite-case saying what changed.`;
 
 const IDEA_PROPOSAL_PROMPT = `Propose an idea when a customer call, or Dana's own words, point at something concrete to try on the website or in ads. An idea is a backlog item: accepting it means "worth doing", not "true". Ideas are never recalled into an agent's context; they live in taste list and the review UI.
 
@@ -54,7 +54,7 @@ Scope
 - --place clients/<client> for one client's site or ads. --global only for ideas Dana means for every site they work on.
 
 When refused as a near repeat
-- Someone already had this idea. Stop, unless something changed: then --despite <id> for every match and --why saying what.`;
+- Someone already had this idea. Stop, unless something changed: then --despite <id> for every match and --despite-case saying what.`;
 
 /** Backticks and `${` would end or interpolate the template literal the config writes each prompt into. */
 const templateLiteral = (text: string) =>

@@ -183,13 +183,14 @@ export const renderReindexText = (result: IndexRefreshResult) => `Reindexed ${re
 
 /** Kind prompts are config text written once for both surfaces, so the catalog says how to read their flags. */
 const PROMPT_SPELLING_NOTE =
-  "Prompts spell inputs as CLI flags. Over MCP, each is the taste_propose field of the same name, " +
-  "except --place (places) and --why (despite_case).";
+  "Prompts spell inputs as CLI flags. Over MCP, each is the taste_propose field of the same name with " +
+  '_ for -, except --place <key> (scope: "places" with places: [<key>]) and --global (scope: "global").';
 
 export const renderCatalogText = (result: {
   readonly catalog: CatalogView;
   readonly storeRoot: string;
   readonly context: TasteContext;
+  readonly pendingByKind: Readonly<Record<string, number>>;
 }) =>
   [
     `Store ${result.storeRoot} · owner ${result.catalog.owner} · resolver ${result.catalog.resolver}`,
@@ -202,7 +203,7 @@ export const renderCatalogText = (result: {
       "Derived kinds",
       result.catalog.derivedKinds.map(
         (kind) =>
-          `- ${kind.key} (recall: ${kind.recall}; cites ${kind.sources.join(", ")}): ${kind.description ?? kind.plural}\n\n` +
+          `- ${kind.key} (recall: ${kind.recall}; cites ${kind.sources.join(", ")}; ${result.pendingByKind[kind.key] ?? 0} pending): ${kind.description ?? kind.plural}\n\n` +
           kind.proposalPrompt
             .split("\n")
             .map((line) => `    ${line}`)

@@ -210,7 +210,7 @@ function CountsTable({ counts }: { counts: AuditPlacesResult["globalCounts"] }) 
 function WhereAmI({ onKeep }: { onKeep: (directory: string) => void }) {
   const [draft, setDraft] = useState("");
   const [asked, setAsked] = useState<string | undefined>(undefined);
-  const resolved = useQuery(reviewContextQuery({ dir: asked }));
+  const resolved = useQuery(reviewContextQuery({ in: asked }));
   const known = useKnownPlaces(resolved.data?.places ?? []);
   return (
     <Stack gap={6}>

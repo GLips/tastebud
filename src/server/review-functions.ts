@@ -1,8 +1,8 @@
 /**
  * Every server function the review UI calls. A plain `.ts` name on purpose: the browser imports these
  * references (Start swaps each handler for an RPC stub), while core stays behind the
- * `taste-store.server.ts` door. Each function only shapes input, picks a context and runs operations;
- * decisions and the owner's thread notes are written here and nowhere else.
+ * `taste-store.server.ts` door. Each function only shapes input and runs operations; decisions and
+ * the owner's thread notes are written here and nowhere else.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
@@ -12,7 +12,7 @@ import { runReviewOperation, runReviewOperations } from "./taste-store.server.ts
 
 // Validators only shape the wire; each operation decodes its own input strictly after this.
 const ContextRequestFields = {
-  dir: Schema.optionalKey(Schema.String),
+  in: Schema.optionalKey(Schema.String),
   at: Schema.optionalKey(Schema.Array(Schema.String)),
 };
 const ScopeOverrideFields = {
@@ -24,12 +24,7 @@ const ScopeOverrideFields = {
 export const fetchReviewShell = createServerFn({ method: "GET" }).handler(() =>
   runReviewOperations((run) =>
     Effect.gen(function* () {
-      const { catalog, storeRoot } = yield* run("catalog", {});
-      const pending = yield* run("list", { status: "pending" });
-      const live = new Set(catalog.derivedKinds.map((kind) => kind.key));
-      const pendingByKind: Record<string, number> = {};
-      for (const row of pending.derivations)
-        if (live.has(row.kind)) pendingByKind[row.kind] = (pendingByKind[row.kind] ?? 0) + 1;
+      const { catalog, storeRoot, pendingByKind } = yield* run("catalog", {});
       return { catalog, storeRoot, pendingByKind };
     }),
   ),
@@ -40,7 +35,7 @@ export const fetchInboxGroups = createServerFn({ method: "GET" }).handler(() => 
 
 /** What accepting with a scope would settle on, and the near repeats it must acknowledge. */
 export const fetchAcceptPreview = createServerFn({ method: "GET" })
-  .validator(Schema.toStandardSchemaV1(Schema.Struct({ target: Schema.String, ...ScopeOverrideFields })))
+  .validator(Schema.toStandardSchemaV1(Schema.Struct({ ref: Schema.String, ...ScopeOverrideFields })))
   .handler(({ data }) => runReviewOperation("accept-preview", data));
 
 /** Accept (with a scope and acknowledgements), reject or retract. Written as the store owner. */
@@ -48,7 +43,7 @@ export const decideReviewDerivation = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(
       Schema.Struct({
-        target: Schema.String,
+        ref: Schema.String,
         outcome: Schema.Literals(DECISION_OUTCOMES),
         reason: Schema.optionalKey(Schema.String),
         acknowledges: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -60,7 +55,7 @@ export const decideReviewDerivation = createServerFn({ method: "POST" })
 
 /** The owner's note on a thread: the browser never names an author. */
 export const postOwnerThreadNote = createServerFn({ method: "POST" })
-  .validator(Schema.toStandardSchemaV1(Schema.Struct({ derivation: Schema.String, text: Schema.String })))
+  .validator(Schema.toStandardSchemaV1(Schema.Struct({ ref: Schema.String, text: Schema.String })))
   .handler(({ data }) => runReviewOperation("thread-note", data));
 
 /** A kind's library: derivations filtered by status, place and text. */
@@ -112,15 +107,14 @@ export const fetchRecallInspection = createServerFn({ method: "GET" })
     ),
   )
   .handler(({ data }) => {
-    const { dir, at, query, ...recallInput } = data;
-    return runReviewOperations(
-      (run) =>
-        Effect.gen(function* () {
-          const recall = yield* run("recall", { query, ...recallInput });
-          const hook = yield* run("hook-preview", { prompt: query });
-          return { recall, hook };
-        }),
-      { dir, at },
+    const { in: directory, at, query, ...recallInput } = data;
+    const where = { ...(directory !== undefined && { in: directory }), ...(at !== undefined && { at }) };
+    return runReviewOperations((run) =>
+      Effect.gen(function* () {
+        const recall = yield* run("recall", { query, ...recallInput, ...where });
+        const hook = yield* run("hook-preview", { prompt: query, ...where });
+        return { recall, hook };
+      }),
     );
   });
 
@@ -137,10 +131,7 @@ export const fetchRecallExplanation = createServerFn({ method: "GET" })
       }),
     ),
   )
-  .handler(({ data }) => {
-    const { dir, at, ...explainInput } = data;
-    return runReviewOperation("recall-explain", explainInput, { dir, at });
-  });
+  .handler(({ data }) => runReviewOperation("recall-explain", data));
 
 /** Places in use with counts, and the audit against the probes the reviewer keeps in the browser. */
 export const fetchPlacesAudit = createServerFn({ method: "GET" })
@@ -148,7 +139,7 @@ export const fetchPlacesAudit = createServerFn({ method: "GET" })
     Schema.toStandardSchemaV1(
       Schema.Struct({
         probes: Schema.optionalKey(Schema.Array(Schema.String)),
-        probePlaces: Schema.optionalKey(Schema.Array(Schema.String)),
+        probe_places: Schema.optionalKey(Schema.Array(Schema.String)),
       }),
     ),
   )
@@ -158,7 +149,7 @@ export const fetchPlacesAudit = createServerFn({ method: "GET" })
 export const resolveReviewContext = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct(ContextRequestFields)))
   .handler(async ({ data }) => {
-    const resolved = await runReviewOperation("catalog", {}, data);
+    const resolved = await runReviewOperation("catalog", data);
     return resolved.ok ? { ok: true as const, value: resolved.value.context } : resolved;
   });
 
@@ -177,7 +168,7 @@ export const proposeScopeRevision = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(
       Schema.Struct({
-        target: Schema.String,
+        ref: Schema.String,
         scope: Schema.Literals(["global", "places"]),
         places: Schema.optionalKey(Schema.Array(Schema.String)),
         despite: Schema.optionalKey(Schema.Array(Schema.String)),

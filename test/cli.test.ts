@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { AGENT, makeGitRepo, makeTestStore, OWNER } from "./support.ts";
+import { AGENT, demoConfigText, makeGitRepo, makeTemporaryDirectory, makeTestStore, OWNER } from "./support.ts";
 
 const MAIN = join(import.meta.dir, "../src/cli/main.ts");
 
@@ -26,7 +26,7 @@ const runTaste = async (store: string, cwd: string, args: ReadonlyArray<string>)
 const countRecordFiles = (store: string) =>
   readdirSync(store, { recursive: true }).filter((path) => String(path).endsWith(".md")).length;
 
-test("capture, propose and recall --json from a repo; a repeat exits 3 and decide writes nothing", async () => {
+test("capture, propose and recall --json from a repo; a repeat exits 3 and open writes nothing", async () => {
   const store = await makeTestStore();
   const repo = makeGitRepo("git@github.com:acme/web.git", ["apps/checkout"]);
   const checkout = join(repo, "apps/checkout");
@@ -56,7 +56,8 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and decid
 
   const repeated = await runTaste(store, checkout, proposeArgs);
   expect(repeated.exitCode).toBe(3);
-  expect(JSON.parse(repeated.stdout).error.tag).toBe("NearRepeat");
+  const { error } = JSON.parse(repeated.stdout);
+  expect([error.tag, error.category, error.matches.length]).toEqual(["NearRepeat", "refused", 1]);
 
   const recalled = await runTaste(store, repo, ["recall", "default exports", "--json"]);
   expect(recalled.exitCode).toBe(0);
@@ -65,8 +66,18 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and decid
   expect(recall.sources.map((hit: { source: { id: string } }) => hit.source.id)).toContain(sourceId);
 
   const before = countRecordFiles(store);
-  const decided = await runTaste(store, repo, ["decide", derivation.id]);
-  expect(decided.exitCode).toBe(0);
-  expect(decided.stdout.trim()).toEndWith(`/derivations/${derivation.id}`);
+  const opened = await runTaste(store, repo, ["open", derivation.id]);
+  expect(opened.exitCode).toBe(0);
+  expect(opened.stdout.trim()).toEndWith(`/derivations/${derivation.id}`);
   expect(countRecordFiles(store)).toBe(before);
+});
+
+test("--at says where the caller is, so a cwd the resolver can't read never runs", async () => {
+  const store = await makeTestStore(demoConfigText(`() => { throw new Error("no place here"); }`));
+  const cwd = makeTemporaryDirectory("anywhere");
+  const broken = await runTaste(store, cwd, ["catalog", "--json"]);
+  expect(JSON.parse(broken.stdout).error.tag).toBe("PlaceResolutionFailed");
+  const placed = await runTaste(store, cwd, ["catalog", "--at", "clients/acme", "--json"]);
+  expect(placed.exitCode).toBe(0);
+  expect(JSON.parse(placed.stdout).context).toMatchObject({ origin: "at", places: ["clients/acme"] });
 });

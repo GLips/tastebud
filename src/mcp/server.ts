@@ -8,18 +8,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { Cause, Effect, Exit, type JsonSchema, Schema, SchemaAST } from "effect";
 
 import {
+  buildTasteOperationCaller,
   describeTasteFailure,
   listTasteOperations,
   mcpToolNameOf,
   provideTasteStore,
   renderTasteOperationText,
   resolveStoreRoot,
-  resolveTasteContext,
   runTasteOperation,
-  type TasteCaller,
   type TasteOperationListing,
 } from "../core/index.ts";
-import type { TasteContext } from "../shared/places.ts";
 
 const TASTE_MCP_INSTRUCTIONS = [
   "Taste holds how its owner works: beliefs and other kinds they ratified, the ones they rejected, and their own words as sources.",
@@ -76,8 +74,6 @@ const buildTasteToolInputSchema = (operation: TasteOperationListing): JsonSchema
   };
 };
 
-const readsCallerContext = (operation: TasteOperationListing) => Object.hasOwn(operation.input.fields, "in");
-
 const listTasteMcpTools = () =>
   listTasteOperations("agent").map((operation) => ({
     name: mcpToolNameOf(operation.name),
@@ -97,9 +93,6 @@ const OPERATION_BY_TOOL_NAME = new Map(
 /** Models often send `null` for an optional argument they mean to leave out. */
 const withoutNullArguments = (args: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(args).filter(([, value]) => value !== null));
-
-const hasContextOverride = (args: Record<string, unknown>) =>
-  args.in !== undefined || (Array.isArray(args.at) && args.at.length > 0);
 
 /** The client's `file://` roots, when it offers them. A client without roots, or one that fails, has none. */
 const listClientRootUris = async (server: Server): Promise<ReadonlyArray<string>> => {
@@ -131,15 +124,14 @@ const callTasteTool = async (
   args: Record<string, unknown>,
 ) => {
   const { name } = operation;
-  const needsRoots = readsCallerContext(operation) && !hasContextOverride(args);
-  const mcpRoots = needsRoots ? await listClientRootUris(server) : [];
-  const actor = clientActorOf(server);
   const program = Effect.gen(function* () {
     // Never the server's own cwd: it says where the client launched it, not where the agent works.
-    const context: TasteContext = needsRoots
-      ? yield* resolveTasteContext({ mcpRoots })
-      : { places: [], origin: "unknown" };
-    const caller: TasteCaller = { via: "mcp", context, ...(actor !== undefined && { actor }) };
+    const origin = {
+      via: "mcp" as const,
+      actor: clientActorOf(server),
+      roots: Effect.promise(() => listClientRootUris(server)),
+    };
+    const caller = yield* buildTasteOperationCaller(name, origin, args);
     const output = yield* runTasteOperation(name, args, caller);
     return { text: renderTasteOperationText(name, output), output };
   });
@@ -147,7 +139,10 @@ const callTasteTool = async (
   if (Exit.isSuccess(exit))
     return { ...textResult(exit.value.text), structuredContent: exit.value.output as Record<string, unknown> };
   const failed = exit.cause.reasons.find(Cause.isFailReason);
-  if (failed !== undefined) return textResult(describeTasteFailure(failed.error, "mcp").sentence, true);
+  if (failed !== undefined) {
+    const { envelope } = describeTasteFailure(failed.error, "mcp");
+    return { ...textResult(envelope.sentence, true), structuredContent: { error: envelope } };
+  }
   // A defect is a bug in Taste: the log gets the stack, the agent a sentence it can act on.
   process.stderr.write(`taste mcp: ${name} failed unexpectedly\n${Cause.pretty(exit.cause)}\n`);
   return textResult(`Taste failed unexpectedly running ${name}; the server's stderr has the details.`, true);

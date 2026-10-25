@@ -3,18 +3,7 @@
  * seed. An accept may amend the scope, and re-runs the repeat check against the scope it settles on.
  */
 import { randomUUID } from "node:crypto";
-import {
-  closeSync,
-  linkSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeSync,
-} from "node:fs";
-import { homedir } from "node:os";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
 import { Effect, Schema } from "effect";
@@ -22,7 +11,6 @@ import { Effect, Schema } from "effect";
 import { OptionalTrimmedText, OptionalTrimmedTextList, TrimmedText } from "../shared/input-text.ts";
 import { type DerivationScope, scopePlacesOf } from "../shared/places.ts";
 import { DecisionOutcomeSchema } from "../shared/vocabulary.ts";
-import { canonicalInputPlaces } from "./caller.ts";
 import { requireLiveDerivedKind } from "./catalog.ts";
 import {
   DecisionLockTimeout,
@@ -35,23 +23,23 @@ import { stampNewRecord } from "./ids.ts";
 import { decisionInvalidReason, type DerivationLookup } from "./lifecycle.ts";
 import { type DecisionRecord, type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
 import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
+import { readScopeOverride, ScopeOverrideFields } from "./scope-input.ts";
 import { indexDirOf } from "./store-files.ts";
 import { derivationById, derivationStateOf, resolveDerivationRef, type StoreSnapshot, TasteStore } from "./store.ts";
-import type { RepeatMatch } from "./view-schemas.ts";
 import { buildDerivationView, summarizeDerivation, type ViewSource } from "./views.ts";
 
-const ScopeOverrideFields = {
-  scope: Schema.optionalKey(Schema.Literals(["global", "places"])).annotate({
+const DecideScopeFields = {
+  scope: ScopeOverrideFields.scope.annotate({
     description: "Accept only: accept with this scope instead of the proposed one",
   }),
-  places: OptionalTrimmedTextList.annotate({ description: "The places, when scope is places" }),
+  places: ScopeOverrideFields.places,
 };
 
 export const DecideDerivationInput = Schema.Struct({
-  target: TrimmedText.annotate({ description: "The derivation to decide" }),
+  ref: TrimmedText.annotate({ description: "The derivation to decide" }),
   outcome: DecisionOutcomeSchema,
   reason: OptionalTrimmedText.annotate({ description: "Required for reject" }),
-  ...ScopeOverrideFields,
+  ...DecideScopeFields,
   acknowledges: OptionalTrimmedTextList.annotate({
     description: "Accept only: blocking near repeats the human accepts anyway",
   }),
@@ -59,46 +47,17 @@ export const DecideDerivationInput = Schema.Struct({
 export type DecideDerivationInput = typeof DecideDerivationInput.Type;
 
 export const PreviewAcceptanceInput = Schema.Struct({
-  target: TrimmedText,
-  ...ScopeOverrideFields,
+  ref: TrimmedText.annotate({ description: "The derivation to preview accepting" }),
+  ...DecideScopeFields,
 });
 export type PreviewAcceptanceInput = typeof PreviewAcceptanceInput.Type;
-
-/** A complete scope from `scope` and `places`, places canonical. */
-export const readChosenScope = Effect.fn("taste.readChosenScope")(function* (
-  scope: "global" | "places",
-  places: ReadonlyArray<string> | undefined,
-) {
-  if (scope === "global") {
-    if (places !== undefined)
-      return yield* new InvalidTasteInput({ problems: ["places: a global scope has no places"] });
-    const chosen: DerivationScope = { scope: "global" };
-    return chosen;
-  }
-  if (places === undefined)
-    return yield* new InvalidTasteInput({ problems: ["places: required and non-empty when scope is places"] });
-  const chosen: DerivationScope = { scope: "places", places: yield* canonicalInputPlaces("places", places, homedir()) };
-  return chosen;
-});
-
-/** A complete scope override from input, or undefined to keep the proposed scope. */
-const readScopeOverride = Effect.fn("taste.readScopeOverride")(function* (input: PreviewAcceptanceInput) {
-  if (input.scope !== undefined) return yield* readChosenScope(input.scope, input.places);
-  if (input.places !== undefined)
-    return yield* new InvalidTasteInput({ problems: ["places: give scope: places along with them"] });
-  return undefined;
-});
 
 /**
  * Blocking matches under the scope an accept would settle on that the proposal's `despite` did not
  * already name. Each must be acknowledged before the accept lands.
  */
-const unacknowledgedMatches = Effect.fn("taste.unacknowledgedMatches")(function* (
-  view: ViewSource,
-  derivation: DerivationRecord,
-  effectiveScope: DerivationScope,
-) {
-  const repeat = yield* findRepeatMatches(view, {
+const unacknowledgedMatches = (view: ViewSource, derivation: DerivationRecord, effectiveScope: DerivationScope) => {
+  const repeat = findRepeatMatches(view, {
     kind: derivation.kind,
     statement: derivation.statement,
     scope: effectiveScope,
@@ -106,7 +65,7 @@ const unacknowledgedMatches = Effect.fn("taste.unacknowledgedMatches")(function*
   });
   const despite = new Set(derivation.despite ?? []);
   return repeat.blocking.filter((match) => !despite.has(match.id));
-});
+};
 
 /** What the review UI's acceptance preview shows before an accept is sent. */
 export const previewDerivationAcceptance = Effect.fn("taste.previewDerivationAcceptance")(function* (
@@ -115,14 +74,14 @@ export const previewDerivationAcceptance = Effect.fn("taste.previewDerivationAcc
   const store = yield* TasteStore;
   const snapshot = yield* store.snapshot;
   const view: ViewSource = { snapshot, catalog: store.config.catalog };
-  const derivation = yield* resolveDerivationRef(snapshot, input.target);
+  const derivation = yield* resolveDerivationRef(snapshot, input.ref);
   yield* requireLiveDerivedKind(store.config.catalog, derivation);
   const override = yield* readScopeOverride(input);
   const effectiveScope = override ?? proposedScopeOf(derivation);
   return {
     derivation: summarizeDerivation(view, derivation),
     effectiveScope,
-    needsAcknowledgement: yield* unacknowledgedMatches(view, derivation, effectiveScope),
+    needsAcknowledgement: unacknowledgedMatches(view, derivation, effectiveScope),
   };
 });
 
@@ -162,24 +121,26 @@ const isStaleLock = (path: string, content: string) => {
 };
 
 /**
- * Moves a stale lock aside. The rename is atomic, so of two processes stealing at once only one
- * moves the stale file; if what got moved is no longer the stale content, it is put back.
+ * Invariant: only the holder of the exclusively created `decide.lock.takeover` sidecar deletes
+ * another process's lock, and only after re-reading the same stale content under it, so a lock
+ * created since is never removed. Nothing is moved or restored. A process killed inside this window
+ * leaves the sidecar; decisions then time out naming the lock until someone deletes it.
  */
-const stealStaleLock = (path: string, staleContent: string) => {
-  const aside = `${path}.stale-${randomUUID()}`;
+const removeStaleLock = (path: string, staleContent: string) => {
+  const sidecar = `${path}.takeover`;
+  let fd: number;
   try {
-    renameSync(path, aside);
+    fd = openSync(sidecar, "wx");
   } catch (error) {
-    if (errorCodeOf(error) === "ENOENT") return;
+    if (errorCodeOf(error) === "EEXIST") return;
     throw error;
   }
-  if (readFileSync(aside, "utf8") === staleContent) rmSync(aside, { force: true });
-  else
-    try {
-      linkSync(aside, path);
-    } finally {
-      rmSync(aside, { force: true });
-    }
+  try {
+    if (readLockFile(path) === staleContent) rmSync(path, { force: true });
+  } finally {
+    closeSync(fd);
+    rmSync(sidecar, { force: true });
+  }
 };
 
 /** One attempt: true when this process now holds the lock under `token`. */
@@ -195,7 +156,7 @@ const tryCreateLock = (path: string, token: string): boolean => {
   } catch (error) {
     if (errorCodeOf(error) !== "EEXIST") throw error;
     const content = readLockFile(path);
-    if (content !== undefined && isStaleLock(path, content)) stealStaleLock(path, content);
+    if (content !== undefined && isStaleLock(path, content)) removeStaleLock(path, content);
     return false;
   }
 };
@@ -256,9 +217,9 @@ const checkDecisionFields = (input: DecideDerivationInput) => {
   return problems.length > 0 ? Effect.fail(new InvalidTasteInput({ problems })) : Effect.void;
 };
 
-/** Options only core's own writers set: the process writing on the human's behalf, e.g. the seed. */
+/** Set by the operation from its caller: the process writing on the human's behalf, e.g. the seed. */
 export interface DecideDerivationOptions {
-  readonly via?: string;
+  readonly writtenBy?: string | undefined;
 }
 
 /** Records a human decision after rechecking validity under the lock. Stale decisions fail with DecisionNotAllowed. */
@@ -275,7 +236,7 @@ export const decideDerivation = Effect.fn("taste.decideDerivation")(function* (
     Effect.gen(function* () {
       const snapshot = yield* store.snapshot;
       const view: ViewSource = { snapshot, catalog: config.catalog };
-      const derivation = yield* resolveDerivationRef(snapshot, input.target);
+      const derivation = yield* resolveDerivationRef(snapshot, input.ref);
       yield* requireLiveDerivedKind(config.catalog, derivation);
       const invalid = decisionInvalidReason(input.outcome, derivation, lookupIn(snapshot));
       if (invalid !== undefined)
@@ -289,11 +250,19 @@ export const decideDerivation = Effect.fn("taste.decideDerivation")(function* (
         resolveDerivationRef(snapshot, ref),
       );
       if (input.outcome === "accept") {
-        const pending = yield* unacknowledgedMatches(view, derivation, override ?? proposedScopeOf(derivation));
+        const pending = unacknowledgedMatches(view, derivation, override ?? proposedScopeOf(derivation));
         const acknowledged = new Set(acknowledges.map((record) => record.id));
-        const missing = pending.filter((match: RepeatMatch) => !acknowledged.has(match.id));
+        const missing = pending.filter((match) => !acknowledged.has(match.id));
         if (missing.length > 0)
           return yield* new WideningNeedsAcknowledgement({ target: derivation.id, matches: missing });
+        const pendingIds = new Set(pending.map((match) => match.id));
+        const stray = acknowledges.filter((record) => !pendingIds.has(record.id));
+        if (stray.length > 0)
+          return yield* new InvalidTasteInput({
+            problems: stray.map(
+              (record) => `acknowledges: ${record.id} is not a near repeat this accept must acknowledge; leave it out`,
+            ),
+          });
       }
       const stamp = yield* stampNewRecord;
       const decision: DecisionRecord = {
@@ -308,7 +277,7 @@ export const decideDerivation = Effect.fn("taste.decideDerivation")(function* (
         ...(override !== undefined && { scope: override.scope }),
         ...(override?.scope === "places" && { places: scopePlacesOf(override) }),
         ...(acknowledges.length > 0 && { acknowledges: acknowledges.map((record) => record.id) }),
-        ...(options.via !== undefined && { via: options.via }),
+        ...(options.writtenBy !== undefined && { via: options.writtenBy }),
       };
       yield* store.write(decision);
       return {

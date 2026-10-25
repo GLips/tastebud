@@ -14,7 +14,7 @@ You bring the sources and the agents. Taste fetches nothing and calls no model.
 
 - **Sources are someone's exact words.** A source records who said what, when and where, with a frozen excerpt around it, so it still makes sense after the original is edited or deleted. Each source has a kind: the default is `memory`, and a store can add others, like `call-quote` for customer calls. An edit becomes a new source that `revises` the old one. An agent's own words are never a source.
 - **Derivations are one-line conclusions a human ratified.** An agent proposes one, citing the sources it rests on, and only the owner accepts, rejects or retracts it. The default derived kind is `belief` ("how I work"); a store can add others, like `insight` ("what customers keep telling us") or `idea` ("things to try"). Each kind ships its own proposal prompt, and its recall policy says whether agents get it injected, can pull it, or never see it.
-- **Places say where work happens.** A place is a repo (`github.com/acme/web::`, or a subpath like `github.com/acme/web::apps/checkout`), a directory (`~/Notes/clients/acme`) or a name (`clients/acme`). A derivation's scope is `global` or a list of places, and it applies wherever one of its places covers where you are. A proposal with no scope defaults to the repo you're in. Agents never widen a scope on their own; the owner can amend it when they accept.
+- **Places say where work happens.** A place is a repo (`github.com/acme/web::`, or a subpath like `github.com/acme/web::apps/checkout`), a directory (`~/Notes/clients/acme`) or a name (`clients/acme`). A derivation's scope is `global` or a list of places, and it applies wherever one of its places covers where you are. A proposal with no scope defaults to where you are: under the default `git` resolver, the repo you're in. Agents never widen a scope on their own; the owner can amend it when they accept.
 - **Nothing changes without the owner.** An accepted derivation never edits itself. New evidence becomes a new proposal that `supersedes` the old one, and that needs ratifying too.
 - **Rejections are kept and read back.** "We don't actually think this" is stored with the reason. A new proposal that nearly repeats a rejection in an overlapping scope is refused unless the agent names it with `--despite` and says what changed. Recall shows rejections next to what was accepted.
 
@@ -56,7 +56,7 @@ The store is `--store`, else `$TASTE_STORE`, else `~/.taste`.
 
 Every command has `--help`, and most take `--json`. Commands that read where you are take `--in <dir>` (resolve that directory) or `--at <place>` (take that place as given). Exit codes: 0 ok, 1 broken, 2 bad input (including a proposal with no scope from an unknown place), 3 refused (a near repeat), 4 conflict.
 
-Only the owner decides, and only in the review UI. `taste decide <ref>` prints the record's review link and writes nothing.
+Only the owner decides, and only in the review UI. `taste open [ref]` prints the review link (the inbox, or one record), opens it in a browser at a terminal, and writes nothing.
 
 ## Agents
 

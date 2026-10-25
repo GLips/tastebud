@@ -6,7 +6,16 @@ import { Result } from "effect";
 
 import { normalizeRemote } from "../src/core/index.ts";
 import { canonicalPlaceKey, placeCovers } from "../src/shared/places.ts";
-import { callerFor, git, makeGitRepo, makeTemporaryDirectory, makeTestStore, runOperation } from "./support.ts";
+import {
+  callerFor,
+  demoConfigText,
+  failOperation,
+  git,
+  makeGitRepo,
+  makeTemporaryDirectory,
+  makeTestStore,
+  runOperation,
+} from "./support.ts";
 
 describe("places", () => {
   test("normalizeRemote: one repo id per remote, credentials stripped, ports kept, local paths flagged", () => {
@@ -76,5 +85,19 @@ describe("places", () => {
     expect(await placesIn(unhosted)).toEqual([unhosted]);
     const catalog = await runOperation(root, "catalog", { in: unhosted }, await callerFor(root, {}));
     expect(catalog.context).toEqual({ places: [unhosted], origin: "in", cwd: unhosted });
+  });
+
+  test("audit probes expand ~ and resolve relative paths only against the caller's cwd", async () => {
+    const root = await makeTestStore(demoConfigText(`"directories"`));
+    // The review server's caller: no cwd of its own.
+    const reviewer = await callerFor(root, {}, undefined);
+    const audit = await runOperation(root, "places", { probes: ["~"] }, reviewer);
+    expect(audit.audit.probes).toEqual([{ probe: "~", places: ["~"] }]);
+    const relative = await failOperation(root, "places", { probes: ["notes"] }, reviewer);
+    expect(relative).toMatchObject({ _tag: "InvalidTasteInput", problems: [expect.stringContaining("probes")] });
+    const work = makeTemporaryDirectory("work");
+    mkdirSync(join(work, "notes"));
+    const fromWork = await runOperation(root, "places", { probes: ["notes"] }, await callerFor(root, { cwd: work }));
+    expect(fromWork.audit.probes).toEqual([{ probe: "notes", places: [join(work, "notes")] }]);
   });
 });

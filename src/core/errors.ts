@@ -136,7 +136,11 @@ export class ScopeRequired extends Data.TaggedError("ScopeRequired")<{
 }> {
   sentenceFor(surface: TasteSurface) {
     const retries = isArgumentSurface(surface)
-      ? ['places: ["github.com/<owner>/<repo>::"]', "global: true", 'in: "<your working directory>"']
+      ? [
+          'scope: "places" with places: ["github.com/<owner>/<repo>::"]',
+          'scope: "global"',
+          'in: "<your working directory>"',
+        ]
       : ["--place github.com/<owner>/<repo>::", "--global", "--in <your working directory>"];
     return `No scope: the context is unknown, so this proposal must say where it applies. Retry with ${retries.join(", or ")}.`;
   }
@@ -177,7 +181,7 @@ export class NearRepeat extends Data.TaggedError("NearRepeat")<{
         ? "each match ticked and what is different now"
         : isArgumentSurface(surface)
           ? `despite: ${JSON.stringify(ids)} and despite_case: "<what is different now>"`
-          : `${ids.map((id) => `--despite ${id}`).join(" ")} --why "<what is different now>"`;
+          : `${ids.map((id) => `--despite ${id}`).join(" ")} --despite-case "<what is different now>"`;
     return [
       `Refused: this is a near repeat of an existing ${this.kind} whose scope overlaps.`,
       ...formatMatchLines(this.matches),
@@ -296,19 +300,57 @@ const categoryOf = (error: TasteError): TasteFailureCategory =>
     OperationNotAllowed: () => "refused",
   });
 
-export interface TasteFailureDescription {
+/**
+ * What every shell serialises for a failure: the CLI's `--json` `{error}`, MCP's `structuredContent`
+ * and the review server's outcome. Beyond the sentence, it carries the fields a retry is built from.
+ */
+export interface TasteFailureEnvelope {
+  readonly tag: TasteError["_tag"];
   readonly sentence: string;
   readonly category: TasteFailureCategory;
+  /** NearRepeat and WideningNeedsAcknowledgement: the matches to name in `despite` or `acknowledges`. */
+  readonly matches?: ReadonlyArray<RepeatMatch>;
+  /** AmbiguousRecordRef: the records the ref could mean. */
+  readonly candidates?: ReadonlyArray<string>;
+  /** UnknownKind: the kinds there are. */
+  readonly known?: ReadonlyArray<string>;
+  /** InvalidTasteInput: each problem, naming its field. */
+  readonly problems?: ReadonlyArray<string>;
+}
+
+type TasteFailureRetry = Omit<TasteFailureEnvelope, "tag" | "sentence" | "category">;
+
+const retryFieldsOf = (error: TasteError): TasteFailureRetry => {
+  switch (error._tag) {
+    case "NearRepeat":
+    case "WideningNeedsAcknowledgement":
+      return { matches: error.matches };
+    case "AmbiguousRecordRef":
+      return { candidates: error.candidates };
+    case "UnknownKind":
+      return { known: error.known };
+    case "InvalidTasteInput":
+      return { problems: error.problems };
+    default:
+      return {};
+  }
+};
+
+export interface TasteFailureDescription {
+  readonly envelope: TasteFailureEnvelope;
   /** 1 broken, 2 input, 3 refused, 4 conflict. */
   readonly exitCode: number;
 }
 
-/** The sentence, category and CLI exit code for any core failure, worded for `surface`. Exhaustive over `TasteError`. */
+/** The envelope and CLI exit code for any core failure, worded for `surface`. Exhaustive over `TasteError`. */
 export const describeTasteFailure = (error: TasteError, surface: TasteSurface): TasteFailureDescription => {
   const category = categoryOf(error);
   const sentence =
     error._tag === "NearRepeat" || error._tag === "ScopeRequired" || error._tag === "KindNotRecallable"
       ? error.sentenceFor(surface)
       : error.message;
-  return { sentence, category, exitCode: EXIT_CODE_BY_CATEGORY[category] };
+  return {
+    envelope: { tag: error._tag, sentence, category, ...retryFieldsOf(error) },
+    exitCode: EXIT_CODE_BY_CATEGORY[category],
+  };
 };

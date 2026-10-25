@@ -46,6 +46,7 @@ const buildHookOutput = (stdin: string, deadline: ReturnType<typeof makeHookDead
     deadline.rearm(store.config.hook.budgetMs);
     // An event without `cwd` resolves to unknown context, on which the payload builder stays silent.
     const context = yield* resolveTasteContext({ cwd: event.value.cwd });
+    // Not via the registry's `hook-preview`: its fresh config read costs ~50 ms of the cold start.
     const payload = yield* buildHookPayload({ prompt: event.value.prompt, context });
     return payload.hookOutput;
   });
@@ -54,10 +55,10 @@ const buildHookOutput = (stdin: string, deadline: ReturnType<typeof makeHookDead
  * Every failure is silence, including a missing store (the hook is installed globally and runs in
  * projects with none) and a place that fails to resolve. `taste hook preview` is how to see why.
  */
-export const runTasteHookPrompt = async (): Promise<never> => {
+export const runTasteHookPrompt = async (storeFlag: string | undefined): Promise<never> => {
   const deadline = makeHookDeadline(DEFAULT_HOOK_SETTINGS.budgetMs);
   const stdin = await Bun.stdin.text();
-  const root = resolveStoreRoot({ env: process.env.TASTE_STORE });
+  const root = resolveStoreRoot({ flag: storeFlag, env: process.env.TASTE_STORE });
   const output = await Effect.runPromise(
     provideTasteStore(root)(buildHookOutput(stdin, deadline)).pipe(Effect.catchCause(() => Effect.void)),
   );

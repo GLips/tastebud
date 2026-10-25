@@ -66,7 +66,7 @@ export function DerivationThread({
   const [draft, setDraft] = useState("");
   const post = useMutation({
     mutationFn: async (text: string) =>
-      unwrapReviewOutcome(await postOwnerThreadNote({ data: { derivation: derivationId, text } })),
+      unwrapReviewOutcome(await postOwnerThreadNote({ data: { ref: derivationId, text } })),
     onSuccess: () => setDraft(""),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["record"] }),
   });

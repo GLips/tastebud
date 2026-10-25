@@ -37,6 +37,17 @@ export type InboxGroup = typeof InboxGroupSchema.Type;
 export const InboxResultSchema = Schema.Struct({ groups: Schema.Array(InboxGroupSchema) });
 export type InboxResult = typeof InboxResultSchema.Type;
 
+/** Pending derivations per live kind, every kind present (zero included). What the review header counts. */
+export const countPendingByKind = (view: ViewSource): Record<string, number> => {
+  const counts: Record<string, number> = Object.fromEntries(view.catalog.derivedKinds.map((kind) => [kind.key, 0]));
+  for (const derivation of view.snapshot.derivations) {
+    const count = counts[derivation.kind];
+    if (count !== undefined && derivationStateOf(view.snapshot, derivation).status === "pending")
+      counts[derivation.kind] = count + 1;
+  }
+  return counts;
+};
+
 export const listInboxGroups = Effect.fn("taste.listInboxGroups")(function* () {
   const store = yield* TasteStore;
   const snapshot = yield* store.snapshot;
@@ -54,7 +65,7 @@ export const listInboxGroups = Effect.fn("taste.listInboxGroups")(function* () {
       const scope = proposedScopeOf(derivation);
       const scopeKey = scopeGroupKey(scope);
       const key = JSON.stringify([scopeKey, derivation.subject ?? null]);
-      const repeat = yield* findRepeatMatches(view, {
+      const repeat = findRepeatMatches(view, {
         kind: kind.key,
         statement: derivation.statement,
         scope,

@@ -12,7 +12,7 @@ import { SCHEMA_VERSION, type ThreadEntryRecord } from "./records.ts";
 import { resolveDerivationRef, TasteStore } from "./store.ts";
 
 export const ThreadEntryInput = Schema.Struct({
-  derivation: TrimmedText.annotate({ description: "The derivation whose thread this joins" }),
+  ref: TrimmedText.annotate({ description: "The derivation whose thread this joins" }),
   text: TrimmedText,
 });
 export type ThreadEntryInput = typeof ThreadEntryInput.Type;
@@ -24,7 +24,7 @@ export const threadReplyInstruction = (derivationId: string, agent: string): str
 const appendThreadEntry = Effect.fn("taste.appendThreadEntry")(function* (input: ThreadEntryInput, author: string) {
   const store = yield* TasteStore;
   if (input.text === "") return yield* new InvalidTasteInput({ problems: ["text: a thread entry needs words"] });
-  const derivation = yield* resolveDerivationRef(yield* store.snapshot, input.derivation);
+  const derivation = yield* resolveDerivationRef(yield* store.snapshot, input.ref);
   const stamp = yield* stampNewRecord;
   const entry: ThreadEntryRecord = {
     id: stamp.id,

@@ -1,7 +1,8 @@
 /**
  * One command per agent operation, named as the operation is (`taste thread-reply` is MCP's
- * `taste_thread_reply`), plus `init` and `decide`. Each maps its flags, arguments and stdin onto the
- * operation's input and calls `runCliOperation`; help text comes from the operation's description.
+ * `taste_thread_reply`), except `hook-preview`, which is `taste hook preview` beside `hook prompt`.
+ * Plus `init`, `open` (the review page, written nowhere) and `mcp`. Each maps its flags, arguments
+ * and stdin onto the operation's input and calls `runCliOperation`; help comes from the operation.
  */
 import { userInfo } from "node:os";
 
@@ -11,7 +12,6 @@ import { Argument, Command, Flag } from "effect/cli";
 import { initStore, TASTE_OPERATIONS, type TasteOperationName } from "../core/index.ts";
 import { DERIVATION_STATUSES, SAID_AT_PRECISIONS } from "../shared/vocabulary.ts";
 import {
-  absoluteDirectories,
   actorFlag,
   contextFlags,
   definedFields,
@@ -166,11 +166,7 @@ export const placesCommand = Command.make(
     store: storeFlag,
   },
   ({ probe, probePlace, json, store, ...flags }) =>
-    runCliOperation(
-      "places",
-      definedFields({ ...flags, probes: absoluteDirectories(probe), probePlaces: probePlace }),
-      { store, json },
-    ),
+    runCliOperation("places", definedFields({ ...flags, probes: probe, probe_places: probePlace }), { store, json }),
 ).pipe(describedAs("places"));
 
 export const reviewUrlCommand = Command.make(
@@ -193,22 +189,25 @@ const openInBrowser = (url: string) =>
     Bun.spawn([opener, url], { stdio: ["ignore", "ignore", "ignore"] }).unref();
   });
 
-export const decideCommand = Command.make(
-  "decide",
+export const openCommand = Command.make(
+  "open",
   {
-    ref: Argument.String("ref").pipe(Argument.withDescription("The derivation to decide on")),
+    ref: Argument.String("ref").pipe(
+      Argument.withDescription("A record to open (default: the inbox)"),
+      Argument.optional,
+    ),
     json: jsonFlag,
     store: storeFlag,
   },
   ({ ref, json, store }) =>
     Effect.gen(function* () {
-      const { url } = yield* runCliOperation("review-url", { ref }, { store, json });
+      const { url } = yield* runCliOperation("review-url", definedFields({ ref }), { store, json });
       // Only a person at a terminal wants a browser tab; an agent's shell gets the URL to hand on.
       if (process.stdout.isTTY) yield* openInBrowser(url);
     }),
 ).pipe(
   Command.withDescription(
-    "Open a derivation's review page, where the owner accepts, rejects or retracts it. Writes nothing; prints the URL.",
+    "Open the review page (the inbox, or one record), where the owner accepts, rejects or retracts. Writes nothing; prints the URL.",
   ),
 );
 
@@ -273,8 +272,11 @@ export const proposeCommand = Command.make(
     ),
     contradicts: repeatableTextFlag("contradicts", "A ref that cuts against it"),
     supersedes: optionalTextFlag("supersedes", "An accepted derivation of the same kind this revises"),
-    despite: repeatableTextFlag("despite", "A blocking near repeat to propose past; name every one, and say --why"),
-    why: optionalTextFlag("why", "With --despite: what changed since those matches"),
+    despite: repeatableTextFlag(
+      "despite",
+      "A blocking near repeat to propose past; name every one, and say --despite-case",
+    ),
+    despiteCase: optionalTextFlag("despite-case", "With --despite: what changed since those matches"),
     reasoning: optionalTextFlag(
       "reasoning",
       "Why the cited words support it, and what would make it wrong; `-` reads stdin",
@@ -290,12 +292,14 @@ export const proposeCommand = Command.make(
     json: jsonFlag,
     store: storeFlag,
   },
-  ({ why, reasoning, place, by, json, store, ...flags }) =>
+  ({ despiteCase, reasoning, place, global, by, json, store, ...flags }) =>
     Effect.gen(function* () {
       const input = definedFields({
         ...flags,
+        // `--global` and `--place` are the CLI's spelling of the one scope shape core takes.
+        scope: global ? "global" : place.length > 0 ? "places" : undefined,
         places: place,
-        despite_case: why,
+        despite_case: despiteCase,
         reasoning: Option.isSome(reasoning) ? yield* readTextOrStdin(reasoning.value) : undefined,
       });
       yield* runCliOperation("propose", input, { store, json, actor: by });
@@ -309,7 +313,7 @@ export const proposeCommand = Command.make(
       description: "Scope defaults to this repo's root",
     },
     {
-      command: 'taste propose … --despite 7b21e0aa --why "They asked again after the rejection"',
+      command: 'taste propose … --despite 7b21e0aa --despite-case "They asked again after the rejection"',
       description: "Re-propose past a near repeat",
     },
   ]),
@@ -318,16 +322,13 @@ export const proposeCommand = Command.make(
 export const threadReplyCommand = Command.make(
   "thread-reply",
   {
-    derivation: Argument.String("derivation").pipe(
-      Argument.withDescription("The derivation whose thread to answer on"),
-    ),
+    ref: Argument.String("ref").pipe(Argument.withDescription("The derivation whose thread to answer on")),
     text: Argument.String("text").pipe(Argument.withDescription("Your reply")),
     by: actorFlag,
     json: jsonFlag,
     store: storeFlag,
   },
-  ({ derivation, text, by, json, store }) =>
-    runCliOperation("thread-reply", { derivation, text }, { store, json, actor: by }),
+  ({ ref, text, by, json, store }) => runCliOperation("thread-reply", { ref, text }, { store, json, actor: by }),
 ).pipe(describedAs("thread-reply"));
 
 export const repointCommand = Command.make(
@@ -355,24 +356,22 @@ export const repointPreviewCommand = Command.make(
 // ---------------------------------------------------------------------------------------------
 // hooks and the MCP server
 
-const makeHookPreviewCommand = <const Name extends string>(name: Name) =>
-  Command.make(
-    name,
-    {
-      prompt: Argument.String("prompt").pipe(Argument.withDescription("The prompt the hook would see")),
-      ...contextFlags,
-      json: jsonFlag,
-      store: storeFlag,
-    },
-    ({ json, store, ...flags }) => runCliOperation("hook-preview", definedFields(flags), { store, json }),
-  ).pipe(describedAs("hook-preview"));
+const hookPreviewCommand = Command.make(
+  "preview",
+  {
+    prompt: Argument.String("prompt").pipe(Argument.withDescription("The prompt the hook would see")),
+    ...contextFlags,
+    json: jsonFlag,
+    store: storeFlag,
+  },
+  ({ json, store, ...flags }) => runCliOperation("hook-preview", definedFields(flags), { store, json }),
+).pipe(describedAs("hook-preview"));
 
-export const hookPreviewCommand = makeHookPreviewCommand("hook-preview");
-
-const hookPromptCommand = Command.make("prompt", {}, () =>
+// `main.ts` runs the hook before this tree loads; this registration is what `taste hook --help` lists.
+const hookPromptCommand = Command.make("prompt", { store: storeFlag }, ({ store }) =>
   Effect.promise(async () => {
     const { runTasteHookPrompt } = await import("./hook-prompt.ts");
-    return runTasteHookPrompt();
+    return runTasteHookPrompt(Option.getOrUndefined(store));
   }),
 ).pipe(
   Command.withDescription(
@@ -382,7 +381,7 @@ const hookPromptCommand = Command.make("prompt", {}, () =>
 
 export const hookCommand = Command.make("hook").pipe(
   Command.withDescription("Agent hooks: `prompt` to install, `preview` to see what it would inject"),
-  Command.withSubcommands([hookPromptCommand, makeHookPreviewCommand("preview")]),
+  Command.withSubcommands([hookPromptCommand, hookPreviewCommand]),
 );
 
 export const mcpCommand = Command.make("mcp", { store: storeFlag }, ({ store }) =>

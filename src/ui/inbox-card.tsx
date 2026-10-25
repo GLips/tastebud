@@ -32,9 +32,6 @@ import { SourceQuote } from "./source-quote.tsx";
 import type { KnownPlaces } from "./use-review-context.ts";
 import { useReviewDecision } from "./use-review-decision.ts";
 
-// Below this, a "related" match only shares a word or two; listing those is noise.
-const SIMILAR_ENOUGH = 0.35;
-
 const styles = stylex.create({
   card: {
     transitionProperty: "box-shadow, border-color",
@@ -141,7 +138,7 @@ export function InboxProposalCard({
     else void submitAccept([]);
   };
   const similarShown = new Set([view.supersedes?.id, ...view.despite.map((earlier) => earlier.id)]);
-  const similar = card.related.filter((match) => match.similarity >= SIMILAR_ENOUGH && !similarShown.has(match.id));
+  const similar = card.related.filter((match) => !similarShown.has(match.id));
   const reasoning = record.reasoning.trim();
   const sources = [...view.supportingSources, ...view.contradictingSources];
 

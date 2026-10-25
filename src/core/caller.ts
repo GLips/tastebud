@@ -12,9 +12,12 @@ import { contextFromDirectory, resolveTasteContext } from "./place-resolution.ts
 import { TasteStore } from "./store.ts";
 
 export interface TasteCaller {
-  readonly via: "cli" | "mcp" | "review" | "hook";
+  /** `seed` writes the demo store, and may run human operations on the owner's behalf. */
+  readonly via: "cli" | "mcp" | "review" | "hook" | "seed";
   /** The agent or process acting, e.g. `claude-code/2.x`. Required by agent writes; never `human:`. */
   readonly actor?: string;
+  /** The caller's own working directory, which relative `in` and probe paths resolve against. */
+  readonly cwd?: string;
   readonly context: TasteContext;
 }
 
@@ -56,9 +59,13 @@ export const canonicalInputPlaces = (field: string, keys: ReadonlyArray<string>,
 
 /** The `in` / `at` fields operations accept, overriding the caller's context. */
 export interface ContextOverrideInput {
-  readonly in?: string;
-  readonly at?: ReadonlyArray<string>;
+  readonly in?: string | undefined;
+  readonly at?: ReadonlyArray<string> | undefined;
 }
+
+/** Whether `input` names `in` or a non-empty `at`; then the caller's own context is never resolved. */
+export const hasContextOverride = (input: ContextOverrideInput) =>
+  input.in !== undefined || (input.at !== undefined && input.at.length > 0);
 
 /**
  * The context an operation runs in: the caller's, unless the input names `in` or `at`. Capture
@@ -70,8 +77,8 @@ export const resolveOperationContext = Effect.fn("taste.resolveOperationContext"
   caller: TasteCaller,
   source?: PlaceContext["source"],
 ) {
-  const overridden = input.in !== undefined || (input.at !== undefined && input.at.length > 0);
-  if (overridden) return yield* resolveTasteContext({ in: input.in, at: input.at, cwd: caller.context.cwd, source });
+  if (hasContextOverride(input))
+    return yield* resolveTasteContext({ in: input.in, at: input.at, cwd: caller.cwd, source });
   const { config } = yield* TasteStore;
   const { context } = caller;
   // Only a custom resolver reads `source`; the built-ins would resolve the same cwd to the same places.
