@@ -1,11 +1,12 @@
 /**
  * `repoint --from A --to B`: proposes a pending revision for each accepted derivation whose
  * effective scope contains exactly A, with only A replaced. It only proposes, so agents may call it;
- * each revision needs normal ratification, and the accept re-runs the repeat check.
+ * each revision meets propose's rules, needs normal ratification, and the accept re-runs the repeat
+ * check. A revision the rules refuse is reported as blocked, not written.
  */
 import { homedir } from "node:os";
 
-import { Effect, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { TrimmedText } from "../shared/input-text.ts";
 import { scopeGroupKey, scopePlacesOf } from "../shared/places.ts";
@@ -13,9 +14,10 @@ import { canonicalInputPlaces } from "./caller.ts";
 import { findDerivedKind } from "./catalog.ts";
 import { InvalidTasteInput } from "./errors.ts";
 import { formatLocalIsoTime, newRecordId } from "./ids.ts";
+import { checkDerivationProposal } from "./propose.ts";
 import { type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
-import { derivationStateOf, TasteStore } from "./store.ts";
-import { DerivationSummarySchema } from "./view-schemas.ts";
+import { derivationStateOf, resolveEvidenceRef, TasteStore } from "./store.ts";
+import { DerivationSummarySchema, RepeatMatchSchema } from "./view-schemas.ts";
 import { summarizeDerivation, type ViewSource } from "./views.ts";
 
 const REPOINT_ACTOR = "process:repoint";
@@ -34,6 +36,14 @@ export const RepointPlaceResultSchema = Schema.Struct({
   ),
   /** Accepted derivations with A whose identical revision is already pending. */
   alreadyPending: Schema.Array(DerivationSummarySchema),
+  /** Accepted derivations whose revision propose's rules refused; `matches` are blocking near repeats. */
+  blocked: Schema.Array(
+    Schema.Struct({
+      derivation: DerivationSummarySchema,
+      problem: Schema.String,
+      matches: Schema.Array(RepeatMatchSchema),
+    }),
+  ),
 });
 export type RepointPlaceResult = typeof RepointPlaceResultSchema.Type;
 
@@ -47,16 +57,15 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
   const view: ViewSource = { snapshot, catalog: store.config.catalog };
   const targets = snapshot.derivations.filter((derivation) => {
     const state = derivationStateOf(snapshot, derivation);
-    return (
-      state.status === "accepted" &&
-      findDerivedKind(store.config.catalog, derivation.kind) !== undefined &&
-      scopePlacesOf(state.effectiveScope).includes(from)
-    );
+    return state.status === "accepted" && scopePlacesOf(state.effectiveScope).includes(from);
   });
 
   const proposals: Array<RepointPlaceResult["proposals"][number]> = [];
   const alreadyPending: Array<RepointPlaceResult["alreadyPending"][number]> = [];
+  const blocked: Array<RepointPlaceResult["blocked"][number]> = [];
   for (const target of targets) {
+    const kind = findDerivedKind(store.config.catalog, target.kind);
+    if (kind === undefined) continue;
     const places = [
       ...new Set(
         scopePlacesOf(derivationStateOf(snapshot, target).effectiveScope).map((place) => (place === from ? to : place)),
@@ -71,6 +80,31 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
     );
     if (pendingTwin) {
       alreadyPending.push(summarizeDerivation(view, target));
+      continue;
+    }
+    // Each revision is checked against the store as it is now, earlier revisions included.
+    const current: ViewSource = { snapshot: yield* store.snapshot, catalog: store.config.catalog };
+    const checked = yield* Effect.result(
+      Effect.gen(function* () {
+        const evidenceOf = (ids: ReadonlyArray<string>) =>
+          Effect.forEach(ids, (id) => resolveEvidenceRef(current.snapshot, id));
+        return yield* checkDerivationProposal(current, kind, {
+          statement: target.statement,
+          scope: { scope: "places", places },
+          supports: yield* evidenceOf(target.supports),
+          contradicts: yield* evidenceOf(target.contradicts ?? []),
+          supersedes: target,
+          despite: [],
+        });
+      }),
+    );
+    if (Result.isFailure(checked)) {
+      const failure = checked.failure;
+      blocked.push({
+        derivation: summarizeDerivation(current, target),
+        problem: failure.message,
+        matches: failure._tag === "NearRepeat" ? failure.matches : [],
+      });
       continue;
     }
     const revision: DerivationRecord = {
@@ -98,6 +132,6 @@ export const repointTastePlace = Effect.fn("taste.repointTastePlace")(function* 
       path: written.path,
     });
   }
-  const result: RepointPlaceResult = { from, to, proposals, alreadyPending };
+  const result: RepointPlaceResult = { from, to, proposals, alreadyPending, blocked };
   return result;
 });

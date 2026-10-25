@@ -6,7 +6,7 @@ import { Effect } from "effect";
 
 import { type DerivationScope, scopesOverlap } from "../shared/places.ts";
 import { normaliseText, RELATED_FTS_TOP, RELATED_THRESHOLD, REPEAT_THRESHOLD, tokenJaccard } from "./similarity.ts";
-import { derivationStateOf, TasteStore } from "./store.ts";
+import { derivationById, derivationStateOf, type StoreSnapshot, TasteStore } from "./store.ts";
 import type { RepeatMatch } from "./view-schemas.ts";
 import { summarizeDerivation, type ViewSource } from "./views.ts";
 
@@ -14,7 +14,7 @@ export interface RepeatCandidate {
   readonly kind: string;
   readonly statement: string;
   readonly scope: DerivationScope;
-  /** Never matched: the candidate itself and the derivation it supersedes. */
+  /** Never matched: the candidate itself and its supersession lineage. */
   readonly excludeIds: ReadonlyArray<string>;
 }
 
@@ -24,6 +24,17 @@ export interface RepeatCheckResult {
   /** Weaker matches, and near repeats with disjoint scopes. Never blocking. */
   readonly related: ReadonlyArray<RepeatMatch>;
 }
+
+/**
+ * `supersedesId` and every earlier version it superseded in turn. They are one derivation's history,
+ * so a revision is never a repeat of them.
+ */
+export const supersessionLineageOf = (snapshot: StoreSnapshot, supersedesId: string | undefined) => {
+  const lineage: Array<string> = [];
+  for (let id = supersedesId; id !== undefined && !lineage.includes(id); id = derivationById(snapshot, id)?.supersedes)
+    lineage.push(id);
+  return lineage;
+};
 
 const bySimilarity = (left: RepeatMatch, right: RepeatMatch) =>
   right.similarity - left.similarity || left.id.localeCompare(right.id);

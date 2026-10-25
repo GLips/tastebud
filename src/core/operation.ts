@@ -18,7 +18,7 @@ import {
   PreviewAcceptanceInput,
   previewDerivationAcceptance,
 } from "./decide.ts";
-import { InvalidTasteInput, type TasteError } from "./errors.ts";
+import { InvalidTasteInput, OperationNotAllowed, type TasteError } from "./errors.ts";
 import { HookPayloadSchema, HookPreviewInput, previewHookPayload } from "./hook-payload.ts";
 import { InboxResultSchema, listInboxGroups } from "./inbox.ts";
 import { ListRecordsInput, ListRecordsResultSchema, listTasteRecords } from "./list.ts";
@@ -49,7 +49,7 @@ import { renderContextText, renderHookPreviewText, renderRecallText } from "./re
 import { RepointPlaceInput, RepointPlaceResultSchema, repointTastePlace } from "./repoint.ts";
 import { buildReviewUrl, ReviewUrlInput, ReviewUrlResultSchema } from "./review-url.ts";
 import { ShowRecordInput, showTasteRecord } from "./show.ts";
-import { TasteStore } from "./store.ts";
+import { TasteStore, withFreshTasteConfig } from "./store.ts";
 import { appendAgentThreadReply, appendOwnerThreadNote, ThreadEntryInput } from "./threads.ts";
 import {
   ContextResultSchema,
@@ -347,13 +347,19 @@ type TasteOperationRunners = {
 };
 const TASTE_OPERATION_RUNNERS: TasteOperationRunners = TASTE_OPERATIONS;
 
-/** Decodes `input` with the operation's schema (every issue, no excess fields), then runs it. */
+/**
+ * Decodes `input` with the operation's schema (every issue, no excess fields), then runs it against a
+ * freshly read config. Human operations run only for `via: "review"`; the seed calls their functions
+ * directly instead.
+ */
 export const runTasteOperation = <N extends TasteOperationName>(
   name: N,
   input: unknown,
   caller: TasteCaller,
 ): Effect.Effect<TasteOperationOutput<N>, TasteError, TasteServices> =>
-  TASTE_OPERATION_RUNNERS[name].decodeAndRun(input, caller);
+  TASTE_OPERATIONS[name].audience === "human" && caller.via !== "review"
+    ? Effect.fail(new OperationNotAllowed({ operation: name, via: caller.via }))
+    : withFreshTasteConfig(TASTE_OPERATION_RUNNERS[name].decodeAndRun(input, caller));
 
 /** The operation's own text for a result, identical across the CLI and MCP. */
 export const renderTasteOperationText = <N extends TasteOperationName>(

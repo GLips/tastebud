@@ -8,7 +8,7 @@ import { canonicalPlaceKey, type PlaceKey, type TasteContext } from "../shared/p
 import { isHumanAccount } from "../shared/vocabulary.ts";
 import type { PlaceContext } from "./config.ts";
 import { InvalidTasteInput } from "./errors.ts";
-import { resolveTasteContext } from "./place-resolution.ts";
+import { contextFromDirectory, resolveTasteContext } from "./place-resolution.ts";
 import { TasteStore } from "./store.ts";
 
 export interface TasteCaller {
@@ -54,7 +54,8 @@ export interface ContextOverrideInput {
 
 /**
  * The context an operation runs in: the caller's, unless the input names `in` or `at`. Capture
- * passes `source`, so a custom resolver can place a source by who said it.
+ * passes `source`, so a custom resolver can place a source by who said it. That re-resolution
+ * applies only to directory-derived contexts; an explicit `at` is the caller's word and is kept.
  */
 export const resolveOperationContext = Effect.fn("taste.resolveOperationContext")(function* (
   input: ContextOverrideInput,
@@ -64,8 +65,11 @@ export const resolveOperationContext = Effect.fn("taste.resolveOperationContext"
   const overridden = input.in !== undefined || (input.at !== undefined && input.at.length > 0);
   if (overridden) return yield* resolveTasteContext({ in: input.in, at: input.at, cwd: caller.context.cwd, source });
   const { config } = yield* TasteStore;
+  const { context } = caller;
   // Only a custom resolver reads `source`; the built-ins would resolve the same cwd to the same places.
-  if (source === undefined || config.resolver.name !== "custom" || caller.context.cwd === undefined)
-    return caller.context;
-  return yield* resolveTasteContext({ cwd: caller.context.cwd, source });
+  if (source === undefined || config.resolver.name !== "custom" || context.cwd === undefined) return context;
+  if (context.origin === "at") return context;
+  // An unknown context with a cwd is a directory that resolved to nothing without the source.
+  const origin = context.origin === "unknown" ? "cwd" : context.origin;
+  return yield* contextFromDirectory(config, context.cwd, origin, source);
 });

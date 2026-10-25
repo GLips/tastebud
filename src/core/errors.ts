@@ -206,6 +206,16 @@ export class StoreWriteFailed extends Data.TaggedError("StoreWriteFailed")<{
   }
 }
 
+/** A human operation reached through an agent surface. Only the review server may run them. */
+export class OperationNotAllowed extends Data.TaggedError("OperationNotAllowed")<{
+  readonly operation: string;
+  readonly via: string;
+}> {
+  override get message() {
+    return `${this.operation} is the owner's decision and runs only from the review UI, not via ${this.via}.`;
+  }
+}
+
 export type TasteError =
   | StoreNotInitialised
   | StoreAlreadyExists
@@ -224,7 +234,8 @@ export type TasteError =
   | WideningNeedsAcknowledgement
   | DecisionNotAllowed
   | DecisionLockTimeout
-  | StoreWriteFailed;
+  | StoreWriteFailed
+  | OperationNotAllowed;
 
 /**
  * `input`: the caller should change what it sent. `refused`: valid, but the store's rules say no.
@@ -254,6 +265,7 @@ const categoryOf = (error: TasteError): TasteFailureCategory =>
     DecisionNotAllowed: () => "conflict",
     DecisionLockTimeout: () => "conflict",
     StoreWriteFailed: () => "broken",
+    OperationNotAllowed: () => "refused",
   });
 
 export interface TasteFailureDescription {

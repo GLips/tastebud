@@ -2,7 +2,18 @@
  * `decide`: a human's accept, reject or retract. Reached only through the review server and the
  * seed. An accept may amend the scope, and re-runs the repeat check against the scope it settles on.
  */
-import { closeSync, openSync, rmSync, statSync, writeSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+  closeSync,
+  linkSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -13,11 +24,17 @@ import { type DerivationScope, scopePlacesOf } from "../shared/places.ts";
 import { DecisionOutcomeSchema } from "../shared/vocabulary.ts";
 import { canonicalInputPlaces } from "./caller.ts";
 import { requireLiveDerivedKind } from "./catalog.ts";
-import { DecisionLockTimeout, DecisionNotAllowed, InvalidTasteInput, WideningNeedsAcknowledgement } from "./errors.ts";
+import {
+  DecisionLockTimeout,
+  DecisionNotAllowed,
+  InvalidTasteInput,
+  StoreWriteFailed,
+  WideningNeedsAcknowledgement,
+} from "./errors.ts";
 import { formatLocalIsoTime, newRecordId } from "./ids.ts";
 import { decisionInvalidReason, type DerivationLookup } from "./lifecycle.ts";
 import { type DecisionRecord, type DerivationRecord, proposedScopeOf, SCHEMA_VERSION } from "./records.ts";
-import { findRepeatMatches } from "./repeat-check.ts";
+import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
 import { indexDirOf } from "./store-files.ts";
 import { derivationById, derivationStateOf, resolveDerivationRef, type StoreSnapshot, TasteStore } from "./store.ts";
 import type { RepeatMatch } from "./view-schemas.ts";
@@ -80,7 +97,7 @@ const unacknowledgedMatches = Effect.fn("taste.unacknowledgedMatches")(function*
     kind: derivation.kind,
     statement: derivation.statement,
     scope: effectiveScope,
-    excludeIds: [derivation.id, ...(derivation.supersedes === undefined ? [] : [derivation.supersedes])],
+    excludeIds: [derivation.id, ...supersessionLineageOf(view.snapshot, derivation.supersedes)],
   });
   const despite = new Set(derivation.despite ?? []);
   return repeat.blocking.filter((match) => !despite.has(match.id));
@@ -105,38 +122,106 @@ export const previewDerivationAcceptance = Effect.fn("taste.previewDerivationAcc
 });
 
 const LOCK_WAIT_MS = 5_000;
-/** A lock older than this is from a crashed process; decisions take milliseconds. */
-const LOCK_STALE_MS = 30_000;
 
-const isAlreadyExists = (error: unknown) =>
-  typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST";
+const errorCodeOf = (error: unknown) =>
+  typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
 
-const tryCreateLock = (path: string): boolean => {
+/** Whether `pid` is a running process. EPERM means it exists under another user. */
+const isProcessAlive = (pid: number) => {
   try {
-    const fd = openSync(path, "wx");
-    writeSync(fd, `${process.pid} ${new Date().toISOString()}\n`);
-    closeSync(fd);
+    process.kill(pid, 0);
     return true;
   } catch (error) {
-    if (!isAlreadyExists(error)) throw error;
-    const held = statSync(path, { throwIfNoEntry: false });
-    if (held !== undefined && Date.now() - held.mtimeMs > LOCK_STALE_MS) rmSync(path, { force: true });
-    return false;
+    return errorCodeOf(error) === "EPERM";
+  }
+};
+
+const readLockFile = (path: string) => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (errorCodeOf(error) === "ENOENT") return undefined;
+    throw error;
   }
 };
 
 /**
+ * A held lock is stale only when its holder's pid is dead. A lock with no readable pid (a holder
+ * that crashed between create and write) is stale once it is older than the wait.
+ */
+const isStaleLock = (path: string, content: string) => {
+  const pid = Number(content.split(" ")[0]);
+  if (Number.isInteger(pid) && pid > 0) return !isProcessAlive(pid);
+  const held = statSync(path, { throwIfNoEntry: false });
+  return held !== undefined && Date.now() - held.mtimeMs > LOCK_WAIT_MS;
+};
+
+/**
+ * Moves a stale lock aside. The rename is atomic, so of two processes stealing at once only one
+ * moves the stale file; if what got moved is no longer the stale content, it is put back.
+ */
+const stealStaleLock = (path: string, staleContent: string) => {
+  const aside = `${path}.stale-${randomUUID()}`;
+  try {
+    renameSync(path, aside);
+  } catch (error) {
+    if (errorCodeOf(error) === "ENOENT") return;
+    throw error;
+  }
+  if (readFileSync(aside, "utf8") === staleContent) rmSync(aside, { force: true });
+  else
+    try {
+      linkSync(aside, path);
+    } finally {
+      rmSync(aside, { force: true });
+    }
+};
+
+/** One attempt: true when this process now holds the lock under `token`. */
+const tryCreateLock = (path: string, token: string): boolean => {
+  try {
+    const fd = openSync(path, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return true;
+  } catch (error) {
+    if (errorCodeOf(error) !== "EEXIST") throw error;
+    const content = readLockFile(path);
+    if (content !== undefined && isStaleLock(path, content)) stealStaleLock(path, content);
+    return false;
+  }
+};
+
+/** Removes the lock only if it is still ours. */
+const releaseLock = (path: string, token: string) => {
+  if (readLockFile(path) === token) rmSync(path, { force: true });
+};
+
+/**
  * Runs `use` holding `.index/decide.lock`, so the state recheck and the write are atomic across
- * processes: two accepts of revisions superseding the same target can't both land.
+ * processes: two accepts of revisions superseding the same target can't both land. The lock file
+ * holds `<pid> <token>`, so only a dead holder's lock is taken over and release never removes
+ * another process's lock.
  */
 const withDecisionLock = <A, E, R>(
   root: string,
   use: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | DecisionLockTimeout, R> => {
+): Effect.Effect<A, E | DecisionLockTimeout | StoreWriteFailed, R> => {
   const lockPath = join(indexDirOf(root), "decide.lock");
+  const token = `${process.pid} ${randomUUID()}\n`;
+  const attempt = Effect.try({
+    try: () => {
+      mkdirSync(indexDirOf(root), { recursive: true });
+      return tryCreateLock(lockPath, token);
+    },
+    catch: (error) => new StoreWriteFailed({ path: lockPath, problem: String(error) }),
+  });
   const acquire = Effect.gen(function* () {
     const deadline = Date.now() + LOCK_WAIT_MS;
-    while (!tryCreateLock(lockPath)) {
+    while (!(yield* attempt)) {
       if (Date.now() > deadline) return yield* new DecisionLockTimeout({ lockPath });
       yield* Effect.sleep("20 millis");
     }
@@ -144,7 +229,7 @@ const withDecisionLock = <A, E, R>(
   return Effect.acquireUseRelease(
     acquire,
     () => use,
-    () => Effect.sync(() => rmSync(lockPath, { force: true })),
+    () => Effect.sync(() => releaseLock(lockPath, token)),
   );
 };
 

@@ -80,14 +80,17 @@ const buildStoreSnapshot = (records: ReadonlyArray<IndexedRecord>): StoreSnapsho
 const validateRecord = Schema.decodeUnknownEffect(TasteRecordSchema);
 
 /**
- * One open store and its loaded config. The index connection is private: every method brings it in
+ * One open store and a config snapshot. The index connection is private: every method brings it in
  * line with the record files first, so callers never see a stale or deleted index.
  */
 export class TasteStore extends Context.Service<
   TasteStore,
   {
     readonly root: string;
+    /** The config as of this operation; `runTasteOperation` provides a fresh one for each run. */
     readonly config: LoadedTasteConfig;
+    /** Reads `taste.config.ts` again; cheap when its mtime is unchanged. */
+    readonly loadConfig: Effect.Effect<LoadedTasteConfig, StoreNotInitialised | InvalidConfig>;
     /** Every record, with derivation statuses derived. Every read path starts here. */
     readonly snapshot: Effect.Effect<StoreSnapshot, CorruptRecordFile>;
     /** Full-text hits over derivation statements and reasoning, or source quotes, best first. */
@@ -131,6 +134,7 @@ export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, Store
       return TasteStore.of({
         root,
         config,
+        loadConfig: loadTasteConfig(root),
         snapshot: Effect.map(freshIndex, (db) => buildStoreSnapshot(loadIndexedRecords(db))),
         search: (text, filter) => Effect.map(freshIndex, (db) => searchIndex(db, text, filter)),
         write: (record) =>
@@ -153,6 +157,19 @@ export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, Store
       });
     }),
   );
+
+/**
+ * Runs `effect` against the store with its config re-read first, so a long-lived store (the review
+ * server, MCP) sees config edits. The index connection is shared.
+ */
+export const withFreshTasteConfig = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | StoreNotInitialised | InvalidConfig, R | TasteStore> =>
+  Effect.gen(function* () {
+    const store = yield* TasteStore;
+    const config = yield* store.loadConfig;
+    return yield* Effect.provideService(effect, TasteStore, TasteStore.of({ ...store, config }));
+  });
 
 /** Provides an open store to `effect` and closes its index afterwards. */
 export const provideTasteStore =

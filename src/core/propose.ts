@@ -16,7 +16,7 @@ import { InvalidTasteInput, NearRepeat, ScopeRequired } from "./errors.ts";
 import { formatLocalIsoTime, newRecordId } from "./ids.ts";
 import type { DerivationRecord, SourceRecord } from "./records.ts";
 import { SCHEMA_VERSION } from "./records.ts";
-import { findRepeatMatches } from "./repeat-check.ts";
+import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
 import {
   derivationStateOf,
   resolveDerivationRef,
@@ -131,6 +131,48 @@ const speakerWarnings = (
     : [`None of the cited sources were said by the owner (${config.owner}); is this really the owner's view?`];
 };
 
+/** A proposal's resolved parts, as `checkDerivationProposal` sees them. */
+export interface DerivationProposalParts {
+  readonly statement: string;
+  readonly scope: DerivationScope;
+  readonly supports: ReadonlyArray<SourceRecord | DerivationRecord>;
+  readonly contradicts: ReadonlyArray<SourceRecord | DerivationRecord>;
+  readonly supersedes: DerivationRecord | undefined;
+  readonly despite: ReadonlyArray<DerivationRecord>;
+}
+
+/**
+ * The rules every new derivation meets, whoever writes it (`propose`, `repoint`): evidence of the
+ * kind's source kinds, an accepted same-kind supersession target, and the repeat check with
+ * `despite` naming exactly the blocking matches. Returns the matches for the caller to report.
+ */
+export const checkDerivationProposal = Effect.fn("taste.checkDerivationProposal")(function* (
+  view: ViewSource,
+  kind: DerivedKindDefinition,
+  parts: DerivationProposalParts,
+) {
+  yield* checkEvidence(kind, parts.supports, parts.contradicts);
+  if (parts.supersedes !== undefined) yield* checkSupersedes(view.snapshot, kind, parts.supersedes);
+  const repeat = yield* findRepeatMatches(view, {
+    kind: kind.key,
+    statement: parts.statement,
+    scope: parts.scope,
+    excludeIds: supersessionLineageOf(view.snapshot, parts.supersedes?.id),
+  });
+  const despiteIds = new Set(parts.despite.map((derivation) => derivation.id));
+  const unlisted = repeat.blocking.filter((match) => !despiteIds.has(match.id));
+  if (unlisted.length > 0) return yield* new NearRepeat({ kind: kind.key, matches: repeat.blocking });
+  const blockingIds = new Set(repeat.blocking.map((match) => match.id));
+  const strayDespite = parts.despite.filter((derivation) => !blockingIds.has(derivation.id));
+  if (strayDespite.length > 0)
+    return yield* new InvalidTasteInput({
+      problems: strayDespite.map(
+        (derivation) => `despite: ${derivation.id} is not a near repeat whose scope overlaps; leave it out`,
+      ),
+    });
+  return repeat;
+});
+
 export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* (
   input: ProposeDerivationInput,
   caller: TasteCaller,
@@ -144,10 +186,8 @@ export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* 
 
   const supports = yield* Effect.forEach(input.supports, (ref) => resolveEvidenceRef(snapshot, ref));
   const contradicts = yield* Effect.forEach(input.contradicts ?? [], (ref) => resolveEvidenceRef(snapshot, ref));
-  yield* checkEvidence(kind, supports, contradicts);
   const supersedes =
     input.supersedes === undefined ? undefined : yield* resolveDerivationRef(snapshot, input.supersedes);
-  if (supersedes !== undefined) yield* checkSupersedes(snapshot, kind, supersedes);
   const despite = yield* Effect.forEach(input.despite ?? [], (ref) => resolveDerivationRef(snapshot, ref));
   if (despite.length > 0 && input.despite_case === undefined)
     return yield* new InvalidTasteInput({ problems: ["despite needs despite_case (--why) with what changed"] });
@@ -155,23 +195,14 @@ export const proposeDerivation = Effect.fn("taste.proposeDerivation")(function* 
     return yield* new InvalidTasteInput({ problems: ["despite_case (--why) only applies together with despite"] });
 
   const { scope, source: scopeSource } = yield* chooseProposalScope(config, input, caller);
-  const repeat = yield* findRepeatMatches(view, {
-    kind: kind.key,
+  const repeat = yield* checkDerivationProposal(view, kind, {
     statement: input.statement,
     scope,
-    excludeIds: supersedes === undefined ? [] : [supersedes.id],
+    supports,
+    contradicts,
+    supersedes,
+    despite,
   });
-  const despiteIds = new Set(despite.map((derivation) => derivation.id));
-  const unlisted = repeat.blocking.filter((match) => !despiteIds.has(match.id));
-  if (unlisted.length > 0) return yield* new NearRepeat({ kind: kind.key, matches: repeat.blocking });
-  const blockingIds = new Set(repeat.blocking.map((match) => match.id));
-  const strayDespite = despite.filter((derivation) => !blockingIds.has(derivation.id));
-  if (strayDespite.length > 0)
-    return yield* new InvalidTasteInput({
-      problems: strayDespite.map(
-        (derivation) => `despite: ${derivation.id} is not a near repeat whose scope overlaps; leave it out`,
-      ),
-    });
 
   const subject = input.subject ?? (kind.key === BUILT_IN_BELIEF_KIND ? OWNER_SUBJECT : undefined);
   const derivation: DerivationRecord = {

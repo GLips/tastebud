@@ -1,11 +1,13 @@
-/** `capture`: append a source, a human's exact words. The agent is only `captured_via`. */
+/** `capture`: append a source, a human's exact words, whitespace included. The agent is only `captured_via`. */
 import { Effect, Schema } from "effect";
 
 import {
   OptionalTrimmedText,
   OptionalTrimmedTextList,
+  OptionalVerbatimText,
   optionalInputChoice,
   TrimmedText,
+  VerbatimText,
 } from "../shared/input-text.ts";
 import { SAID_AT_PRECISIONS, type SaidAtPrecision } from "../shared/vocabulary.ts";
 import { type TasteCaller, requireAgentActor, resolveOperationContext } from "./caller.ts";
@@ -22,9 +24,9 @@ export const CaptureSourceInput = Schema.Struct({
   said_by_label: TrimmedText.annotate({ description: "The speaker's display name" }),
   said_at: OptionalTrimmedText.annotate({ description: "ISO 8601 with offset; defaults to now" }),
   said_at_precision: optionalInputChoice(SAID_AT_PRECISIONS),
-  quote: TrimmedText.annotate({ description: "Their exact words, verbatim" }),
-  before: OptionalTrimmedText.annotate({ description: "What they were reacting to" }),
-  after: OptionalTrimmedText,
+  quote: VerbatimText.annotate({ description: "Their exact words, verbatim; whitespace is kept" }),
+  before: OptionalVerbatimText.annotate({ description: "What they were reacting to" }),
+  after: OptionalVerbatimText,
   address: OptionalTrimmedText.annotate({ description: "A permalink to the words" }),
   revises: OptionalTrimmedText.annotate({ description: "A source of the same kind these words edit" }),
   in: OptionalTrimmedText.annotate({ description: "Capture as if in this directory" }),

@@ -30,6 +30,7 @@ export {
   AmbiguousRecordRef,
   CorruptRecordFile,
   DecisionLockTimeout,
+  OperationNotAllowed,
   DecisionNotAllowed,
   describeTasteFailure,
   InvalidConfig,
@@ -91,7 +92,7 @@ export type { DecisionRecord, DerivationRecord, SourceRecord, TasteRecord, Threa
 export type { RepointPlaceResult } from "./repoint.ts";
 export { RELATED_THRESHOLD, REPEAT_THRESHOLD } from "./similarity.ts";
 export { listRecordFiles } from "./store-files.ts";
-export { makeTasteStoreLayer, provideTasteStore, TasteStore } from "./store.ts";
+export { makeTasteStoreLayer, provideTasteStore, TasteStore, withFreshTasteConfig } from "./store.ts";
 export { appendOwnerThreadNote, threadReplyInstruction } from "./threads.ts";
 export type {
   ContextResult,

@@ -53,6 +53,22 @@ export const OptionalTrimmedTextList = Schema.optional(Schema.Array(Schema.Strin
   ),
 );
 
+const NotBlank = Schema.String.check(Schema.isPattern(/\S/, { message: "must not be blank" }));
+
+/** Required text kept exactly as given, for a person's words; only all-blank text is refused. */
+export const VerbatimText = NotBlank;
+
+/** Optional text kept exactly as given; absent when blank or undefined. */
+export const OptionalVerbatimText = Schema.optional(Schema.String).pipe(
+  Schema.decodeTo(
+    Schema.optionalKey(Schema.String),
+    SchemaTransformation.transformOptional({
+      decode: (input) => Option.filter(input, (value): value is string => value !== undefined && /\S/.test(value)),
+      encode: (output) => output,
+    }),
+  ),
+);
+
 /** An optional choice from a closed set; `undefined` decodes to an absent key. */
 export const optionalInputChoice = <const Choices extends ReadonlyArray<string>>(choices: Choices) =>
   Schema.optional(Schema.Literals(choices)).pipe(

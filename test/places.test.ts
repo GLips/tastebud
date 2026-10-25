@@ -19,6 +19,9 @@ describe("places", () => {
       ["https://gitlab.com/a/b/c/", { kind: "hosted", repoId: "gitlab.com/a/b/c" }],
       ["https://git.example.com:8443/team/app", { kind: "hosted", repoId: "git.example.com:8443/team/app" }],
       ["git://github.com/GLips/taste.git", { kind: "hosted", repoId: "github.com/GLips/taste" }],
+      // An explicit default port is still a different spelling of the server, so it is kept.
+      ["https://git.example.com:443/team/app", { kind: "hosted", repoId: "git.example.com:443/team/app" }],
+      ["https://git.example.com/team/my%20app", { kind: "hosted", repoId: "git.example.com/team/my app" }],
       ["file:///srv/repos/taste.git", { kind: "local" }],
       ["/srv/repos/taste.git", { kind: "local" }],
       ["../upstream", { kind: "local" }],
@@ -26,6 +29,7 @@ describe("places", () => {
     for (const [url, expected] of table) expect([url, normalizeRemote(url)]).toEqual([url, expected]);
     expect(normalizeRemote("https://github.com").kind).toBe("malformed");
     expect(normalizeRemote("ftp://example.com/x").kind).toBe("malformed");
+    expect(normalizeRemote("https://example.com/team/%ZZ").kind).toBe("malformed");
   });
 
   test("placeCovers: ancestors and equals cover, descendants and other roots don't", () => {

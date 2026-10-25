@@ -2,15 +2,20 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { Effect } from "effect";
+
+import { runTasteOperation } from "../src/core/index.ts";
 import {
   callerFor,
   captureOwnerWords,
   demoConfigText,
   failOperation,
+  inStore,
   makeTemporaryDirectory,
   makeTestStore,
   OWNER,
   runOperation,
+  unknownCaller,
 } from "./support.ts";
 
 describe("taste.config.ts", () => {
@@ -38,6 +43,15 @@ describe("taste.config.ts", () => {
       caller,
     );
     expect(source.source.captured_in).toEqual(["clients/acme"]);
+    // An explicit `at` is the caller's word; the resolver doesn't re-place the source.
+    const atCaller = await callerFor(root, { at: ["clients/globex"] });
+    const placed = await runOperation(
+      root,
+      "capture",
+      { kind: "call-quote", said_by: "zoom:globex/al", said_by_label: "Al", quote: "Fewer steps." },
+      atCaller,
+    );
+    expect(placed.source.source.captured_in).toEqual(["clients/globex"]);
     // An empty result is unknown context, so a proposal from there must name its scope.
     const nowhere = await callerFor(root, { cwd: makeTemporaryDirectory("nowhere") });
     expect(nowhere.context.origin).toBe("unknown");
@@ -60,14 +74,22 @@ describe("taste.config.ts", () => {
     expect(error._tag).toBe("InvalidConfig");
     expect(error.message).toContain(`derivedKinds.insight.sources: "transcript" is not a source kind`);
 
-    // A long-running review server must see the edit without restarting.
+    // A long-lived store (the review server, MCP) sees each edit on its next operation.
     writeFileSync(join(root, "taste.config.ts"), demoConfigText("() => []"));
-    const { catalog } = await runOperation(
-      root,
-      "catalog",
-      {},
-      { via: "cli", context: { places: [], origin: "unknown" } },
+    const catalogKeys = runTasteOperation("catalog", {}, unknownCaller).pipe(
+      Effect.map(({ catalog }) => catalog.derivedKinds.map((kind) => kind.key)),
     );
-    expect(catalog.derivedKinds.map((kind) => kind.key)).toEqual(["belief", "insight", "idea"]);
+    const seen = await inStore(
+      root,
+      Effect.gen(function* () {
+        const first = yield* catalogKeys;
+        writeFileSync(join(root, "taste.config.ts"), demoConfigText("() => []").replace(/\n    idea: .*\n/, "\n"));
+        return [first, yield* catalogKeys];
+      }),
+    );
+    expect(seen).toEqual([
+      ["belief", "insight", "idea"],
+      ["belief", "insight"],
+    ]);
   });
 });

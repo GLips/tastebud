@@ -38,6 +38,26 @@ const repoIdFrom = (host: string, port: string, path: string): RemoteIdentity =>
   return { kind: "hosted", repoId: [`${host.toLowerCase()}${port === "" ? "" : `:${port}`}`, ...segments].join("/") };
 };
 
+const REMOTE_SCHEMES = new Set(["ssh", "git", "http", "https", "git+ssh", "ssh+git"]);
+
+/**
+ * `[user[:password]@]host[:port]`, parsed by hand: WHATWG `URL` drops a port equal to the scheme's
+ * default, and an explicit port is kept verbatim so `host:443` and `host` stay distinct servers.
+ */
+const parseRemoteAuthority = (authority: string): { host: string; port: string } | undefined => {
+  const hostPort = authority.slice(authority.lastIndexOf("@") + 1);
+  const match = /^(\[[^\]]*\]|[^:[\]]*)(?::(\d*))?$/.exec(hostPort);
+  return match === null ? undefined : { host: match[1] ?? "", port: match[2] ?? "" };
+};
+
+const decodeRemotePath = (path: string): string | undefined => {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * A remote URL as a repo id: no scheme, user, password or `.git`, host lowercased, explicit port
  * kept (dropping it could merge distinct servers). Local paths and `file://` are `local`.
@@ -47,12 +67,15 @@ export const normalizeRemote = (url: string): RemoteIdentity => {
   if (trimmed === "") return { kind: "malformed", problem: "the origin URL is empty" };
   if (trimmed.startsWith("file://") || /^(\/|\.{1,2}\/|~)/.test(trimmed) || !/[:]/.test(trimmed))
     return { kind: "local" };
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    if (!URL.canParse(trimmed)) return { kind: "malformed", problem: `"${trimmed}" does not parse as a URL` };
-    const parsed = new URL(trimmed);
-    if (!["ssh:", "git:", "http:", "https:", "git+ssh:", "ssh+git:"].includes(parsed.protocol))
-      return { kind: "malformed", problem: `unsupported scheme ${parsed.protocol}` };
-    return repoIdFrom(parsed.hostname, parsed.port, decodeURIComponent(parsed.pathname));
+  const schemeUrl = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)/i.exec(trimmed);
+  if (schemeUrl !== null) {
+    const scheme = (schemeUrl[1] ?? "").toLowerCase();
+    if (!REMOTE_SCHEMES.has(scheme)) return { kind: "malformed", problem: `unsupported scheme ${scheme}:` };
+    const authority = parseRemoteAuthority(schemeUrl[2] ?? "");
+    if (authority === undefined) return { kind: "malformed", problem: `"${trimmed}" has an unreadable host or port` };
+    const path = decodeRemotePath(schemeUrl[3] ?? "");
+    if (path === undefined) return { kind: "malformed", problem: `"${trimmed}" has a malformed %-escape` };
+    return repoIdFrom(authority.host, authority.port, path);
   }
   // scp-like: [user@]host:path
   const scp = /^(?:[^@/]+@)?([^:/]+):(.+)$/.exec(trimmed);
@@ -187,10 +210,14 @@ const expandDirectory = (directory: string, cwd: string | undefined) => {
   return Effect.succeed(resolve(cwd, directory));
 };
 
-const contextFromDirectory = (
+/** Context origins that come from resolving a directory, so a re-resolution keeps them. */
+export type DirectoryContextOrigin = "in" | "cwd" | "mcp-root";
+
+/** A directory's context under `origin`; no places means unknown context. */
+export const contextFromDirectory = (
   config: LoadedTasteConfig,
   directory: string,
-  origin: "in" | "cwd" | "mcp-root",
+  origin: DirectoryContextOrigin,
   source: PlaceContext["source"],
 ) =>
   Effect.map(resolvePlacesForDirectory(config, directory, source), (places): TasteContext =>

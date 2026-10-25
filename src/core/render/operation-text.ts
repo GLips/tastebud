@@ -130,6 +130,14 @@ export const renderRepointText = (result: RepointPlaceResult) =>
             result.alreadyPending.map((summary) => `- ${formatDerivationSummary(summary)}`),
           ),
         ]),
+    ...(result.blocked.length === 0
+      ? []
+      : [
+          section(
+            "Blocked (not proposed)",
+            result.blocked.map((entry) => `- ${formatDerivationSummary(entry.derivation)}: ${entry.problem}`),
+          ),
+        ]),
   ].join("\n");
 
 export const renderReindexText = (result: IndexRefreshResult) => `Reindexed ${result.recordCount} records.`;

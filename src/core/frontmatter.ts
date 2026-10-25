@@ -7,8 +7,25 @@ import { type TasteRecord, TasteRecordSchema } from "./records.ts";
 /** Fields that live in the markdown body, not the frontmatter. */
 const BODY_FIELDS = new Set(["quote", "before", "after", "reasoning", "despite_case", "text"]);
 
+/**
+ * Body text is stored verbatim except that a line starting with `## ` or a backslash gets a leading
+ * backslash, so the only unescaped `## ` lines are section headings and every body round-trips exactly.
+ */
+const escapeBodyText = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => (line.startsWith("\\") || line.startsWith("## ") ? `\\${line}` : line))
+    .join("\n");
+
+const unescapeBodyText = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => (line.startsWith("\\") ? line.slice(1) : line))
+    .join("\n");
+
+/** `## Heading`, a blank line, the text, and one newline ending it. Sections are joined by a blank line. */
 const section = (heading: string, text: string | undefined) =>
-  text === undefined ? [] : [`## ${heading}`, "", text.trim(), ""];
+  text === undefined ? [] : [`## ${heading}\n\n${escapeBodyText(text)}\n`];
 
 const renderBody = (record: TasteRecord): string => {
   switch (record.type) {
@@ -18,14 +35,12 @@ const renderBody = (record: TasteRecord): string => {
         ...section("Before", record.before),
         ...section("After", record.after),
       ].join("\n");
-    case "Derivation": {
-      const reasoning = record.reasoning.trim();
-      return [...(reasoning ? [reasoning, ""] : []), ...section("Despite", record.despite_case)].join("\n");
-    }
+    case "Derivation":
+      return [`${escapeBodyText(record.reasoning)}\n`, ...section("Despite", record.despite_case)].join("\n");
     case "Decision":
       return "";
     case "ThreadEntry":
-      return `${record.text.trim()}\n`;
+      return `${escapeBodyText(record.text)}\n`;
   }
 };
 
@@ -41,23 +56,30 @@ export const renderRecordFile = (record: TasteRecord): string => {
   return `---\n${YAML.stringify(frontmatter)}---\n\n${renderBody(record)}`;
 };
 
-/** Splits on `## Heading` lines. Warning: a quote that itself contains such a line is split there too. */
+/**
+ * The inverse of the layout `section` writes. A chunk ends with its text's own newline, plus the
+ * blank separator line when another section follows; both are removed before unescaping.
+ */
+const chunkText = (chunk: string, followed: boolean) =>
+  unescapeBodyText(chunk.replace(followed ? /\n?\n$/ : /\n$/, ""));
+
+/** Splits on unescaped `## Heading` lines; escaping guarantees no text line looks like one. */
 const splitSections = (body: string, headings: ReadonlyArray<string>) => {
-  const pattern = new RegExp(`^## (${headings.join("|")})[ \\t]*$`, "m");
+  const pattern = new RegExp(`^## (${headings.join("|")})[ \\t]*\\n\\n?`, "m");
   const sections: Record<string, string> = {};
   let lead = "";
   let rest = body;
   let current: string | undefined;
   for (;;) {
     const match = pattern.exec(rest);
-    const chunk = match ? rest.slice(0, match.index) : rest;
+    const chunk = chunkText(match ? rest.slice(0, match.index) : rest, match !== null);
     if (current === undefined) lead = chunk;
-    else sections[current] = chunk.trim();
+    else sections[current] = chunk;
     if (!match) break;
     current = match[1];
     rest = rest.slice(match.index + match[0].length);
   }
-  return { lead: lead.trim(), sections };
+  return { lead, sections };
 };
 
 const nonEmpty = (text: string | undefined) => (text ? { value: text } : undefined);
@@ -73,12 +95,11 @@ const bodyFields = (frontmatter: object, body: string): Record<string, unknown> 
       };
     }
     case "Derivation": {
-      if (Reflect.get(frontmatter, "despite") === undefined) return { reasoning: body.trim() };
       const { lead, sections } = splitSections(body, ["Despite"]);
       return { reasoning: lead, ...(nonEmpty(sections["Despite"]) && { despite_case: sections["Despite"] }) };
     }
     case "ThreadEntry":
-      return { text: body.trim() };
+      return { text: chunkText(body, false) };
     default:
       return {};
   }
@@ -98,8 +119,10 @@ export const parseRecordFile = (path: string, content: string): Effect.Effect<Ta
       if (typeof frontmatter !== "object" || frontmatter === null || Array.isArray(frontmatter)) {
         return Effect.fail(new CorruptRecordFile({ path, problem: "frontmatter is not a mapping" }));
       }
+      // The renderer puts one blank line between the frontmatter and the body.
+      const body = (match[2] ?? "").replace(/^\r?\n/, "");
       return decodeRecord(
-        { ...frontmatter, ...bodyFields(frontmatter, match[2] ?? "") },
+        { ...frontmatter, ...bodyFields(frontmatter, body) },
         { errors: "all", onExcessProperty: "error" },
       ).pipe(Effect.mapError((error) => new CorruptRecordFile({ path, problem: error.message })));
     }),

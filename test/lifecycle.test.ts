@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Effect } from "effect";
@@ -180,6 +180,19 @@ describe("lifecycle", () => {
     expect((await failOperation(root, "decide", { target: rival.id, outcome: "accept" }, reviewer))._tag).toBe(
       "DecisionNotAllowed",
     );
+
+    // A revision meets propose's rules: repointing onto a near repeat's place is reported, not written.
+    const MOBILE = "github.com/acme/mobile::";
+    const twin = await propose(root, inWeb, {
+      statement: "Prefer integration tests.",
+      supports: [memory],
+      places: [MOBILE],
+    });
+    await decide(root, { target: twin.id, outcome: "accept" });
+    const blocked = await runOperation(root, "repoint", { from: STOREFRONT, to: MOBILE }, inWeb);
+    expect(blocked.proposals).toEqual([]);
+    expect(blocked.blocked.map((entry) => entry.derivation.id)).toEqual([revision?.id ?? "missing"]);
+    expect(blocked.blocked[0]?.matches.map((match) => match.id)).toEqual([twin.id]);
   });
 
   test("widening at accept needs every newly overlapping near repeat acknowledged", async () => {
@@ -201,6 +214,12 @@ describe("lifecycle", () => {
       reviewer,
     );
     expect(widened._tag).toBe("WideningNeedsAcknowledgement");
+    // Human operations run only behind the review server, whatever an agent surface sends.
+    const forged = { target: narrow.id, outcome: "accept", acknowledges: [billingOnly.id] };
+    const refusals = await Promise.all(
+      (["mcp", "cli"] as const).map((via) => failOperation(root, "decide", forged, { ...inWeb, via })),
+    );
+    expect(refusals.map((error) => error._tag)).toEqual(["OperationNotAllowed", "OperationNotAllowed"]);
 
     await decide(root, { target: narrow.id, outcome: "accept", scope: "global", acknowledges: [billingOnly.id] });
     const shown = await runOperation(root, "show", { ref: billingOnly.id }, inWeb);
@@ -212,6 +231,20 @@ describe("lifecycle", () => {
     const memory = await captureOwnerWords(root, inWeb, "Use Effect for errors in acme-web.");
     const belief = await propose(root, inWeb, { statement: "Use Effect for error handling", supports: [memory] });
     await decide(root, { target: belief.id, outcome: "accept" });
+    // Words that look like the file's own section headings, escapes and edge whitespace survive exactly.
+    const tricky = { quote: "  first\n## After\n\\second\n\n", before: "## Quote\n\\\\x", after: "\nlast " };
+    const { source } = await runOperation(
+      root,
+      "capture",
+      { kind: "memory", said_by: "human:tester", said_by_label: "Tess", ...tricky },
+      inWeb,
+    );
+    const reasoning = "Because:\n## Despite\n\\ the words above.";
+    const reasoned = await propose(root, inWeb, {
+      statement: "Never mock the database",
+      supports: [source.source.id],
+      reasoning,
+    });
     const recall = runTasteOperation("recall", { query: "effect errors", history: true }, inWeb);
     const before = await inStore(root, recall);
     expect([before.accepted.length, before.sources.length]).toEqual([1, 1]);
@@ -219,6 +252,9 @@ describe("lifecycle", () => {
     rmSync(join(root, ".index"), { recursive: true, force: true });
     await runOperation(root, "reindex", {}, inWeb);
     expect(await inStore(root, recall)).toEqual(before);
+    const reread = await runOperation(root, "show", { ref: source.source.id }, inWeb);
+    expect(reread.source?.source).toMatchObject(tricky);
+    expect((await runOperation(root, "show", { ref: reasoned.id }, inWeb)).record).toMatchObject({ reasoning });
     const survivedDeletion = await inStore(
       root,
       Effect.gen(function* () {
@@ -228,6 +264,22 @@ describe("lifecycle", () => {
       }),
     );
     expect(survivedDeletion).toEqual(before);
+  });
+
+  test("decide.lock: a dead holder's lock is taken over, and a deleted .index/ is recreated", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Ship small PRs.");
+    const first = await propose(root, inWeb, { statement: "Ship small pull requests", supports: [memory] });
+    const second = await propose(root, inWeb, { statement: "Name branches after tickets", supports: [memory] });
+    const exited = Bun.spawnSync(["true"]);
+    const lockPath = join(root, ".index", "decide.lock");
+    writeFileSync(lockPath, `${exited.pid} stale-token\n`);
+    await decide(root, { target: first.id, outcome: "accept" });
+    expect(existsSync(lockPath)).toBe(false);
+
+    rmSync(join(root, ".index"), { recursive: true, force: true });
+    await decide(root, { target: second.id, outcome: "accept" });
+    expect((await runOperation(root, "show", { ref: second.id }, inWeb)).derivation?.status).toBe("accepted");
   });
 
   test("listen: one event per owner note, naming the derivation and kind; a restart doesn't repeat it", async () => {

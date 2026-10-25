@@ -7,7 +7,7 @@ import { Effect, Schema } from "effect";
 
 import { DerivationScopeSchema, scopeGroupKey } from "../shared/places.ts";
 import { proposedScopeOf } from "./records.ts";
-import { findRepeatMatches } from "./repeat-check.ts";
+import { findRepeatMatches, supersessionLineageOf } from "./repeat-check.ts";
 import { derivationStateOf, TasteStore } from "./store.ts";
 import { DerivationViewSchema, RepeatMatchSchema } from "./view-schemas.ts";
 import { buildDerivationView, type ViewSource } from "./views.ts";
@@ -58,7 +58,7 @@ export const listInboxGroups = Effect.fn("taste.listInboxGroups")(function* () {
         kind: kind.key,
         statement: derivation.statement,
         scope,
-        excludeIds: [derivation.id, ...(derivation.supersedes === undefined ? [] : [derivation.supersedes])],
+        excludeIds: [derivation.id, ...supersessionLineageOf(view.snapshot, derivation.supersedes)],
       });
       const despite = new Set(derivation.despite ?? []);
       const card: InboxCard = {
