@@ -1,10 +1,14 @@
+let lastIdMs = 0;
+
 /**
  * UUIDv7 with a random `rand_a`. Not `Bun.randomUUIDv7()`: that fills `rand_a` with a sub-ms counter
- * (`7000…`), which would leave short ids almost no randomness.
+ * (`7000…`), which would leave short ids almost no randomness. The time part never repeats within a
+ * process, so ids sort in creation order: replay breaks same-millisecond ties by id.
  */
 export const newRecordId = (): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
-  let ms = Date.now();
+  lastIdMs = Math.max(Date.now(), lastIdMs + 1);
+  let ms = lastIdMs;
   for (let index = 5; index >= 0; index -= 1) {
     bytes[index] = ms % 256;
     ms = Math.floor(ms / 256);

@@ -4,10 +4,12 @@ import { join } from "node:path";
 
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { formatSchemaProblems, type LoadedTasteConfig, loadTasteConfig } from "./config.ts";
 import {
   AmbiguousRecordRef,
   type CorruptRecordFile,
-  InvalidRecordInput,
+  type InvalidConfig,
+  InvalidTasteInput,
   type StoreNotInitialised,
   type StoreWriteFailed,
   UnknownRecordRef,
@@ -22,26 +24,14 @@ import {
   loadIndexedShortIds,
   openIndexDatabase,
   refreshIndex,
+  type SearchFilter,
   type SearchHit,
   searchIndex,
 } from "./index-db.ts";
-import type {
-  BeliefRecord,
-  DecisionRecord,
-  MemoryRecord,
-  RecordType,
-  TasteRecord,
-  ThreadEntryRecord,
-} from "./records.ts";
-import { TasteRecordSchema } from "./records.ts";
-import { type BeliefState, deriveBeliefStates } from "./status.ts";
-import {
-  readStoreConfig,
-  recordRelativePath,
-  type StoreConfig,
-  uniqueShortId,
-  writeFileExclusive,
-} from "./store-files.ts";
+import { type DerivationState, deriveDerivationStates } from "./lifecycle.ts";
+import type { DecisionRecord, DerivationRecord, SourceRecord, TasteRecord, ThreadEntryRecord } from "./records.ts";
+import { proposedScopeOf, TasteRecordSchema } from "./records.ts";
+import { recordRelativePath, uniqueShortId, writeFileExclusive } from "./store-files.ts";
 
 interface IndexHandle {
   current: Database;
@@ -57,65 +47,69 @@ const openIndexHandle = (root: string): IndexHandle => {
 export interface StoreSnapshot {
   readonly records: ReadonlyArray<IndexedRecord>;
   readonly byId: ReadonlyMap<string, IndexedRecord>;
-  readonly memories: ReadonlyArray<MemoryRecord>;
-  readonly beliefs: ReadonlyArray<BeliefRecord>;
+  readonly sources: ReadonlyArray<SourceRecord>;
+  readonly derivations: ReadonlyArray<DerivationRecord>;
   readonly decisions: ReadonlyArray<DecisionRecord>;
   readonly threadEntries: ReadonlyArray<ThreadEntryRecord>;
-  readonly beliefStates: ReadonlyMap<string, BeliefState>;
+  /** Every derivation's status and effective scope, retired kinds included. */
+  readonly derivationStates: ReadonlyMap<string, DerivationState>;
 }
 
 const buildStoreSnapshot = (records: ReadonlyArray<IndexedRecord>): StoreSnapshot => {
-  const ofType = <T extends TasteRecord>(type: RecordType) =>
-    records.filter((entry) => entry.record.type === type).map((entry) => entry.record as T);
-  const beliefs = ofType<BeliefRecord>("Belief");
-  const decisions = ofType<DecisionRecord>("Decision");
+  const sources: Array<SourceRecord> = [];
+  const derivations: Array<DerivationRecord> = [];
+  const decisions: Array<DecisionRecord> = [];
+  const threadEntries: Array<ThreadEntryRecord> = [];
+  for (const { record } of records) {
+    if (record.type === "Source") sources.push(record);
+    else if (record.type === "Derivation") derivations.push(record);
+    else if (record.type === "Decision") decisions.push(record);
+    else threadEntries.push(record);
+  }
   return {
     records,
     byId: new Map(records.map((entry) => [entry.record.id, entry])),
-    memories: ofType<MemoryRecord>("Memory"),
-    beliefs,
+    sources,
+    derivations,
     decisions,
-    threadEntries: ofType<ThreadEntryRecord>("ThreadEntry"),
-    beliefStates: deriveBeliefStates(beliefs, decisions),
+    threadEntries,
+    derivationStates: deriveDerivationStates(derivations, decisions),
   };
 };
 
 const validateRecord = Schema.decodeUnknownEffect(TasteRecordSchema);
 
 /**
- * One open store. The index connection is private: every method brings it in line with the record
- * files first, so callers never see a stale or deleted index.
+ * One open store and its loaded config. The index connection is private: every method brings it in
+ * line with the record files first, so callers never see a stale or deleted index.
  */
 export class TasteStore extends Context.Service<
   TasteStore,
   {
     readonly root: string;
-    readonly config: StoreConfig;
-    /** Every record, with belief statuses derived. Every read path starts here. */
+    readonly config: LoadedTasteConfig;
+    /** Every record, with derivation statuses derived. Every read path starts here. */
     readonly snapshot: Effect.Effect<StoreSnapshot, CorruptRecordFile>;
-    /** Full-text hits over belief statements and reasoning and memory quotes, best first. */
-    readonly search: (
-      text: string,
-      types: ReadonlyArray<"Belief" | "Memory">,
-    ) => Effect.Effect<Array<SearchHit>, CorruptRecordFile>;
+    /** Full-text hits over derivation statements and reasoning, or source quotes, best first. */
+    readonly search: (text: string, filter: SearchFilter) => Effect.Effect<Array<SearchHit>, CorruptRecordFile>;
     /** Validates with Schema, writes the file with exclusive create, then refreshes the index. */
     readonly write: <R extends TasteRecord>(
       record: R,
     ) => Effect.Effect<
       IndexedRecord & { readonly record: R },
-      InvalidRecordInput | StoreWriteFailed | CorruptRecordFile
+      InvalidTasteInput | StoreWriteFailed | CorruptRecordFile
     >;
-    /** `taste reindex`: deletes the sqlite files and rebuilds from the record files. */
+    /** Deletes the sqlite files and rebuilds them from the record files. */
     readonly rebuild: Effect.Effect<IndexRefreshResult, CorruptRecordFile>;
   }
->()("taste/TasteStore") {}
+>()("@taste/TasteStore") {}
 
-/** Opens the store at `root` (already resolved, see `resolveStoreRoot`). Closes the index when the scope ends. */
-export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInitialised | InvalidRecordInput> =>
+/** Opens the store at `root` (see `resolveStoreRoot`), loading its config. Closes the index when the scope ends. */
+export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInitialised | InvalidConfig> =>
   Layer.effect(
     TasteStore,
     Effect.gen(function* () {
-      const config = yield* readStoreConfig(root);
+      const config = yield* loadTasteConfig(root);
       const index = yield* Effect.acquireRelease(
         Effect.sync(() => openIndexHandle(root)),
         (handle) => Effect.sync(() => handle.current.close()),
@@ -134,15 +128,15 @@ export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, Store
         return refreshIndex(index.current, root).pipe(Effect.as(index.current));
       });
 
-      return {
+      return TasteStore.of({
         root,
         config,
         snapshot: Effect.map(freshIndex, (db) => buildStoreSnapshot(loadIndexedRecords(db))),
-        search: (text, types) => Effect.map(freshIndex, (db) => searchIndex(db, text, types)),
+        search: (text, filter) => Effect.map(freshIndex, (db) => searchIndex(db, text, filter)),
         write: (record) =>
           Effect.gen(function* () {
-            yield* validateRecord(record).pipe(
-              Effect.mapError((error) => new InvalidRecordInput({ message: error.message })),
+            yield* validateRecord(record, { errors: "all", onExcessProperty: "error" }).pipe(
+              Effect.mapError((error) => new InvalidTasteInput({ problems: formatSchemaProblems(error) })),
             );
             const shortId = uniqueShortId(record.id, loadIndexedShortIds(yield* freshIndex));
             const path = recordRelativePath(record, shortId);
@@ -156,14 +150,17 @@ export const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, Store
           Object.assign(index, openIndexHandle(root));
           return refreshIndex(index.current, root);
         }),
-      };
+      });
     }),
   );
 
-/** Shorthand for `store.snapshot`. */
-export const loadStoreSnapshot: Effect.Effect<StoreSnapshot, CorruptRecordFile, TasteStore> = TasteStore.use(
-  (store) => store.snapshot,
-);
+/** Provides an open store to `effect` and closes its index afterwards. */
+export const provideTasteStore =
+  (root: string) =>
+  <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E | StoreNotInitialised | InvalidConfig, Exclude<R, TasteStore>> =>
+    Effect.provide(effect, makeTasteStoreLayer(root));
 
 const candidatesForRef = (snapshot: StoreSnapshot, ref: string): Array<IndexedRecord> => {
   const trimmed = ref.trim();
@@ -173,41 +170,62 @@ const candidatesForRef = (snapshot: StoreSnapshot, ref: string): Array<IndexedRe
   return snapshot.records.filter((entry) => entry.shortId === trimmed || entry.record.id.startsWith(trimmed));
 };
 
-const pickOne = (
+const pickRecordRef = <R>(
+  snapshot: StoreSnapshot,
   ref: string,
   expected: string,
-  candidates: ReadonlyArray<IndexedRecord>,
-): Effect.Effect<IndexedRecord, UnknownRecordRef | AmbiguousRecordRef> => {
+  select: (entry: IndexedRecord) => R | undefined,
+): Effect.Effect<R, UnknownRecordRef | AmbiguousRecordRef> => {
+  const candidates = candidatesForRef(snapshot, ref).flatMap((entry) => {
+    const selected = select(entry);
+    return selected === undefined ? [] : [{ entry, selected }];
+  });
   const [first, ...rest] = candidates;
-  if (!first) return Effect.fail(new UnknownRecordRef({ ref, expected }));
-  if (rest.length > 0) {
-    return Effect.fail(new AmbiguousRecordRef({ ref, candidates: candidates.map((entry) => entry.record.id) }));
-  }
-  return Effect.succeed(first);
+  if (first === undefined) return Effect.fail(new UnknownRecordRef({ ref, expected }));
+  if (rest.length > 0)
+    return Effect.fail(
+      new AmbiguousRecordRef({ ref, candidates: candidates.map((candidate) => candidate.entry.record.id) }),
+    );
+  return Effect.succeed(first.selected);
 };
 
-/**
- * Accepts a full id, the short id from a file name, or a unique id prefix. `expected` narrows
- * the kind, so `taste thread reply <memory-id>` fails as an unknown belief.
- */
-export const resolveRecordRef = <T extends RecordType>(
-  snapshot: StoreSnapshot,
-  ref: string,
-  expected: T,
-): Effect.Effect<Extract<TasteRecord, { type: T }>, UnknownRecordRef | AmbiguousRecordRef> =>
-  pickOne(
-    ref,
-    expected,
-    candidatesForRef(snapshot, ref).filter((entry) => entry.record.type === expected),
-  ).pipe(Effect.map((entry) => entry.record as Extract<TasteRecord, { type: T }>));
+/** A full id, the short id from a file name, or a unique id prefix, naming a derivation. */
+export const resolveDerivationRef = (snapshot: StoreSnapshot, ref: string) =>
+  pickRecordRef(snapshot, ref, "derivation", (entry) =>
+    entry.record.type === "Derivation" ? entry.record : undefined,
+  );
 
-export const resolveAnyRecordRef = (
-  snapshot: StoreSnapshot,
-  ref: string,
-): Effect.Effect<IndexedRecord, UnknownRecordRef | AmbiguousRecordRef> =>
-  pickOne(ref, "record", candidatesForRef(snapshot, ref));
+/** As `resolveDerivationRef`, for sources. */
+export const resolveSourceRef = (snapshot: StoreSnapshot, ref: string) =>
+  pickRecordRef(snapshot, ref, "source", (entry) => (entry.record.type === "Source" ? entry.record : undefined));
 
-/** `taste reindex`. */
-export const rebuildStoreIndex: Effect.Effect<IndexRefreshResult, CorruptRecordFile, TasteStore> = TasteStore.use(
-  (store) => store.rebuild,
-);
+/** Evidence may be a source or a derivation. */
+export const resolveEvidenceRef = (snapshot: StoreSnapshot, ref: string) =>
+  pickRecordRef(snapshot, ref, "source or derivation", (entry) =>
+    entry.record.type === "Source" || entry.record.type === "Derivation" ? entry.record : undefined,
+  );
+
+export const resolveAnyRecordRef = (snapshot: StoreSnapshot, ref: string) =>
+  pickRecordRef(snapshot, ref, "record", (entry) => entry);
+
+/** The derivation with this id, when the snapshot holds one. */
+export const derivationById = (snapshot: StoreSnapshot, id: string | undefined): DerivationRecord | undefined => {
+  const record = id === undefined ? undefined : snapshot.byId.get(id)?.record;
+  return record?.type === "Derivation" ? record : undefined;
+};
+
+export const sourceById = (snapshot: StoreSnapshot, id: string): SourceRecord | undefined => {
+  const record = snapshot.byId.get(id)?.record;
+  return record?.type === "Source" ? record : undefined;
+};
+
+/** Every snapshot holds a state for each of its derivations; this reads one without a non-null assertion. */
+export const derivationStateOf = (snapshot: StoreSnapshot, derivation: DerivationRecord): DerivationState =>
+  snapshot.derivationStates.get(derivation.id) ?? {
+    status: "pending",
+    decisions: [],
+    decidingDecision: undefined,
+    acceptingDecision: undefined,
+    effectiveScope: proposedScopeOf(derivation),
+    supersededBy: [],
+  };

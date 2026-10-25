@@ -5,62 +5,31 @@ import {
   mkdirSync,
   openSync,
   readdirSync,
-  readFileSync,
   renameSync,
   statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative } from "node:path";
 
-import { Effect, Schema } from "effect";
-import YAML from "yaml";
+import { Effect } from "effect";
 
-import { shortIdOf } from "../shared/vocabulary.ts";
-import { InvalidRecordInput, StoreAlreadyExists, StoreNotInitialised, StoreWriteFailed } from "./errors.ts";
+import { shortIdOf, type TasteRecordType } from "../shared/vocabulary.ts";
+import { StoreWriteFailed } from "./errors.ts";
 import { slugify } from "./ids.ts";
-import { RECORD_FOLDERS, recordCreatedAt, SCHEMA_VERSION, type TasteRecord } from "./records.ts";
+import { recordCreatedAt, type TasteRecord } from "./records.ts";
 
-export const STORE_CONFIG_FILE = "taste.yaml";
 export const INDEX_DIR = ".index";
 
 export const indexDirOf = (root: string) => join(root, INDEX_DIR);
 
-/** `--store`, then `TASTE_STORE`, then `./.taste`. Empty strings count as unset. */
-export const resolveStoreRoot = (options: {
-  readonly flag?: string | undefined;
-  readonly env?: string | undefined;
-  readonly cwd: string;
-}): string => resolve(options.cwd, options.flag || options.env || ".taste");
-
-const StoreConfigSchema = Schema.Struct({
-  owner: Schema.String.check(Schema.isPattern(/^human:\S+$/, { message: "owner must be human:<id>" })),
-  schema_version: Schema.Literal(SCHEMA_VERSION),
-});
-export type StoreConfig = typeof StoreConfigSchema.Type;
-
-export const readStoreConfig = (root: string): Effect.Effect<StoreConfig, StoreNotInitialised | InvalidRecordInput> => {
-  const path = join(root, STORE_CONFIG_FILE);
-  if (!existsSync(path)) return Effect.fail(new StoreNotInitialised({ root }));
-  return Schema.decodeUnknownEffect(StoreConfigSchema)(
-    YAML.parse(readFileSync(path, "utf8"), { schema: "failsafe" }),
-  ).pipe(Effect.mapError((error) => new InvalidRecordInput({ message: `${path}: ${error.message}` })));
+/** One folder per record type; `kind` lives in frontmatter, never in paths. */
+const RECORD_FOLDERS: Record<TasteRecordType, string> = {
+  Source: "sources",
+  Derivation: "derivations",
+  Decision: "decisions",
+  ThreadEntry: "threads",
 };
-
-/** Creates `taste.yaml` and a `.gitignore` for the disposable index. The kind folders appear on first write. */
-export const initStore = (
-  root: string,
-  owner: string,
-): Effect.Effect<StoreConfig, StoreAlreadyExists | InvalidRecordInput | StoreWriteFailed> =>
-  Effect.gen(function* () {
-    if (existsSync(join(root, STORE_CONFIG_FILE))) return yield* new StoreAlreadyExists({ root });
-    const config = yield* Schema.decodeUnknownEffect(StoreConfigSchema)({ owner, schema_version: SCHEMA_VERSION }).pipe(
-      Effect.mapError((error) => new InvalidRecordInput({ message: error.message })),
-    );
-    yield* writeFileExclusive(join(root, STORE_CONFIG_FILE), YAML.stringify(config));
-    if (!existsSync(join(root, ".gitignore"))) yield* writeFileExclusive(join(root, ".gitignore"), `${INDEX_DIR}/\n`);
-    return config;
-  });
 
 /**
  * Exclusive create: a store file is written once and never edited, so an existing path is an error.
@@ -84,7 +53,7 @@ export const writeFileExclusive = (path: string, content: string): Effect.Effect
         unlinkSync(temporary);
       }
     },
-    catch: (error) => new StoreWriteFailed({ path, message: String(error) }),
+    catch: (error) => new StoreWriteFailed({ path, problem: String(error) }),
   });
 
 /** For mutable sidecar files under `.index/` only (listener cursors). Rename keeps readers from seeing half a file. */
@@ -100,7 +69,7 @@ export const writeFileAtomicSync = (path: string, content: string): void => {
   renameSync(temporary, path);
 };
 
-/** `<kind>/YYYY/MM/<date>[-<slug>].<short-id>.md`, relative to the store root. */
+/** `<folder>/YYYY/MM/<date>[-<slug>].<short-id>.md`, relative to the store root. */
 export const recordRelativePath = (record: TasteRecord, shortId: string): string => {
   const created = recordCreatedAt(record);
   const [year, month] = [created.slice(0, 4), created.slice(5, 7)];
@@ -113,16 +82,19 @@ export const recordRelativePath = (record: TasteRecord, shortId: string): string
   );
 };
 
+/**
+ * Sources get no slug, so verbatim words never reach filenames, sync logs or git history. A
+ * derivation's statement is an agent's wording, so it may.
+ */
 const recordSlug = (record: TasteRecord): string => {
   switch (record.type) {
-    case "Memory":
-      return slugify(record.quote, 5);
-    case "Belief":
+    case "Source":
+    case "ThreadEntry":
+      return "";
+    case "Derivation":
       return slugify(record.statement);
     case "Decision":
       return record.outcome;
-    case "ThreadEntry":
-      return "";
   }
 };
 
@@ -146,7 +118,7 @@ export interface StoreFileStat {
   readonly mtimeMs: number;
 }
 
-/** Every record file, relative to the root. Only the four kind folders are walked; `.index/` never is. */
+/** Every record file, relative to the root. Only the four record folders are walked; `.index/` never is. */
 export const listRecordFiles = (root: string): Array<StoreFileStat> => {
   const files: Array<StoreFileStat> = [];
   const walk = (directory: string) => {

@@ -12,13 +12,13 @@ const section = (heading: string, text: string | undefined) =>
 
 const renderBody = (record: TasteRecord): string => {
   switch (record.type) {
-    case "Memory":
+    case "Source":
       return [
         ...section("Quote", record.quote),
         ...section("Before", record.before),
         ...section("After", record.after),
       ].join("\n");
-    case "Belief": {
+    case "Derivation": {
       const reasoning = record.reasoning.trim();
       return [...(reasoning ? [reasoning, ""] : []), ...section("Despite", record.despite_case)].join("\n");
     }
@@ -62,9 +62,9 @@ const splitSections = (body: string, headings: ReadonlyArray<string>) => {
 
 const nonEmpty = (text: string | undefined) => (text ? { value: text } : undefined);
 
-const bodyFields = (type: unknown, frontmatter: Record<string, unknown>, body: string): Record<string, unknown> => {
-  switch (type) {
-    case "Memory": {
+const bodyFields = (frontmatter: object, body: string): Record<string, unknown> => {
+  switch (Reflect.get(frontmatter, "type")) {
+    case "Source": {
       const { sections } = splitSections(body, ["Quote", "Before", "After"]);
       return {
         quote: sections["Quote"] ?? "",
@@ -72,8 +72,8 @@ const bodyFields = (type: unknown, frontmatter: Record<string, unknown>, body: s
         ...(nonEmpty(sections["After"]) && { after: sections["After"] }),
       };
     }
-    case "Belief": {
-      if (frontmatter["despite"] === undefined) return { reasoning: body.trim() };
+    case "Derivation": {
+      if (Reflect.get(frontmatter, "despite") === undefined) return { reasoning: body.trim() };
       const { lead, sections } = splitSections(body, ["Despite"]);
       return { reasoning: lead, ...(nonEmpty(sections["Despite"]) && { despite_case: sections["Despite"] }) };
     }
@@ -86,21 +86,22 @@ const bodyFields = (type: unknown, frontmatter: Record<string, unknown>, body: s
 
 const decodeRecord = Schema.decodeUnknownEffect(TasteRecordSchema);
 
+/** Reads one record file. Frontmatter is parsed `failsafe`, so every scalar arrives as a string. */
 export const parseRecordFile = (path: string, content: string): Effect.Effect<TasteRecord, CorruptRecordFile> => {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(content);
-  if (!match) return Effect.fail(new CorruptRecordFile({ path, message: "missing YAML frontmatter" }));
+  if (!match) return Effect.fail(new CorruptRecordFile({ path, problem: "missing YAML frontmatter" }));
   return Effect.try({
-    try: () => YAML.parse(match[1] ?? "", { schema: "failsafe" }) as unknown,
-    catch: (error) => new CorruptRecordFile({ path, message: String(error) }),
+    try: (): unknown => YAML.parse(match[1] ?? "", { schema: "failsafe" }),
+    catch: (error) => new CorruptRecordFile({ path, problem: String(error) }),
   }).pipe(
     Effect.flatMap((frontmatter) => {
       if (typeof frontmatter !== "object" || frontmatter === null || Array.isArray(frontmatter)) {
-        return Effect.fail(new CorruptRecordFile({ path, message: "frontmatter is not a mapping" }));
+        return Effect.fail(new CorruptRecordFile({ path, problem: "frontmatter is not a mapping" }));
       }
-      const fields = frontmatter as Record<string, unknown>;
-      return decodeRecord({ ...fields, ...bodyFields(fields["type"], fields, match[2] ?? "") }).pipe(
-        Effect.mapError((error) => new CorruptRecordFile({ path, message: error.message })),
-      );
+      return decodeRecord(
+        { ...frontmatter, ...bodyFields(frontmatter, match[2] ?? "") },
+        { errors: "all", onExcessProperty: "error" },
+      ).pipe(Effect.mapError((error) => new CorruptRecordFile({ path, problem: error.message })));
     }),
   );
 };

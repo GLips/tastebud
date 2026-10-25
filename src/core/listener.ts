@@ -3,15 +3,17 @@ import { join } from "node:path";
 
 import { Effect, Schema } from "effect";
 
-import { type CorruptRecordFile, InvalidRecordInput, StoreWriteFailed } from "./errors.ts";
+import { isHumanAccount } from "../shared/vocabulary.ts";
+import { type CorruptRecordFile, InvalidTasteInput, StoreWriteFailed } from "./errors.ts";
 import { compareIsoTimes, formatLocalIsoTime } from "./ids.ts";
 import { indexDirOf, writeFileAtomicSync } from "./store-files.ts";
-import { loadStoreSnapshot, TasteStore } from "./store.ts";
+import { derivationById, TasteStore } from "./store.ts";
+import { threadReplyInstruction } from "./threads.ts";
 
 export const LISTEN_POLL_MS = 500;
 export const LISTEN_HEARTBEAT_MS = 5_000;
 /** The UI shows "agent listening" while a heartbeat is younger than this. */
-export const LISTENER_ALIVE_MS = 15_000;
+const LISTENER_ALIVE_MS = 15_000;
 
 const ListenerCursorSchema = Schema.Struct({
   name: Schema.String,
@@ -25,7 +27,8 @@ type ListenerCursor = typeof ListenerCursorSchema.Type;
 
 /** One JSON line of `taste review listen` output. */
 export interface ListenEvent {
-  readonly belief: string;
+  readonly derivation: string;
+  readonly kind: string;
   readonly statement: string;
   readonly note: string;
   readonly at: string;
@@ -43,7 +46,7 @@ const listenersDirOf = (root: string) => join(indexDirOf(root), "listeners");
 const validateListenerName = (name: string) =>
   /^[A-Za-z0-9._-]+$/.test(name)
     ? Effect.succeed(name)
-    : Effect.fail(new InvalidRecordInput({ message: `listener name "${name}" may only use letters, digits, . _ -` }));
+    : Effect.fail(new InvalidTasteInput({ problems: [`listener name "${name}" may only use letters, digits, . _ -`] }));
 
 /** A cursor that is missing or unreadable starts over: `.index/` is disposable by design. */
 const readCursor = (path: string): ListenerCursor | undefined => {
@@ -67,7 +70,7 @@ const updateCursor = (path: string, name: string, update: (cursor: ListenerCurso
       const now = formatLocalIsoTime(new Date());
       writeFileAtomicSync(path, JSON.stringify(update(readCursor(path) ?? { name, started_at: now, seen: [] })));
     },
-    catch: (error) => new StoreWriteFailed({ path, message: String(error) }),
+    catch: (error) => new StoreWriteFailed({ path, problem: String(error) }),
   });
 
 /**
@@ -77,7 +80,7 @@ const updateCursor = (path: string, name: string, update: (cursor: ListenerCurso
  */
 export const pollListenerEvents = (
   name: string,
-): Effect.Effect<Array<ListenEvent>, InvalidRecordInput | CorruptRecordFile | StoreWriteFailed, TasteStore> =>
+): Effect.Effect<Array<ListenEvent>, InvalidTasteInput | CorruptRecordFile | StoreWriteFailed, TasteStore> =>
   Effect.gen(function* () {
     yield* validateListenerName(name);
     const store = yield* TasteStore;
@@ -87,10 +90,10 @@ export const pollListenerEvents = (
       yield* updateCursor(path, name, (created) => ({ ...created, heartbeat_at: created.started_at }));
       return [];
     }
-    const snapshot = yield* loadStoreSnapshot;
+    const snapshot = yield* store.snapshot;
     const seen = new Set(cursor.seen);
     const fresh = snapshot.threadEntries
-      .filter((entry) => entry.author.startsWith("human:") && !seen.has(entry.id))
+      .filter((entry) => isHumanAccount(entry.author) && !seen.has(entry.id))
       .filter((entry) => compareIsoTimes(entry.at, cursor.started_at) >= 0)
       .sort((left, right) => compareIsoTimes(left.at, right.at) || left.id.localeCompare(right.id));
     if (fresh.length === 0) return [];
@@ -99,13 +102,14 @@ export const pollListenerEvents = (
       seen: [...new Set([...latest.seen, ...fresh.map((entry) => entry.id)])],
     }));
     return fresh.map((entry) => {
-      const belief = snapshot.byId.get(entry.thread)?.record;
+      const derivation = derivationById(snapshot, entry.thread);
       return {
-        belief: entry.thread,
-        statement: belief?.type === "Belief" ? belief.statement : "",
+        derivation: entry.thread,
+        kind: derivation?.kind ?? "",
+        statement: derivation?.statement ?? "",
         note: entry.text,
         at: entry.at,
-        reply: `taste thread reply ${entry.thread} --as ${name} "…"`,
+        reply: threadReplyInstruction(entry.thread, name),
       };
     });
   });
@@ -113,7 +117,7 @@ export const pollListenerEvents = (
 /** Called every 5s by the listen loop. Creates the cursor if the listener has not polled yet. */
 export const writeListenerHeartbeat = (
   name: string,
-): Effect.Effect<void, InvalidRecordInput | StoreWriteFailed, TasteStore> =>
+): Effect.Effect<void, InvalidTasteInput | StoreWriteFailed, TasteStore> =>
   Effect.gen(function* () {
     yield* validateListenerName(name);
     const store = yield* TasteStore;
