@@ -138,7 +138,7 @@ The new statement is compared with every belief, whatever its status.
 
 Normalising means lowercasing, stripping punctuation and dropping stopwords. A rejection's reason is never turned into an opposite belief.
 
-## CLI (`bun src/cli/main.ts`, aliased `taste` via package.json bin)
+## CLI (`bun packages/cli/src/main.ts`, aliased `taste` via package.json bin)
 
 - **Output:** every command accepts `--json` for machine output; the default is a readable summary.
 - **Exit codes:** 0 on success, 2 for invalid input, 3 when a near repeat is refused.

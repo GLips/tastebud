@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // `bun` for the server functions, which run in Vite under Bun and reach core's bun:sqlite.
+    "types": ["bun", "vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

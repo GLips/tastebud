@@ -2,7 +2,8 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { TasteCaller } from "../src/core/index.ts";
+import type { TasteCaller } from "@taste/core";
+
 import {
   callerFor,
   captureOwnerWords,
@@ -13,7 +14,7 @@ import {
   runOperation,
 } from "./support.ts";
 
-const MAIN = join(import.meta.dir, "../src/cli/main.ts");
+const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 const reviewer: TasteCaller = { via: "review", context: { places: [], origin: "unknown" } };
 
 const runHookPrompt = async (store: string, event: unknown) => {

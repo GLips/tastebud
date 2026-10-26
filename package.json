@@ -2,8 +2,12 @@
   "name": "taste",
   "private": true,
   "bin": {
-    "taste": "src/cli/main.ts"
+    "taste": "packages/cli/src/main.ts"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "type": "module",
   "scripts": {
     "test": "bun test",
@@ -13,44 +17,22 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "knip": "knip --no-progress",
-    "dev:review": "bun --bun vite --port 4747",
+    "dev:review": "bun run --cwd apps/review dev",
     "prepare": "lefthook install"
-  },
-  "dependencies": {
-    "@mantine/core": "9.5.2",
-    "@mantine/hooks": "9.5.2",
-    "@modelcontextprotocol/server": "2.4.0",
-    "@stylexjs/stylex": "0.19.0",
-    "@tanstack/react-hotkeys": "0.10.0",
-    "@tanstack/react-query": "5.103.1",
-    "@tanstack/react-router": "1.170.31",
-    "@tanstack/react-start": "1.168.48",
-    "effect": "4.0.5",
-    "lucide-react": "^1.59.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@effect/tsgo": "0.48.0",
     "@modelcontextprotocol/client": "2.4.0",
     "@oxlint/plugins": "^1.89.0",
-    "@stylexjs/unplugin": "0.19.0",
+    "@taste/core": "workspace:*",
     "@types/bun": "1.3.13",
     "@types/node": "26.6.1",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "6.1.0",
+    "effect": "4.0.5",
     "knip": "^6.43.0",
     "lefthook": "^2.2.2",
     "oxfmt": "0.64.0",
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
-    "postcss": "8.5.26",
-    "postcss-preset-mantine": "1.18.0",
-    "postcss-simple-vars": "7.0.1",
-    "typescript": "7.0.2",
-    "unplugin": "2.3.11",
-    "vite": "8.2.2"
+    "typescript": "7.0.2"
   }
 }

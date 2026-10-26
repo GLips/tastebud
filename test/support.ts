@@ -4,8 +4,6 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Effect } from "effect";
-
 import {
   initStore,
   provideTasteStore,
@@ -17,7 +15,8 @@ import {
   type TasteOperationName,
   type TasteOperationOutput,
   type TasteStore,
-} from "../src/core/index.ts";
+} from "@taste/core";
+import { Effect } from "effect";
 
 const temporaryDirectories: Array<string> = [];
 afterEach(() => {

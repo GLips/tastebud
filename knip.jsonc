@@ -1,8 +1,18 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "rules": { "types": "off", "nsTypes": "off" },
-  "entry": ["scripts/*.ts", "src/routes/**/*.tsx", "test/**/*.ts"],
   // The Effect language service is a tsconfig plugin that @effect/tsgo bundles, not an import.
   "ignoreDependencies": ["@effect/language-service"],
-  "ignore": [".claude/**", "demo/**"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts", "test/**/*.ts"],
+      "project": ["scripts/**/*.ts", "lint/**/*.ts", "test/**/*.ts"],
+    },
+    "apps/review": {
+      "entry": ["src/routes/**/*.tsx"],
+    },
+    "packages/cli": {},
+    "packages/core": {},
+    "packages/mcp": {},
+  },
 }

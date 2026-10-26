@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { normalizeRemote } from "@taste/core";
+import { canonicalPlaceKey, placeCovers } from "@taste/core/places";
 import { Result } from "effect";
 
-import { normalizeRemote } from "../src/core/index.ts";
-import { canonicalPlaceKey, placeCovers } from "../src/shared/places.ts";
 import {
   callerFor,
   demoConfigText,

@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "jsPlugins": ["./lint/taste-plugin.ts"],
   "plugins": ["react", "unicorn", "typescript", "oxc", "import", "promise"],
-  "ignorePatterns": [".claude/**", ".agent_cache/**", ".tanstack/**", "demo/**", "src/routeTree.gen.ts"],
+  "ignorePatterns": [".claude/**", ".agent_cache/**", ".tanstack/**", "demo/**", "apps/review/src/routeTree.gen.ts"],
   "options": {
     "typeAware": true,
     "reportUnusedDisableDirectives": "warn"
@@ -23,6 +23,17 @@
     "typescript/consistent-type-imports": "error",
     "import/no-cycle": "error",
     "import/no-duplicates": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/packages/*/src/**", "**/apps/*/src/**"],
+            "message": "Import another workspace package by name (@taste/core and its subpaths), never by path."
+          }
+        ]
+      }
+    ],
     "eqeqeq": "error",
     "react/react-in-jsx-scope": "off",
     "no-underscore-dangle": "off",

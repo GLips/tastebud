@@ -22,13 +22,13 @@ Deviations from the spec, shortcuts, and open questions that still hold. The con
 
 ## Shells
 
-- **effect/cli platform:** there is no `@effect/platform-bun`, so `src/cli/runtime.ts` builds the layer `Command.run` needs by hand. Taste uses no prompts, file flags or effect child processes.
-- **Review server functions:** `createServerFn` references live in `src/server/review-functions.ts` (a plain `.ts` name), and core is reached only through `*.server.ts` modules. importProtection denies `**/*.server.*`, `src/core/**`, `bun:sqlite` and `node:*` to the client, and the browser must import the function references. Type-only imports from core are erased and allowed.
+- **effect/cli platform:** there is no `@effect/platform-bun`, so `packages/cli/src/runtime.ts` builds the layer `Command.run` needs by hand. Taste uses no prompts, file flags or effect child processes.
+- **Review server functions:** `createServerFn` references live in `apps/review/src/server/review-functions.ts` (a plain `.ts` name), and core is reached only through `*.server.ts` modules. importProtection denies `**/*.server.*`, core outside `packages/core/src/shared`, `bun:sqlite` and `node:*` to the client, and the browser must import the function references. Type-only imports from core are erased and allowed.
 - **Listener:** emits human thread notes only, not decisions. The first poll for a new name only creates its cursor, so notes from before a listener first started are never printed.
 
 ## Demo seed
 
-- **Through operations:** `taste seed` (`seedTasteDemoStore` in `src/demo/seed-demo-store.ts`) writes every record through `runTasteOperation`, plus `decideDerivation` and `appendOwnerThreadNote` for Dana's decisions and notes, written `via: process:seed`. The repeat check and evidence rules apply to the seed as to any agent, so a core change that breaks a rule breaks the seed loudly.
+- **Through operations:** `taste seed` (`seedTasteDemoStore` in `packages/cli/src/demo/seed-demo-store.ts`) writes every record through `runTasteOperation`, plus `decideDerivation` and `appendOwnerThreadNote` for Dana's decisions and notes, written `via: process:seed`. The repeat check and evidence rules apply to the seed as to any agent, so a core change that breaks a rule breaks the seed loudly.
 - **Config by hand:** the seed writes `taste.config.ts` itself, because core's `initStore` only writes the starter config. It refuses a root that already has a config or any records.
 - **Dates:** only `said_at` is in the past. `captured_at`, `proposed_at` and decision times are the moment the seed ran, because core stamps them.
 - **Committed demo store:** `demo/.taste` is checked in so the review UI has something to show; its own `.gitignore` keeps `.index/` out. Regenerate it with `rm -rf demo/.taste && taste seed --store demo/.taste`.

@@ -7,24 +7,32 @@ import getEffectTscPath from "@effect/tsgo/lib/getExePath";
  * step fails the run after all of them have reported.
  *
  *   bun scripts/check.ts             every step (`bun run check`)
- *   bun scripts/check.ts typecheck   the typecheck alone (`bun run typecheck`)
+ *   bun scripts/check.ts typecheck   the typecheck steps alone (`bun run typecheck`)
  */
 const root = fileURLToPath(new URL("../", import.meta.url));
 
+// Every program the workspace declares, heaviest first so the slowest starts earliest. Each one
+// checks its own tree under its own libs: core's has no DOM, so a browser global in core fails.
+const typecheckPrograms = [".", "apps/review", "packages/core", "packages/cli", "packages/mcp"];
+
 // @effect/tsgo's compiler type-checks and reports the Effect language-service diagnostics in one
-// pass; plain `tsc` ignores the `plugins` entry in tsconfig.json.
-const typecheckStep = {
-  name: "typecheck",
-  command: [
-    getEffectTscPath(),
-    "--noEmit",
-    "--project",
-    "tsconfig.json",
-    "--incremental",
-    "--tsBuildInfoFile",
-    "node_modules/.cache/taste-check/taste.tsbuildinfo",
-  ],
-};
+// pass; plain `tsc` ignores the `plugins` entry in tsconfig.base.json.
+const effectTsc = getEffectTscPath();
+const typecheckSteps = typecheckPrograms.map((program) => {
+  const label = program === "." ? "root" : program.replaceAll("/", "-");
+  return {
+    name: `typecheck ${label}`,
+    command: [
+      effectTsc,
+      "--noEmit",
+      "--project",
+      `${program}/tsconfig.json`,
+      "--incremental",
+      "--tsBuildInfoFile",
+      `node_modules/.cache/taste-check/${label}.tsbuildinfo`,
+    ],
+  };
+});
 const otherSteps = ["lint", "knip", "format:check", "test"].map((script) => ({
   name: script,
   command: ["bun", "run", script],
@@ -33,7 +41,7 @@ const otherSteps = ["lint", "knip", "format:check", "test"].map((script) => ({
 const selection = process.argv[2];
 if (selection !== undefined && selection !== "typecheck")
   throw new Error(`Unknown selection "${selection}": pass nothing, or "typecheck".`);
-const steps = selection === "typecheck" ? [typecheckStep] : [typecheckStep, ...otherSteps];
+const steps = selection === "typecheck" ? typecheckSteps : [...typecheckSteps, ...otherSteps];
 
 const started = performance.now();
 const results = await Promise.all(

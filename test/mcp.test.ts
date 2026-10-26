@@ -4,16 +4,16 @@ import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { listTasteOperations, mcpToolNameOf } from "@taste/core";
 import { Schema } from "effect";
 
-import { listTasteOperations, mcpToolNameOf } from "../src/core/index.ts";
 import { makeGitRepo, makeTestStore, OWNER } from "./support.ts";
 
 const decodeCapturedSourceId = Schema.decodeUnknownSync(
   Schema.Struct({ source: Schema.Struct({ source: Schema.Struct({ id: Schema.String }) }) }),
 );
 
-const MAIN = join(import.meta.dir, "../src/cli/main.ts");
+const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 const openClients: Array<Client> = [];
 afterEach(async () => {

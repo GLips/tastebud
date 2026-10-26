@@ -1,0 +1,15 @@
+{
+  "name": "@taste/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog-view": "./src/shared/catalog-view.ts",
+    "./places": "./src/shared/places.ts",
+    "./vocabulary": "./src/shared/vocabulary.ts"
+  },
+  "dependencies": {
+    "effect": "4.0.5",
+    "yaml": "^2.9.1"
+  }
+}

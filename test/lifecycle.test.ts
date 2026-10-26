@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { Effect } from "effect";
-
 import {
   describeTasteFailure,
   pollListenerEvents,
   runTasteOperation,
   type TasteCaller,
   threadReplyInstruction,
-} from "../src/core/index.ts";
+} from "@taste/core";
+import { Effect } from "effect";
+
 import {
   callerFor,
   captureOwnerWords,

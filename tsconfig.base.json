@@ -1,0 +1,66 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": true,
+        "allowedUnstableApis": [
+          "effect/cli",
+          "effect/process",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/Stdio",
+          "effect/Terminal"
+        ],
+        "diagnosticSeverity": {
+          "anyUnknownInErrorContext": "error",
+          "catchUnfailableEffect": "error",
+          "classSelfMismatch": "error",
+          "duplicatePackage": "error",
+          "effectFnIife": "error",
+          "effectFnImplicitAny": "error",
+          "effectGenUsesAdapter": "error",
+          "effectInFailure": "error",
+          "effectInVoidSuccess": "error",
+          "floatingEffect": "error",
+          "genericEffectServices": "error",
+          "globalErrorInEffectCatch": "error",
+          "globalErrorInEffectFailure": "error",
+          "lazyPromiseInEffectSync": "error",
+          "missingEffectContext": "error",
+          "missingEffectError": "error",
+          "missingEffectServiceDependency": "error",
+          "missingLayerContext": "error",
+          "missingStarInYieldEffectGen": "error",
+          "multipleEffectProvide": "error",
+          "nonObjectEffectServiceType": "error",
+          "outdatedApi": "error",
+          "promiseInEffectSuccess": "error",
+          "returnEffectInGen": "error",
+          "runEffectInsideEffect": "error",
+          "scopeInLayerEffect": "error",
+          "tryCatchInEffectGen": "error",
+          "unknownInEffectCatch": "error",
+          "unstableApiUsage": "error"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@taste/mcp",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@taste/core": "workspace:*",
+    "effect": "4.0.5"
+  }
+}

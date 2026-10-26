@@ -25,7 +25,7 @@ Everything else follows from that. The store is append-only markdown with YAML f
 ```bash
 git clone https://github.com/GLips/taste && cd taste
 bun install
-ln -s "$PWD/src/cli/main.ts" ~/.local/bin/taste   # any directory on your PATH
+ln -s "$PWD/packages/cli/src/main.ts" ~/.local/bin/taste   # any directory on your PATH
 
 taste seed --store /tmp/taste-demo                # a fictional store: Dana, Acme's web and billing repos, three customer calls
 export TASTE_STORE=/tmp/taste-demo

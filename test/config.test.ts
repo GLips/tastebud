@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { runTasteOperation } from "@taste/core";
 import { Effect } from "effect";
 
-import { runTasteOperation } from "../src/core/index.ts";
 import {
   callerFor,
   captureOwnerWords,

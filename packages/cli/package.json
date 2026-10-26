@@ -1,0 +1,13 @@
+{
+  "name": "@taste/cli",
+  "private": true,
+  "bin": {
+    "taste": "src/main.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@taste/core": "workspace:*",
+    "@taste/mcp": "workspace:*",
+    "effect": "4.0.5"
+  }
+}

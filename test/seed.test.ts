@@ -4,15 +4,17 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { provideTasteStore, runTasteOperation } from "@taste/core";
+import { UNKNOWN_TASTE_CONTEXT } from "@taste/core/places";
 import { Effect } from "effect";
 
-import { provideTasteStore, runTasteOperation } from "../src/core/index.ts";
-import { seedTasteDemoStore } from "../src/demo/seed-demo-store.ts";
-import { UNKNOWN_TASTE_CONTEXT } from "../src/shared/places.ts";
+const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 test("the demo seed covers every status with a history that runs forward from evidence to decision", async () => {
   const root = join(mkdtempSync(join(tmpdir(), "taste-seed-")), "store");
-  await Effect.runPromise(seedTasteDemoStore(root));
+  const seeded = Bun.spawnSync(["bun", MAIN, "seed", "--store", root], { stdout: "pipe", stderr: "pipe" });
+  expect(seeded.stderr.toString()).toBe("");
+  expect(seeded.exitCode).toBe(0);
 
   const { derivations } = await Effect.runPromise(
     provideTasteStore(root)(runTasteOperation("list", {}, { via: "cli", context: UNKNOWN_TASTE_CONTEXT })),

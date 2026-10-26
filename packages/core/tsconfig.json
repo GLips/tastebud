@@ -1,0 +1,6 @@
+{
+  // No DOM lib and no UI types: a browser global or a React import in core fails this program.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "types": ["bun"] },
+  "include": ["src"]
+}

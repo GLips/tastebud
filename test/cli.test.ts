@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { AGENT, demoConfigText, makeGitRepo, makeTemporaryDirectory, makeTestStore, OWNER } from "./support.ts";
 
-const MAIN = join(import.meta.dir, "../src/cli/main.ts");
+const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 const runTaste = async (store: string, cwd: string, args: ReadonlyArray<string>) => {
   const child = Bun.spawn(["bun", MAIN, ...args], {
