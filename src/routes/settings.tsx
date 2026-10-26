@@ -21,11 +21,11 @@ import { Check, ChevronRight, Copy } from "lucide-react";
 import { useState } from "react";
 
 import type { DerivedKindView } from "../shared/catalog-view.ts";
-import type { PlaceResolverName } from "../shared/vocabulary.ts";
 import { FactRow } from "../ui/fact-row.tsx";
 import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } from "../ui/kind-identity.tsx";
 import { reviewShellQuery } from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
+import { AnchorLink } from "../ui/router-links.tsx";
 import { useReviewCatalog } from "../ui/use-review-context.ts";
 
 export const Route = createFileRoute("/settings")({ component: SettingsScreen });
@@ -46,12 +46,6 @@ const styles = stylex.create({
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
 });
-
-const RESOLVER_WORDING: Record<PlaceResolverName, string> = {
-  git: "git: a repo place from the origin remote and subdirectory, else the directory",
-  directories: "directories: always the working directory",
-  custom: "custom: a function in taste.config.ts",
-};
 
 function CopyableSnippet({ code, label }: { code: string; label: string }) {
   return (
@@ -190,8 +184,13 @@ function SettingsScreen() {
           <FactRow label="Config">
             <Text {...stylex.props(styles.mono)}>{storeRoot.replace(/\/+$/, "")}/taste.config.ts</Text>
           </FactRow>
-          <FactRow label="Place resolver">
-            <Text size="sm">{RESOLVER_WORDING[catalog.resolver]}</Text>
+          <FactRow label="Resolver">
+            <Text size="sm">
+              {catalog.resolver} ·{" "}
+              <AnchorLink to="/places" size="sm">
+                try it in Places →
+              </AnchorLink>
+            </Text>
           </FactRow>
           <FactRow label="Prompt hook">
             <Text size="sm">

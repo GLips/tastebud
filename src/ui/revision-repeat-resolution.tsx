@@ -55,7 +55,7 @@ export function RevisionRepeatResolution({
           <Text size="xs" c="dimmed">
             Revision applies in
           </Text>
-          <ScopeChips scope={scope} labels={labels} wrap="wrap" />
+          <ScopeChips scope={scope} labels={labels} wrap="wrap" linked={false} />
         </Group>
         {matches.map((match) => (
           <BlockingMatchRow

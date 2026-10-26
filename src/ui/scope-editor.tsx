@@ -2,14 +2,15 @@
  * The inline scope editor on an inbox card (`S`). It edits a draft only; nothing is decided until
  * the acceptance preview confirms it. Removing every place leaves the draft invalid on purpose.
  */
-import { ActionIcon, Autocomplete, Button, Group, Kbd, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Kbd, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Result } from "effect";
-import { ArrowRight, CornerDownRight, Globe, MapPin, Plus, RotateCcw, Scissors, X } from "lucide-react";
+import { ArrowRight, Globe, MapPin, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useState } from "react";
 
 import { canonicalPlaceKey, type DerivationScope, type PlaceKey, scopePlacesOf } from "../shared/places.ts";
+import { KnownPlaceSearch } from "./known-place-search.tsx";
 import { PlaceFormIcon, PlaceKeyCopy } from "./place-chips.tsx";
 import {
   childPlaceKey,
@@ -18,7 +19,6 @@ import {
   isSameScope,
   narrowerPlacesOf,
   narrowPlace,
-  relativePlacePath,
   type ScopeDraft,
   withoutPlace,
   withPlace,
@@ -43,10 +43,9 @@ const styles = stylex.create({
   },
   narrow: { paddingLeft: "24px", paddingBottom: "4px" },
   summary: { display: "flex", flexDirection: "column", gap: "2px" },
-  option: { display: "flex", flexDirection: "column", gap: "0px", minWidth: 0 },
-  mono: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: "11px" },
 });
 
+/** Narrow to a known place inside this one, or type a subpath that no scope names yet. */
 function NarrowPlacePicker({
   place,
   known,
@@ -67,60 +66,43 @@ function NarrowPlacePicker({
     else onNarrow(key.success);
   };
   return (
-    <Stack gap={6} {...stylex.props(styles.narrow)}>
-      {narrower.length > 0 && (
-        <Group gap={4}>
-          <Text size="xs" c="dimmed" mr={2}>
-            Known inside:
-          </Text>
-          {narrower.map((candidate) => (
-            <Button
-              key={candidate}
-              size="compact-xs"
-              variant="light"
-              color="gray"
-              leftSection={<CornerDownRight size={11} />}
-              onClick={() => onNarrow(candidate)}
-            >
-              {relativePlacePath(place, candidate)}
-            </Button>
-          ))}
-        </Group>
-      )}
-      <Group gap={6} wrap="nowrap">
-        <TextInput
-          size="xs"
-          autoFocus
-          aria-label={`A path inside ${known.labelOf(place)}`}
-          placeholder="apps/checkout"
-          leftSection={<Text size="xs" c="dimmed">{`${known.labelOf(place)} /`}</Text>}
-          leftSectionWidth={Math.min(220, 18 + known.labelOf(place).length * 6.5)}
-          value={path}
-          error={problem}
-          onChange={(event) => {
-            setPath(event.currentTarget.value);
-            setProblem(undefined);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              submit();
-            }
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              onClose();
-            }
-          }}
-          style={{ flex: 1, maxWidth: 420 }}
-        />
-        <Button size="xs" variant="default" onClick={submit} disabled={path.trim() === ""}>
-          Narrow
-        </Button>
-        <Button size="xs" variant="subtle" color="gray" onClick={onClose}>
-          Cancel
-        </Button>
-      </Group>
-    </Stack>
+    <Group gap={6} wrap="nowrap" {...stylex.props(styles.narrow)}>
+      <KnownPlaceSearch
+        known={known}
+        options={narrower}
+        autoFocus
+        aria-label={`A place inside ${known.labelOf(place)}`}
+        placeholder={
+          narrower.length > 0 ? "Search places inside, or type a sub-place like apps/checkout" : "apps/checkout"
+        }
+        leftSection={<Text size="xs" c="dimmed">{`${known.labelOf(place)} /`}</Text>}
+        leftSectionWidth={Math.min(220, 18 + known.labelOf(place).length * 6.5)}
+        value={path}
+        error={problem}
+        onChange={(next) => {
+          setPath(next);
+          setProblem(undefined);
+        }}
+        onPick={onNarrow}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && path.trim() !== "" && !narrower.includes(path.trim())) {
+            event.preventDefault();
+            submit();
+          }
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        style={{ flex: 1, maxWidth: 460 }}
+      />
+      <Button size="xs" variant="default" onClick={submit} disabled={path.trim() === ""}>
+        Narrow
+      </Button>
+      <Button size="xs" variant="subtle" color="gray" onClick={onClose}>
+        Cancel
+      </Button>
+    </Group>
   );
 }
 
@@ -147,49 +129,25 @@ function AddPlaceInput({
     setValue("");
   };
   return (
-    <Autocomplete
-      size="xs"
+    <KnownPlaceSearch
+      known={known}
+      options={options}
       // Mounts when a global draft is limited to places; an empty list means picking one comes next.
       autoFocus={draft.scope === "places" && draft.places.length === 0}
       aria-label="Add another place"
-      placeholder="Add another place: search, or type a key like github.com/acme/web::apps/checkout"
+      placeholder="Add another place: search, or type any key, e.g. clients/acme or github.com/acme/web::"
       leftSection={<Plus size={13} />}
-      data={options}
       value={value}
       error={problem}
-      limit={8}
       onChange={(next) => {
         setValue(next);
         setProblem(undefined);
       }}
-      onOptionSubmit={(place) => {
+      onPick={(place) => {
         onAdd(place);
         // Autocomplete writes the chosen option into the input after this; clear it on the next tick.
         setTimeout(() => setValue(""), 0);
       }}
-      filter={({ options: all, search }) => {
-        const needle = search.trim().toLowerCase();
-        return all.filter(
-          (option) =>
-            "value" in option &&
-            (needle === "" ||
-              option.value.toLowerCase().includes(needle) ||
-              known.labelOf(option.value).toLowerCase().includes(needle)),
-        );
-      }}
-      renderOption={({ option }) => (
-        <Group gap={8} wrap="nowrap">
-          <PlaceFormIcon place={option.value} />
-          <div {...stylex.props(styles.option)}>
-            <Text size="xs" fw={500}>
-              {known.labelOf(option.value)}
-            </Text>
-            <Text c="dimmed" {...stylex.props(styles.mono)}>
-              {option.value}
-            </Text>
-          </div>
-        </Group>
-      )}
       onKeyDown={(event) => {
         if (event.key === "Enter" && value.trim() !== "" && !options.includes(value.trim())) {
           event.preventDefault();

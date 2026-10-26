@@ -63,6 +63,11 @@ export const RepointPreviewResultSchema = Schema.Struct({
   ),
   alreadyPending: RepointAlreadyPendingSchema,
   blocked: Schema.Array(RepointBlockedSchema),
+  /**
+   * Pending proposals whose scope names `from` exactly. Repoint only revises accepted items, so
+   * these keep pointing at the old place until someone edits them in review.
+   */
+  pendingAtFrom: Schema.Array(DerivationSummarySchema),
 });
 export type RepointPreviewResult = typeof RepointPreviewResultSchema.Type;
 
@@ -168,6 +173,11 @@ export const previewTastePlaceRepoint = Effect.fn("taste.previewTastePlaceRepoin
   input: RepointPlaceInput,
 ) {
   const plan = yield* planRepointRevisions(input);
+  const { snapshot } = plan.view;
+  const pendingAtFrom = snapshot.derivations.filter((derivation) => {
+    const state = derivationStateOf(snapshot, derivation);
+    return state.status === "pending" && scopePlacesOf(state.effectiveScope).includes(plan.from);
+  });
   const result: RepointPreviewResult = {
     from: plan.from,
     to: plan.to,
@@ -177,6 +187,7 @@ export const previewTastePlaceRepoint = Effect.fn("taste.previewTastePlaceRepoin
     })),
     alreadyPending: plan.alreadyPending,
     blocked: plan.blocked,
+    pendingAtFrom: pendingAtFrom.map((derivation) => summarizeDerivation(plan.view, derivation)),
   };
   return result;
 });

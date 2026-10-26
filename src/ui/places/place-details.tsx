@@ -12,12 +12,14 @@ import { capitalize, KindGlyph } from "../kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, PlaceKeyCopy, placeFormOf } from "../place-chips.tsx";
 import { derivationListQuery } from "../review-queries.ts";
 import { QueryErrorAlert } from "../route-panels.tsx";
+import { AnchorLink } from "../router-links.tsx";
 import { type KnownPlaces, useReviewCatalog } from "../use-review-context.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
 import { GLOBAL_PLACE_NODE } from "./place-tree.ts";
 
 const styles = stylex.create({
   numeric: { fontVariantNumeric: "tabular-nums" },
+  onward: { rowGap: "2px" },
 });
 
 function CountsTable({ counts }: { counts: AuditPlacesResult["globalCounts"] }) {
@@ -67,6 +69,42 @@ function CountsTable({ counts }: { counts: AuditPlacesResult["globalCounts"] }) 
         ))}
       </Table.Tbody>
     </Table>
+  );
+}
+
+/** Where to go from a place: each kind's library filtered to it, and the recall inspector standing there. */
+function PlaceOnwardLinks({ place }: { place: string }) {
+  const catalog = useReviewCatalog();
+  const kinds = catalog?.derivedKinds ?? [];
+  const [onlyKind] = kinds;
+  return (
+    <Group gap={6} {...stylex.props(styles.onward)}>
+      {kinds.length === 1 && onlyKind !== undefined ? (
+        <AnchorLink to="/kinds/$kind" params={{ kind: onlyKind.key }} search={{ place }} size="sm">
+          What applies here →
+        </AnchorLink>
+      ) : (
+        <>
+          <Text size="sm" c="dark.4">
+            What applies here:
+          </Text>
+          {kinds.map((kind) => (
+            <AnchorLink key={kind.key} to="/kinds/$kind" params={{ kind: kind.key }} search={{ place }} size="sm">
+              <Group gap={4} wrap="nowrap" component="span">
+                <KindGlyph catalog={catalog} kind={kind.key} />
+                {capitalize(kind.plural)}
+              </Group>
+            </AnchorLink>
+          ))}
+        </>
+      )}
+      <Text size="sm" c="gray.4" aria-hidden>
+        ·
+      </Text>
+      <AnchorLink to="/recall" search={{ at: place }} size="sm">
+        Recall here →
+      </AnchorLink>
+    </Group>
   );
 }
 
@@ -135,6 +173,7 @@ export function PlaceDetails({
           Repoint…
         </Button>
       </Group>
+      <PlaceOnwardLinks place={place} />
 
       {probes.length > 0 &&
         (unmatched !== undefined ? (

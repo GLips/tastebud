@@ -209,6 +209,13 @@ describe("lifecycle", () => {
     });
     await decide(root, { ref: original.id, outcome: "accept" });
 
+    // Repoint never revises pending proposals, so the preview names the ones left at the old place.
+    const stillPending = await propose(root, inWeb, {
+      statement: "Name branches after their ticket",
+      supports: [memory],
+      scope: "places",
+      places: [WEB],
+    });
     const STOREFRONT = "github.com/acme/storefront::";
     const recordCount = async () => (await runOperation(root, "list", {}, inWeb)).derivations.length;
     const before = await recordCount();
@@ -216,6 +223,7 @@ describe("lifecycle", () => {
     expect(preview.revisions.map((entry) => [entry.supersedes.id, entry.keptPlaces])).toEqual([
       [original.id, ["clients/acme"]],
     ]);
+    expect(preview.pendingAtFrom.map((summary) => summary.id)).toEqual([stillPending.id]);
     expect(await recordCount()).toBe(before);
     const repointed = await runOperation(root, "repoint", { from: WEB, to: STOREFRONT }, inWeb);
     expect(repointed.proposals.map((proposal) => proposal.supersedes.id)).toEqual([original.id]);

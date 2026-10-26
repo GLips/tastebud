@@ -168,6 +168,14 @@ export const renderRepointPreviewText = (result: RepointPreviewResult) =>
             result.blocked.map((entry) => `- ${formatDerivationSummary(entry.derivation)}: ${entry.problem}`),
           ),
         ]),
+    ...(result.pendingAtFrom.length === 0
+      ? []
+      : [
+          section(
+            `Pending proposals still at ${result.from} (repoint leaves these alone)`,
+            result.pendingAtFrom.map((summary) => `- ${formatDerivationSummary(summary)}`),
+          ),
+        ]),
   ].join("\n");
 
 export const renderListenersText = (result: { readonly listeners: ReadonlyArray<ListenerHeartbeat> }) =>

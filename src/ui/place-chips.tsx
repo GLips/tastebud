@@ -1,7 +1,8 @@
 /**
  * Places and scopes as the reviewer reads them: a chip per place with an icon for its form, the
  * short label, and the full key one hover away. Global is always the orange chip, because it is the
- * scope that is easiest to approve by accident.
+ * scope that is easiest to approve by accident. Every chip opens its place on the Places page,
+ * except where the chip is part of an editor and leaving would drop the draft.
  */
 import { Badge, CopyButton, Group, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -9,6 +10,8 @@ import { Result } from "effect";
 import { Check, Copy, Folder, FolderGit2, Globe, type LucideIcon, Tag } from "lucide-react";
 
 import { type DerivationScope, formatPlaceLabel, parsePlaceKey, type PlaceKey } from "../shared/places.ts";
+import { GLOBAL_PLACE_NODE } from "./places/place-tree.ts";
+import { BadgeLink } from "./router-links.tsx";
 
 export type PlaceForm = "repo" | "directory" | "named";
 
@@ -59,6 +62,14 @@ export const labelPlaces = (places: ReadonlyArray<PlaceKey>): Map<PlaceKey, stri
 const styles = stylex.create({
   key: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: "11px", wordBreak: "break-all" },
   copyable: { cursor: "copy", userSelect: "all" },
+  // Quiet until pointed at: the chip reads as a label, and only hover or focus shows it leads somewhere.
+  linked: {
+    cursor: "pointer",
+    textDecorationLine: { default: "none", ":hover": "underline", ":focus-visible": "underline" },
+    textUnderlineOffset: "2px",
+    outline: { default: "none", ":focus-visible": "2px solid var(--mantine-color-taste-5)" },
+    outlineOffset: "1px",
+  },
 });
 
 // Mantine clips badge labels with an ellipsis, which lets a table column squeeze a place to "ac…".
@@ -69,12 +80,24 @@ export function PlaceChip({
   label,
   color = "gray",
   strike = false,
+  linked = true,
 }: {
   place: PlaceKey;
   label?: string;
   color?: string;
   strike?: boolean;
+  /** Off inside editors, where the chip is part of a draft and following it would drop the draft. */
+  linked?: boolean;
 }) {
+  const badge = {
+    color,
+    variant: "light",
+    tt: "none",
+    fw: 500,
+    styles: UNCLIPPED_LABEL,
+    leftSection: <PlaceFormIcon place={place} size={11} />,
+    children: label ?? formatPlaceLabel(place),
+  } as const;
   return (
     <Tooltip
       label={
@@ -85,33 +108,31 @@ export function PlaceChip({
       withArrow
       openDelay={250}
     >
-      <Badge
-        color={color}
-        variant="light"
-        tt="none"
-        fw={500}
-        styles={UNCLIPPED_LABEL}
-        leftSection={<PlaceFormIcon place={place} size={11} />}
-        td={strike ? "line-through" : undefined}
-      >
-        {label ?? formatPlaceLabel(place)}
-      </Badge>
+      {linked ? (
+        <BadgeLink to="/places" search={{ place }} {...badge} {...stylex.props(styles.linked)} />
+      ) : (
+        <Badge {...badge} td={strike ? "line-through" : undefined} />
+      )}
     </Tooltip>
   );
 }
 
-function GlobalScopeChip({ label = "Everywhere" }: { label?: string }) {
+function GlobalScopeChip({ label = "Everywhere", linked }: { label?: string; linked: boolean }) {
+  const badge = {
+    color: "orange",
+    variant: "light",
+    tt: "none",
+    styles: UNCLIPPED_LABEL,
+    leftSection: <Globe size={11} strokeWidth={2.25} />,
+    children: label,
+  } as const;
   return (
     <Tooltip label="Global: applies in every place, including future ones" withArrow>
-      <Badge
-        color="orange"
-        variant="light"
-        tt="none"
-        styles={UNCLIPPED_LABEL}
-        leftSection={<Globe size={11} strokeWidth={2.25} />}
-      >
-        {label}
-      </Badge>
+      {linked ? (
+        <BadgeLink to="/places" search={{ place: GLOBAL_PLACE_NODE }} {...badge} {...stylex.props(styles.linked)} />
+      ) : (
+        <Badge {...badge} />
+      )}
     </Tooltip>
   );
 }
@@ -120,17 +141,19 @@ export function ScopeChips({
   scope,
   labels,
   wrap = "nowrap",
+  linked = true,
 }: {
   scope: DerivationScope;
   labels?: ReadonlyMap<PlaceKey, string>;
   wrap?: "wrap" | "nowrap";
+  linked?: boolean;
 }) {
-  if (scope.scope === "global") return <GlobalScopeChip />;
+  if (scope.scope === "global") return <GlobalScopeChip linked={linked} />;
   return (
     <Group gap={4} wrap={wrap}>
       {scope.places.map((place) => {
         const label = labels?.get(place);
-        return <PlaceChip key={place} place={place} {...(label !== undefined && { label })} />;
+        return <PlaceChip key={place} place={place} linked={linked} {...(label !== undefined && { label })} />;
       })}
     </Group>
   );

@@ -252,7 +252,7 @@ export function InboxProposalCard({
               Applies in
             </Text>
             {isCompleteScope(shownScope) ? (
-              <ScopeChips scope={shownScope} labels={known.labels} wrap="wrap" />
+              <ScopeChips scope={shownScope} labels={known.labels} wrap="wrap" linked={mode === "idle"} />
             ) : (
               <Text size="xs" c="red.7">
                 no places yet

@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Autocomplete,
   Button,
   Center,
   Group,
@@ -22,6 +21,7 @@ import { Folder, GitCommitVertical, Search, Tag } from "lucide-react";
 import { useState } from "react";
 
 import { capitalize } from "../ui/kind-identity.tsx";
+import { KnownPlaceSearch } from "../ui/known-place-search.tsx";
 import { RecallCandidateGroups } from "../ui/recall/recall-candidate-groups.tsx";
 import { RecallContextSummary, RecallFailure } from "../ui/recall/recall-context.tsx";
 import { RecallFindItemPanel } from "../ui/recall/recall-find-item-panel.tsx";
@@ -154,14 +154,15 @@ function RecallInspectorScreen() {
                 />
               )}
               {mode === "at" && (
-                <Autocomplete
-                  size="xs"
+                <KnownPlaceSearch
+                  known={known}
+                  options={known.places}
                   aria-label="Stand at this place"
-                  placeholder="A place key, e.g. github.com/acme/web::apps/checkout"
+                  placeholder="Search places, or type any key, e.g. clients/acme"
                   leftSection={<Tag size={13} />}
-                  data={known.places}
                   value={place}
                   onChange={setPlace}
+                  onPick={setPlace}
                   style={{ flex: 1 }}
                 />
               )}

@@ -31,7 +31,8 @@ import { AnchorLink } from "../ui/router-links.tsx";
 import type { ScopeDraft } from "../ui/scope-draft.ts";
 import { useKnownPlaces } from "../ui/use-review-context.ts";
 
-const InboxSearch = Schema.Struct({ kind: Schema.optionalKey(Schema.String) });
+/** `card` selects one proposal on arrival, for links that name a specific pending item. */
+const InboxSearch = Schema.Struct({ kind: Schema.optionalKey(Schema.String), card: Schema.optionalKey(Schema.String) });
 
 export const Route = createFileRoute("/")({
   validateSearch: Schema.toStandardSchemaV1(InboxSearch),
@@ -83,7 +84,12 @@ function InboxScreen() {
   const kindKey = kind?.key ?? "";
   const queue = useStableInboxQueue(inbox.data?.groups, kindKey);
   const [drafts, setDrafts] = useState<ReadonlyMap<string, ScopeDraft>>(() => new Map());
-  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [selectedId, setSelectedId] = useState<string | undefined>(search.card);
+  const [linkedCard, setLinkedCard] = useState(search.card);
+  if (search.card !== linkedCard) {
+    setLinkedCard(search.card);
+    setSelectedId(search.card);
+  }
   const [engagedIds, setEngagedIds] = useState<ReadonlySet<string>>(() => new Set());
   const cardRefs = useRef(new Map<string, HTMLDivElement>()).current;
 
@@ -168,6 +174,7 @@ function InboxScreen() {
         onEngagedChange={onEngagedChange}
         onDecided={() => removeFromQueue(entry.id)}
         cardRefs={cardRefs}
+        reveal={entry.id === linkedCard}
       />
     );
 
@@ -289,22 +296,30 @@ function InboxScreen() {
 function InboxCardSlot({
   entry,
   cardRefs,
+  reveal,
   onEngagedChange,
   ...props
 }: Omit<React.ComponentProps<typeof InboxProposalCard>, "card" | "onEngagedChange" | "ref"> & {
   entry: InboxQueueEntry;
   cardRefs: Map<string, HTMLDivElement>;
+  /** The card a link named (`?card=`): scrolled to once, when it first renders. */
+  reveal: boolean;
   onEngagedChange: (id: string, engaged: boolean) => void;
 }) {
   const { id } = entry;
   const reportEngaged = useCallback((engaged: boolean) => onEngagedChange(id, engaged), [id, onEngagedChange]);
+  const element = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (reveal) element.current?.scrollIntoView({ block: "center" });
+  }, [reveal]);
   return (
     <InboxProposalCard
       {...props}
       card={entry.card}
       onEngagedChange={reportEngaged}
-      ref={(element) => {
-        if (element) cardRefs.set(id, element);
+      ref={(mounted) => {
+        element.current = mounted;
+        if (mounted) cardRefs.set(id, mounted);
         else cardRefs.delete(id);
       }}
     />

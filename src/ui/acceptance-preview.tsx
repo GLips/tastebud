@@ -76,7 +76,7 @@ export function BlockingMatchRow({
             {match.status}
             {match.decidedAt !== undefined && ` ${formatReviewDate(match.decidedAt)}`}
           </Text>
-          <ScopeChips scope={match.effectiveScope} labels={labels} />
+          <ScopeChips scope={match.effectiveScope} labels={labels} linked={false} />
         </Group>
         {match.reason !== undefined && (
           <Text size="sm" c="dark.4">
@@ -101,6 +101,8 @@ export function AcceptancePreview({
   proposedScope,
   changes,
   acceptLabel,
+  confirmLabel = acceptLabel,
+  backLabel = "Back",
   active,
   acknowledged,
   onAcknowledge,
@@ -117,6 +119,9 @@ export function AcceptancePreview({
   proposedScope: DerivationScope;
   changes: ReadonlyArray<string>;
   acceptLabel: string;
+  /** The confirm button's words; the kind's accept label unless the flow names its own. */
+  confirmLabel?: string;
+  backLabel?: string;
   /** Only the preview on the selected card listens for ⌘↵ and Esc; other cards' previews stay put. */
   active: boolean;
   acknowledged: ReadonlySet<string>;
@@ -158,7 +163,7 @@ export function AcceptancePreview({
             Applies in
           </Text>
           <Stack gap={4}>
-            <ScopeChips scope={finalScope} labels={labels} wrap="wrap" />
+            <ScopeChips scope={finalScope} labels={labels} wrap="wrap" linked={false} />
             {changes.map((change) => (
               <Text key={change} size="xs" c={change.startsWith("Applies everywhere") ? "orange.8" : "dimmed"}>
                 {change}
@@ -209,13 +214,13 @@ export function AcceptancePreview({
 
         <Group justify="flex-end" gap={6}>
           <Button size="xs" variant="default" onClick={back} disabled={pending}>
-            Back{" "}
+            {backLabel}
             <Kbd size="xs" ml={6}>
               Esc
             </Kbd>
           </Button>
           <Button size="xs" onClick={confirm} disabled={!ready} loading={pending}>
-            {acceptLabel}
+            {confirmLabel}
             <Kbd size="xs" ml={6}>
               ⌘↵
             </Kbd>

@@ -6,7 +6,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 
 import { PlaceDetails } from "../ui/places/place-details.tsx";
-import { PlaceTestBench } from "../ui/places/place-test-bench.tsx";
+import { PlaceTestBench, WhereAmIPanel } from "../ui/places/place-test-bench.tsx";
 import { PlaceTreeNav, selectedPlaceOf } from "../ui/places/place-tree-nav.tsx";
 import { placesAuditQuery } from "../ui/review-queries.ts";
 import { QueryErrorAlert } from "../ui/route-panels.tsx";
@@ -23,6 +23,12 @@ export const Route = createFileRoute("/places")({
 const PROBES_STORAGE_KEY = "taste.places.probes";
 
 const styles = stylex.create({
+  location: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 1fr) minmax(0, 1.2fr)", "@media (max-width: 860px)": "minmax(0, 1fr)" },
+    gap: "20px",
+    alignItems: "start",
+  },
   layout: {
     display: "grid",
     gridTemplateColumns: { default: "300px minmax(0, 1fr)", "@media (max-width: 860px)": "minmax(0, 1fr)" },
@@ -40,6 +46,10 @@ function PlacesScreen() {
   const data = audit.data;
   const selected = selectedPlaceOf(search.place, data, known);
   const select = (place: string) => void navigate({ search: { place }, replace: true });
+  const addProbe = (probe: string) => {
+    const trimmed = probe.trim();
+    if (trimmed !== "" && !probes.includes(trimmed)) setProbes([...probes, trimmed]);
+  };
 
   return (
     <Stack gap="md">
@@ -49,7 +59,10 @@ function PlacesScreen() {
           Every place a scope names, how much lives there, and whether the places you work in still reach it.
         </Text>
       </Stack>
-      <PlaceTestBench probes={probes} setProbes={setProbes} audit={data} known={known} />
+      <div {...stylex.props(styles.location)}>
+        <WhereAmIPanel onKeep={addProbe} />
+        <PlaceTestBench probes={probes} addProbe={addProbe} setProbes={setProbes} audit={data} known={known} />
+      </div>
       {audit.error ? (
         <QueryErrorAlert error={audit.error} />
       ) : data === undefined ? (

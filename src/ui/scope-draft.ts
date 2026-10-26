@@ -50,7 +50,7 @@ const segmentsOf = (place: PlaceKey): ReadonlyArray<string> => {
 };
 
 /** `apps/checkout` for `…web::apps/checkout` under `…web::`: the part a narrower place adds. */
-export const relativePlacePath = (ancestor: PlaceKey, descendant: PlaceKey): string =>
+const relativePlacePath = (ancestor: PlaceKey, descendant: PlaceKey): string =>
   segmentsOf(descendant).slice(segmentsOf(ancestor).length).join("/");
 
 /** Known places strictly inside `place`, nearest first. */
