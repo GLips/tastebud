@@ -1,6 +1,7 @@
 {
-  // The root program: the gate's scripts, the lint plugin, and the workspace-wide tests.
+  // The root program: the gate's scripts and the workspace-wide tests. lint/ is its own two
+  // programs (lint/oxlint, lint/policy), typechecked by scripts/check.ts.
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "types": ["bun"] },
-  "include": ["scripts", "lint", "test"]
+  "include": ["scripts", "test"]
 }

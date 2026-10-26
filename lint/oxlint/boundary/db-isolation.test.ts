@@ -1,0 +1,102 @@
+import { describeRule } from "../lib/rule-spec.ts";
+import { dbIsolationRule } from "./db-isolation.ts";
+
+const UI = "/repo/apps/review/src/features/billing/ui/table.tsx";
+const SERVICE = "/repo/apps/review/src/features/billing/service/charge.ts";
+const IMPORT_DB = `import { db } from "#review/infrastructure/db";`;
+
+describeRule("boundary/db-isolation", dbIsolationRule, {
+  obvious: [
+    {
+      name: "a service module reaching the DB directly",
+      filename: SERVICE,
+      code: IMPORT_DB,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a UI component reaching the schema",
+      filename: UI,
+      code: `import { invoices } from "#review/infrastructure/db/schema/invoices";`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+  ],
+
+  adversarial: [
+    {
+      name: "a dynamic import is a call expression, not an import declaration",
+      filename: SERVICE,
+      code: `export const load = async () => (await import("#review/infrastructure/db")).db;`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a backtick specifier on the CommonJS spelling, where the literal arm alone misses it",
+      filename: SERVICE,
+      code: `export const db = require(\`#review/infrastructure/db\`).db;`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a re-export carries the same runtime dependency an import does",
+      filename: SERVICE,
+      code: `export { db } from "#review/infrastructure/db";`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a star re-export names no binding to notice",
+      filename: SERVICE,
+      code: `export * from "#review/infrastructure/db/schema/invoices";`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a type-only import still couples the layer to the schema's shape",
+      filename: SERVICE,
+      code: `import type { Invoice } from "#review/infrastructure/db/schema/invoices";`,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+    {
+      name: "a directory that merely ends in 'repo' is not the repo layer",
+      filename: "/repo/apps/review/src/features/billing/legacy-repo/queries.ts",
+      code: IMPORT_DB,
+      errors: [{ messageId: "dbOutsideDataLayer" }],
+    },
+  ],
+
+  legal: [
+    { name: "the repo layer", filename: "/repo/apps/review/src/features/billing/repo/queries.ts", code: IMPORT_DB },
+    {
+      name: "the controllers layer, for projects with no repo/",
+      filename: "/repo/apps/review/src/features/billing/controllers/list.ts",
+      code: IMPORT_DB,
+    },
+    {
+      name: "infrastructure IS the DB layer",
+      filename: "/repo/apps/review/src/infrastructure/db/client.ts",
+      code: `import { drizzle } from "drizzle-orm/node-postgres";`,
+    },
+    {
+      // The one case that reads the `infrastructure` entry in `DATA_ACCESS_PROFILES`. The file
+      // above passes on its specifier alone — a raw ORM package is `boundary/sdk-containment`'s
+      // subject, not this rule's — so it stays green whatever the profile gate answers. This one
+      // names the db ALIAS from an infrastructure file that is not the db directory, which only
+      // the profile can permit. `placement/no-raw-result` reads the same list from the other side.
+      name: "an infrastructure module outside db/ may still name the db alias",
+      filename: "/repo/apps/review/src/infrastructure/jobs/nightly.ts",
+      code: IMPORT_DB,
+    },
+    { name: "the ORM config file", filename: "/repo/drizzle.config.ts", code: IMPORT_DB },
+    {
+      name: "a test may reach across every boundary",
+      filename: "/repo/apps/review/src/features/billing/service/charge.test.ts",
+      code: IMPORT_DB,
+    },
+    {
+      name: "a neighbouring infrastructure module is not the db module",
+      filename: SERVICE,
+      code: `import { logger } from "#review/infrastructure/telemetry";`,
+    },
+    {
+      name: "a specifier that merely starts with the db path is a different module",
+      filename: SERVICE,
+      code: `import { dbless } from "#review/infrastructure/dbless";`,
+    },
+  ],
+});

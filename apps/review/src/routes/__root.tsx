@@ -4,8 +4,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { ReviewAppShell } from "../ui/review-app-shell.tsx";
-import { tasteMantineTheme } from "../ui/theme.ts";
+import { ReviewAppShell } from "#review/features/review-shell/index.ts";
+import { tasteMantineTheme } from "#review/shared/ui/theme.ts";
 
 import appCss from "../styles.css?url";
 

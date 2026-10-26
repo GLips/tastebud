@@ -1,0 +1,8 @@
+{
+  "capture": "resolves the operation context (resolveOperationContext)",
+  "operation-registry": "declares this feature's operations in the registry",
+  "places-audit": "resolves the operation context (resolveOperationContext)",
+  "proposals": "resolves the operation context (resolveOperationContext)",
+  "recall": "resolves the operation context (resolveOperationContext)",
+  "store-catalog": "resolves the operation context (resolveOperationContext)"
+}

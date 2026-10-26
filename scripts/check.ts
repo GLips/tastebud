@@ -13,7 +13,16 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 
 // Every program the workspace declares, heaviest first so the slowest starts earliest. Each one
 // checks its own tree under its own libs: core's has no DOM, so a browser global in core fails.
-const typecheckPrograms = [".", "apps/review", "packages/core", "packages/cli", "packages/mcp"];
+const typecheckPrograms = [
+  ".",
+  "apps/review",
+  "packages/core",
+  "packages/cli",
+  "packages/mcp",
+  "lint/oxlint",
+  "lint/policy",
+  "lint/structural",
+];
 
 // @effect/tsgo's compiler type-checks and reports the Effect language-service diagnostics in one
 // pass; plain `tsc` ignores the `plugins` entry in tsconfig.base.json.
@@ -33,7 +42,8 @@ const typecheckSteps = typecheckPrograms.map((program) => {
     ],
   };
 });
-const otherSteps = ["lint", "knip", "format:check", "test"].map((script) => ({
+// `check:rules` runs the lint rules' own specs; `check:structural` runs the cross-file checks oxlint cannot.
+const otherSteps = ["lint", "check:rules", "check:structural", "knip", "format:check", "test"].map((script) => ({
   name: script,
   command: ["bun", "run", script],
 }));

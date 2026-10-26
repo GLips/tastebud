@@ -4,8 +4,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { provideTasteStore, runTasteOperation } from "@taste/core";
+import { runTasteOperation } from "@taste/core/operations";
 import { UNKNOWN_TASTE_CONTEXT } from "@taste/core/places";
+import { provideTasteStore } from "@taste/core/record-store";
 import { Effect } from "effect";
 
 const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");

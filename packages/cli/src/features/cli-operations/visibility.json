@@ -1,0 +1,4 @@
+{
+  "demo-seed": "resolves the store root and prints the seed result as every command does",
+  "review-server": "resolves and opens the store as every command does"
+}

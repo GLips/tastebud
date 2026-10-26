@@ -1,0 +1,4 @@
+{
+  "operation-registry": "declares this feature's operations in the registry",
+  "store-catalog": "counts pending derivations per kind (countPendingByKind)"
+}

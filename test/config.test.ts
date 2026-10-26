@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { runTasteOperation } from "@taste/core";
+import { runTasteOperation } from "@taste/core/operations";
 import { Effect } from "effect";
 
 import {

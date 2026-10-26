@@ -5,6 +5,9 @@
     "taste": "src/main.ts"
   },
   "type": "module",
+  "imports": {
+    "#cli/*": "./src/*"
+  },
   "dependencies": {
     "@taste/core": "workspace:*",
     "@taste/mcp": "workspace:*",

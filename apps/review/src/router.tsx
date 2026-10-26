@@ -1,14 +1,12 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 
-import { routeTree } from "./routeTree.gen.ts";
-import { RouteErrorPanel, RouteNotFoundPanel } from "./ui/route-panels.tsx";
+import { createReviewQueryClient } from "#review/infrastructure/providers/query-client.ts";
+import { routeTree } from "#review/routeTree.gen.ts";
+import { RouteErrorPanel, RouteNotFoundPanel } from "#review/shared/ui/route-panels.tsx";
 
 export function getRouter() {
-  // No retries: the server reads files on this machine, so a failure is an answer, not a blip.
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: true } },
-  });
+  const queryClient = createReviewQueryClient();
   return createTanStackRouter({
     routeTree,
     context: { queryClient },

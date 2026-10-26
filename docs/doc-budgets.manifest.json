@@ -1,0 +1,12 @@
+{
+  "CLAUDE.md": 357,
+  "docs/architecture/README.md": 171,
+  "docs/architecture/layers.md": 599,
+  "docs/architecture/boundaries.md": 359,
+  "docs/architecture/server-client-boundaries.md": 334,
+  "docs/architecture/error-conventions.md": 361,
+  "docs/architecture/decisions.md": 441,
+  "docs/architecture/how-to/new-core-operation.md": 305,
+  "docs/architecture/how-to/new-review-feature.md": 293,
+  "docs/architecture/how-to/new-infra-adapter.md": 282
+}

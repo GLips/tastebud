@@ -5,17 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  initStore,
-  provideTasteStore,
-  resolveTasteContext,
   runTasteOperation,
-  type TasteCaller,
-  type TasteContextRequest,
   type TasteError,
   type TasteOperationName,
   type TasteOperationOutput,
-  type TasteStore,
-} from "@taste/core";
+  type TasteOperationWireInput,
+} from "@taste/core/operations";
+import { resolveTasteContext, type TasteContextRequest } from "@taste/core/place-context";
+import { provideTasteStore, type TasteStore } from "@taste/core/record-store";
+import { initTasteStore } from "@taste/core/store-setup";
+import type { TasteCaller } from "@taste/core/taste-caller";
 import { Effect } from "effect";
 
 const temporaryDirectories: Array<string> = [];
@@ -36,7 +35,7 @@ export const AGENT = "claude-code/test";
 /** A store with the starter config, or with `configText` as its `taste.config.ts`. */
 export const makeTestStore = async (configText?: string) => {
   const root = makeTemporaryDirectory("store");
-  if (configText === undefined) await Effect.runPromise(initStore(root, OWNER));
+  if (configText === undefined) await Effect.runPromise(initTasteStore(root, OWNER));
   else writeFileSync(join(root, "taste.config.ts"), configText);
   return root;
 };
@@ -86,7 +85,7 @@ export const unknownCaller: TasteCaller = { via: "mcp", actor: AGENT, context: {
 export const runOperation = <N extends TasteOperationName>(
   root: string,
   name: N,
-  input: unknown,
+  input: TasteOperationWireInput,
   caller: TasteCaller,
 ): Promise<TasteOperationOutput<N>> => inStore(root, runTasteOperation(name, input, caller));
 
@@ -94,7 +93,7 @@ export const runOperation = <N extends TasteOperationName>(
 export const failOperation = (
   root: string,
   name: TasteOperationName,
-  input: unknown,
+  input: TasteOperationWireInput,
   caller: TasteCaller,
 ): Promise<TasteError> =>
   Effect.runPromise(Effect.flip(provideTasteStore(root)(runTasteOperation(name, input, caller))));

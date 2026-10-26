@@ -2,11 +2,34 @@
   "name": "@taste/core",
   "private": true,
   "type": "module",
+  "imports": {
+    "#core/*": "./src/*"
+  },
   "exports": {
-    ".": "./src/index.ts",
-    "./catalog-view": "./src/shared/catalog-view.ts",
-    "./places": "./src/shared/places.ts",
-    "./vocabulary": "./src/shared/vocabulary.ts"
+    "./decisions": "./src/features/decisions/index.server.ts",
+    "./derivation-lifecycle": "./src/domains/derivation-lifecycle/index.ts",
+    "./derivation-scope": "./src/domains/derivation-scope/index.ts",
+    "./host": "./src/features/store-host/index.server.ts",
+    "./inbox": "./src/features/inbox/index.server.ts",
+    "./kind-catalog": "./src/domains/kind-catalog/index.ts",
+    "./operations": "./src/features/operation-registry/index.server.ts",
+    "./place-context": "./src/features/place-context/index.server.ts",
+    "./places": "./src/domains/places/index.ts",
+    "./places-audit": "./src/features/places-audit/index.server.ts",
+    "./proposals": "./src/features/proposals/index.server.ts",
+    "./recall": "./src/features/recall/index.server.ts",
+    "./record-browsing": "./src/features/record-browsing/index.server.ts",
+    "./record-snapshot": "./src/domains/record-snapshot/index.ts",
+    "./record-store": "./src/features/record-store/index.server.ts",
+    "./record-text": "./src/domains/record-text/index.ts",
+    "./record-views": "./src/domains/record-views/index.ts",
+    "./records": "./src/domains/records/index.ts",
+    "./repeat-detection": "./src/domains/repeat-detection/index.ts",
+    "./review-threads": "./src/features/review-threads/index.server.ts",
+    "./store-config": "./src/domains/store-config/index.ts",
+    "./store-setup": "./src/features/store-setup/index.server.ts",
+    "./taste-caller": "./src/domains/taste-caller/index.ts",
+    "./taste-vocabulary": "./src/domains/taste-vocabulary/index.ts"
   },
   "dependencies": {
     "effect": "4.0.5",

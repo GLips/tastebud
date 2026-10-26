@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { listTasteOperations, mcpToolNameOf } from "@taste/core";
+import { listTasteOperations, mcpToolNameOf } from "@taste/core/operations";
 import { Schema } from "effect";
 
 import { makeGitRepo, makeTestStore, OWNER } from "./support.ts";
@@ -47,10 +47,8 @@ test("tools/list holds exactly the agent operations, with strict schemas", async
   });
   const propose = byName.get("taste_propose")?.inputSchema;
   expect(propose?.additionalProperties).toBe(false);
-  expect(propose?.properties?.in).toMatchObject({
-    type: "string",
-    description: expect.stringContaining("working directory"),
-  });
+  expect(propose?.properties?.in).toMatchObject({ type: "string" });
+  expect(JSON.stringify(propose?.properties?.in)).toContain("working directory");
   expect(JSON.stringify(tools)).not.toContain('"null"');
 });
 
@@ -87,7 +85,7 @@ test("capture, propose and recall work from an `in` directory; bad input is an e
   const invalid = await client.callTool({ name: "taste_recall", arguments: { query: "x", bogus: true } });
   expect(invalid).toMatchObject({
     isError: true,
-    content: [{ type: "text", text: expect.stringContaining("bogus") }],
     structuredContent: { error: { tag: "InvalidTasteInput", category: "input" } },
   });
+  expect(JSON.stringify(invalid.content)).toContain("bogus");
 });

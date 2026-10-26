@@ -1,0 +1,86 @@
+/**
+ * How kinds look and read across the UI: a small glyph in a colour picked from the kind's position in
+ * the catalog (so three kinds never collide), and the one line that says how a kind reaches agents.
+ */
+import { Tooltip } from "@mantine/core";
+import type { CatalogView, DerivedKindView } from "@taste/core/kind-catalog";
+import type { RecallPolicy } from "@taste/core/taste-vocabulary";
+import { Diamond, Hexagon, type LucideIcon, Pentagon, Square, Triangle } from "lucide-react";
+
+// Shapes stay clear of the circle, which status dots own; colours stay clear of green, red, orange and blue.
+const KIND_ACCENTS: ReadonlyArray<{ readonly icon: LucideIcon; readonly color: string }> = [
+  { icon: Diamond, color: "violet" },
+  { icon: Triangle, color: "cyan" },
+  { icon: Square, color: "grape" },
+  { icon: Hexagon, color: "indigo" },
+  { icon: Pentagon, color: "pink" },
+];
+
+export interface KindAccent {
+  readonly icon: LucideIcon;
+  /** A Mantine colour name. */
+  readonly color: string;
+}
+
+/** The kind's glyph and colour; retired kinds (not in the catalog) are grey squares. */
+const kindAccentOf = (catalog: CatalogView | undefined, kind: string): KindAccent => {
+  const index = catalog?.derivedKinds.findIndex((candidate) => candidate.key === kind) ?? -1;
+  return index < 0 ? { icon: Square, color: "gray" } : (KIND_ACCENTS[index % KIND_ACCENTS.length] ?? KIND_ACCENTS[0]!);
+};
+
+export function KindGlyph({
+  catalog,
+  kind,
+  size = 11,
+  label,
+}: {
+  catalog: CatalogView | undefined;
+  kind: string;
+  size?: number;
+  /** A tooltip; omit where the kind's name is already printed next to it. */
+  label?: string;
+}) {
+  const accent = kindAccentOf(catalog, kind);
+  const Icon = accent.icon;
+  const glyph = (
+    <Icon
+      size={size}
+      strokeWidth={2.5}
+      color={`var(--mantine-color-${accent.color}-6)`}
+      fill={`var(--mantine-color-${accent.color}-1)`}
+      aria-hidden={label === undefined}
+      aria-label={label}
+      style={{ flexShrink: 0 }}
+    />
+  );
+  return label === undefined ? (
+    glyph
+  ) : (
+    <Tooltip label={label} withArrow openDelay={200}>
+      <span style={{ display: "inline-flex" }}>{glyph}</span>
+    </Tooltip>
+  );
+}
+
+/** One quiet sentence on how accepted derivations of a kind reach agents, from its policy alone. */
+export const describeKindDelivery = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
+  const deliveries: Record<RecallPolicy, string> = {
+    inject: `Accepted ${kind.plural} may be offered to agents.`,
+    pull: "Available when an agent asks.",
+    never: `Save worthwhile ${kind.plural} to your backlog. Never injected.`,
+  };
+  return deliveries[kind.recall];
+};
+
+/** The policy as a short phrase for tables and settings. */
+export const RECALL_POLICY_LABELS: Record<RecallPolicy, string> = {
+  inject: "Injected and recalled",
+  pull: "Recalled on request",
+  never: "Never recalled",
+};
+
+/** `Beliefs`, from `beliefs`. */
+export const capitalize = (text: string): string => (text === "" ? text : text[0]!.toUpperCase() + text.slice(1));
+
+export const findKindView = (catalog: CatalogView | undefined, kind: string): DerivedKindView | undefined =>
+  catalog?.derivedKinds.find((candidate) => candidate.key === kind);

@@ -2,13 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  describeTasteFailure,
-  pollListenerEvents,
-  runTasteOperation,
-  type TasteCaller,
-  threadReplyInstruction,
-} from "@taste/core";
+import { describeTasteFailure, runTasteOperation, type TasteOperationWireInput } from "@taste/core/operations";
+import { pollListenerEvents, threadReplyInstruction } from "@taste/core/review-threads";
+import type { TasteCaller } from "@taste/core/taste-caller";
 import { Effect } from "effect";
 
 import {
@@ -42,10 +38,17 @@ const makeAcmeWorld = async (hook?: string) => {
 
 const reviewer: TasteCaller = { via: "review", context: { places: [], origin: "unknown" } };
 
-const propose = (root: string, caller: TasteCaller, input: Record<string, unknown>) =>
+const propose = (root: string, caller: TasteCaller, input: TasteOperationWireInput) =>
   runOperation(root, "propose", { kind: "belief", ...input }, caller).then((result) => result.derivation);
 
-const decide = (root: string, input: Record<string, unknown>) => runOperation(root, "decide", input, reviewer);
+const decide = (root: string, input: TasteOperationWireInput) => runOperation(root, "decide", input, reviewer);
+
+/** Proposes as `caller` and accepts it as the reviewer; returns the derivation id. */
+const proposeAccepted = async (root: string, caller: TasteCaller, input: TasteOperationWireInput) => {
+  const derivation = await propose(root, caller, input);
+  await decide(root, { ref: derivation.id, outcome: "accept" });
+  return derivation.id;
+};
 
 describe("lifecycle", () => {
   test("a defaulted scope, amended at accept, governs where recall finds it", async () => {
@@ -87,11 +90,8 @@ describe("lifecycle", () => {
     const { root, inWeb } = await makeAcmeWorld("{ limit: 2, budgetMs: 650 }");
     const memory = await captureOwnerWords(root, inWeb, "Checkout forms must stay short.");
     const quote = await captureOwnerWords(root, inWeb, "Our buyers abandon long checkout forms.", "call-quote");
-    const derive = async (kind: string, statement: string, supports: string) => {
-      const derivation = await propose(root, inWeb, { kind, statement, supports: [supports] });
-      await decide(root, { ref: derivation.id, outcome: "accept" });
-      return derivation.id;
-    };
+    const derive = (kind: string, statement: string, supports: string) =>
+      proposeAccepted(root, inWeb, { kind, statement, supports: [supports] });
     const belief = await derive("belief", "Keep checkout forms short", memory);
     const second = await derive("belief", "Checkout forms ask for email first", memory);
     const insight = await derive("insight", "Buyers abandon long checkout forms", quote);
@@ -123,11 +123,8 @@ describe("lifecycle", () => {
     const { root, inWeb, inBilling } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "Checkout forms must stay short.");
     const quote = await captureOwnerWords(root, inWeb, "Our buyers abandon long checkout forms.", "call-quote");
-    const derive = async (kind: string, statement: string, supports: string) => {
-      const derivation = await propose(root, inWeb, { kind, statement, supports: [supports] });
-      await decide(root, { ref: derivation.id, outcome: "accept" });
-      return derivation.id;
-    };
+    const derive = (kind: string, statement: string, supports: string) =>
+      proposeAccepted(root, inWeb, { kind, statement, supports: [supports] });
     const belief = await derive("belief", "Keep checkout forms short", memory);
     const insight = await derive("insight", "Buyers abandon long checkout forms", quote);
     const idea = await derive("idea", "Try a one-field checkout form", quote);

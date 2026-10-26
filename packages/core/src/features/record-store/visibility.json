@@ -1,0 +1,15 @@
+{
+  "capture": "opens the store: TasteStore and its config",
+  "decisions": "opens the store: TasteStore and its config",
+  "inbox": "opens the store: TasteStore and its config",
+  "operation-registry": "declares this feature's operations in the registry",
+  "place-context": "opens the store: TasteStore and its config",
+  "places-audit": "opens the store: TasteStore and its config",
+  "proposals": "opens the store: TasteStore and its config",
+  "recall": "opens the store: TasteStore and its config",
+  "record-browsing": "opens the store: TasteStore and its config",
+  "review-threads": "opens the store: TasteStore and its config",
+  "store-catalog": "opens the store: TasteStore and its config",
+  "store-host": "opens the store: TasteStore and its config",
+  "store-setup": "opens the store: TasteStore and its config"
+}

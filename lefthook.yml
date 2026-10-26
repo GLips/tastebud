@@ -1,17 +1,26 @@
-# One writer first (format re-stages what it touched), then the readers in parallel.
+# One writer first (format re-stages what it touched), then the readers in parallel. `jobs:` keeps that
+# order; a `commands:` block would run the writer alongside readers that see files mid-rewrite.
 pre-commit:
   jobs:
     - name: format
-      glob: "*.{ts,tsx,js,mjs,cjs,json}"
+      # oxfmt has no CSS printer, so CSS stays off the glob. `stage_fixed` re-stages only what it rewrote,
+      # so a partial `git add -p` stays partial.
+      glob: "*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}"
       run: bunx oxfmt --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
     - name: gate
       group:
         parallel: true
         jobs:
+          # All eight extensions in `SOURCE_EXTENSIONS` (lint/policy/layout.ts), so no staged source
+          # file skips the architecture rules.
           - name: lint
-            glob: "*.{ts,tsx}"
+            glob: "*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
             run: bunx oxlint --no-error-on-unmatched-pattern {staged_files}
+          # Repo-wide; STAGED_FILES only scopes the advisory warnings to this commit. It comes from git,
+          # not {staged_files}, whose per-path quoting can't be an env value.
+          - name: structure
+            run: STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACMR)" bun run check:structural
           - name: typecheck
             run: bun run typecheck
           - name: test

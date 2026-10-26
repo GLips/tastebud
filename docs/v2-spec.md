@@ -65,7 +65,7 @@ For all three, segments are split on `/` and empty segments are dropped. A key m
 - **Repo place:** the root is the repo id, and the segments are the subpath.
 - **Directory or named place:** the root is `~`, `/`, or "named", and the segments are the whole path.
 
-A repo place never covers a directory place, and vice versa. This is pure code in `packages/core/src/shared/places.ts` (`@taste/core/places`), so the UI can use it too.
+A repo place never covers a directory place, and vice versa. This is pure code in `packages/core/src/domains/places/` (`@taste/core/places`), so the UI can use it too.
 
 A derivation is **eligible** in a context when it is `global`, or when any of its effective scope places covers any context place. Descendants never count: a context of `~/Programming` does not make `~/Programming/x` eligible.
 
@@ -137,7 +137,7 @@ A defaulted scope sets `scope_source: defaulted`.
 
 ### 3.1 Catalog
 
-Defaults ship in core (`packages/core/src/catalog.ts`):
+Defaults ship in core (`packages/core/src/domains/kind-catalog/kind-catalog.ts`):
 
 ```ts
 sourceKinds: { memory: { singular: "memory", plural: "memories", description: "A person's exact words, verbatim and attributed." } }
@@ -148,7 +148,7 @@ derivedKinds: {
     sources: ["memory"],
     recall: "inject",
     acceptLabel: "Believe",
-    proposalPrompt: BELIEF_PROPOSAL_PROMPT, // shipped text in packages/core/src/prompts.ts
+    proposalPrompt: BELIEF_PROPOSAL_PROMPT, // shipped text in packages/core/src/domains/kind-catalog/kind-prompts.ts
   },
 }
 ```
@@ -178,7 +178,7 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
   - Further citations of derivations, of any kind, are allowed in `supports` and `contradicts`. They never count toward the rule above.
   - Every reference points to an existing record older than the one citing it.
 - **Repeat check:** runs within the kind, across every status, against effective scopes.
-  - Similarity uses the existing measure: blocking at ≥ `REPEAT_THRESHOLD` and related at ≥ `RELATED_THRESHOLD`. Both are defined once in `packages/core/src/similarity.ts`.
+  - Similarity uses the existing measure: blocking at ≥ `REPEAT_THRESHOLD` and related at ≥ `RELATED_THRESHOLD`. Both are defined once in `packages/core/src/domains/repeat-detection/token-similarity.ts`.
   - A blocking match with an overlapping scope refuses the proposal (`NearRepeat`). The proposal passes once its `despite` lists every blocking id.
   - Scopes overlap when either is global, or when a place of one covers a place of the other in either direction. Disjoint-scope matches are only related.
 - **`subject`** is optional: `owner`, or a source account.
@@ -257,11 +257,11 @@ All behaviour lives in `packages/core` (`@taste/core`). Each shell is a thin ada
 
 - **CLI:** `packages/cli`, using effect/cli.
 - **MCP:** `packages/mcp`, using the `@modelcontextprotocol/sdk` low-level `Server` over stdio.
-- **Review server:** `apps/review/src/server`, as TanStack server functions.
+- **Review server:** `apps/review/src/features/*/controllers`, as TanStack server functions.
 - **Hooks:** run as `taste hook prompt`.
 
 ```ts
-// packages/core/src/operation.ts
+// packages/core/src/features/operation-registry/operations/taste-operation-declaration.ts
 declareTasteOperation({
   name: "recall",                 // CLI `taste recall`; MCP tool `taste_recall`
   audience: "agent" | "human",    // human operations are never on agent surfaces
@@ -282,7 +282,7 @@ declareTasteOperation({
   - The effect/cli commands are written out explicitly. They map arguments, flags and stdin into the operation's input.
   - MCP generates each tool's JSON schema from the operation's *encoded* input schema.
   - TanStack exports explicit server functions that delegate through server-only modules.
-  - The browser-safe contracts (`packages/core/src/shared`, exported as subpaths) stay separate from the handlers.
+  - The browser-safe contracts (`packages/core/src/domains`, exported as subpaths) stay separate from the handlers.
 - **Errors:** every `TasteError` is a `Data.TaggedError` with a `message` getter. One function in core, `describeTasteFailure(error)`, gives the sentence, a category (`input`, `refused`, `conflict` or `broken`) and the exit code. The CLI, MCP and the server all use it, so there is one mapper, not three.
 - **JSON:** `--json` on the CLI prints the result, and MCP returns it as `structuredContent` alongside `renderText`.
 

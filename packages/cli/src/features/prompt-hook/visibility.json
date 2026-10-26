@@ -1,0 +1,3 @@
+{
+  "cli-operations": "`taste hook prompt` is registered in the command tree and loads the hook lazily"
+}

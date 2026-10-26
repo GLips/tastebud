@@ -3,9 +3,19 @@
   "rules": { "types": "off", "nsTypes": "off" },
   // The Effect language service is a tsconfig plugin that @effect/tsgo bundles, not an import.
   "ignoreDependencies": ["@effect/language-service"],
+  // Both tiers are copied from the catalog unmodified; these exports are the surface its fixture
+  // harness drives, so trimming them would fork the copy.
+  "ignoreIssues": { "lint/policy/*.ts": ["exports"], "lint/structural/**/*.ts": ["exports"] },
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.ts", "test/**/*.ts"],
+      "entry": [
+        "scripts/*.ts",
+        "test/**/*.ts",
+        // `check:rules` runs the specs; oxlint.config.ts is already an entry by knip's oxlint plugin.
+        "lint/**/*.test.ts",
+        // `check:structural` reaches it through lint/with-real-node.sh.
+        "lint/structural/check-structure.ts",
+      ],
       "project": ["scripts/**/*.ts", "lint/**/*.ts", "test/**/*.ts"],
     },
     "apps/review": {

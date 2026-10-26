@@ -1,0 +1,4 @@
+# `bun test` discovers only the behavioural suites. The lint rule specs (lint/**/*.test.ts) run
+# under real Node via `bun run check:rules`: oxlint's RuleTester cannot run under Bun.
+[test]
+root = "test"

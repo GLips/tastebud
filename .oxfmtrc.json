@@ -1,12 +1,21 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 120,
-  "experimentalSortImports": { "order": "asc" },
+  "experimentalSortImports": {
+    "order": "asc"
+  },
   "experimentalSortPackageJson": true,
   "ignorePatterns": [
     "**/*.md",
     ".claude/**",
     "docs/**",
+    "lint/policy/**",
+    "lint/oxlint/*/**",
+    "!lint/oxlint/taste/**",
+    "lint/structural/*/**",
+    "lint/structural/*.ts",
+    "!lint/structural/arch.config.ts",
+    "!lint/structural/check-structure.ts",
     ".agent_cache/**",
     "demo/**",
     ".tanstack/**",

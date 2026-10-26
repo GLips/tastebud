@@ -2,7 +2,8 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { TasteCaller } from "@taste/core";
+import type { TasteCaller } from "@taste/core/taste-caller";
+import { Schema } from "effect";
 
 import {
   callerFor,
@@ -15,6 +16,14 @@ import {
 } from "./support.ts";
 
 const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
+
+const decodeHookOutput = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      hookSpecificOutput: Schema.Struct({ hookEventName: Schema.String, additionalContext: Schema.String }),
+    }),
+  ),
+);
 const reviewer: TasteCaller = { via: "review", context: { places: [], origin: "unknown" } };
 
 const runHookPrompt = async (store: string, event: unknown) => {
@@ -58,9 +67,9 @@ test("injects only inject kinds, at most hook.limit of them, as Claude Code hook
     cwd: repo,
   });
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
-  const output = JSON.parse(stdout);
+  const output = decodeHookOutput(stdout);
   expect(output.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
-  const context: string = output.hookSpecificOutput.additionalContext;
+  const context = output.hookSpecificOutput.additionalContext;
   const injected = beliefs.filter((id) => context.includes(id));
   expect(injected).toHaveLength(2);
   expect(context).not.toContain(insight);

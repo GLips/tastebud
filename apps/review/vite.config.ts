@@ -3,10 +3,30 @@
 import { unplugin as stylexUnplugin } from "@stylexjs/unplugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import { defineConfig, type PluginOption } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
-// @stylexjs/unplugin types every bundler entry as `(options?) => any`; the binding confines that `any`.
-const stylexVitePlugin: PluginOption = stylexUnplugin.vite({ devMode: "full" });
+/** @stylexjs/unplugin types every bundler entry as returning `any`; a Vite plugin is at least a named object. */
+const isVitePlugin = (candidate: unknown): candidate is Plugin =>
+  typeof candidate === "object" && candidate !== null && "name" in candidate && typeof candidate.name === "string";
+
+const stylexPluginCandidate: unknown = stylexUnplugin.vite({ devMode: "full" });
+if (!isVitePlugin(stylexPluginCandidate))
+  throw new Error("@stylexjs/unplugin's vite entry did not return a Vite plugin");
+const stylexVitePlugin = stylexPluginCandidate;
+
+// Every core subpath that is a feature rather than a pure domain: server-only, like `/operations` and `/host`.
+const CORE_FEATURE_SUBPATHS = [
+  "record-store",
+  "store-setup",
+  "recall",
+  "review-threads",
+  "place-context",
+  "record-browsing",
+  "decisions",
+  "proposals",
+  "inbox",
+  "places-audit",
+].map((feature) => `@taste/core/${feature}`);
 
 export default defineConfig({
   root: import.meta.dirname,
@@ -16,13 +36,13 @@ export default defineConfig({
     stylexVitePlugin,
     tanstackStart({
       spa: { enabled: true },
-      // The trust boundary: core touches the filesystem and SQLite, so only `*.server.ts` doors may reach it, and no
-      // browser module may import a door. Core's `src/shared` subpaths are pure, so the patterns leave them out.
+      // The trust boundary: core's features and infrastructure touch the filesystem and SQLite, so only `*.server.ts`
+      // repos may reach them, and no browser module may import one. Core's domains are pure, so they stay reachable.
       importProtection: {
         behavior: "error",
         client: {
-          specifiers: ["bun:sqlite", /^node:/],
-          files: ["**/*.server.*", "**/packages/core/src/*.ts", "**/packages/core/src/render/**"],
+          specifiers: ["bun:sqlite", /^node:/, "@taste/core/operations", "@taste/core/host", ...CORE_FEATURE_SUBPATHS],
+          files: ["**/*.server.*", "**/packages/core/src/features/**", "**/packages/core/src/infrastructure/**"],
         },
       },
     }),

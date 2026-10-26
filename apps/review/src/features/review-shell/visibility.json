@@ -1,0 +1,8 @@
+{
+  "derivation-decisions": "reads the shell's catalog, known places, context and record detail",
+  "derivation-library": "reads the shell's catalog, known places, context and record detail",
+  "sources": "reads the shell's catalog, known places, context and record detail",
+  "places": "reads the shell's catalog, known places, context and record detail",
+  "recall-inspector": "reads the shell's catalog, known places, context and record detail",
+  "settings": "reads the shell's catalog, known places, context and record detail"
+}

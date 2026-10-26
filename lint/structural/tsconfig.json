@@ -1,0 +1,28 @@
+// Copy to `lint/structural/tsconfig.json`. Its options are identical to
+// `oxlint.tsconfig.json`'s down to `types`, because both tiers run under Node,
+// and it is still a SEPARATE program: each tier is copied into an adopting
+// project as a directory that has to typecheck on its own, and a single program
+// spanning both would typecheck neither when only one is present.
+//
+// `allowImportingTsExtensions` is required, not stylistic: every check imports
+// its neighbours with the `.ts` extension because Node loads these files
+// directly, with no build step to rewrite a specifier.
+//
+// Add it to the typecheck script explicitly — `tsc --noEmit -p lint/structural`
+// — because a program nothing runs is a program that goes stale silently.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true
+  },
+  // `arch.config.ts` reads the review theme as source text, so it is not in this program.
+  "include": ["**/*.ts", "../policy/**/*.ts"]
+}

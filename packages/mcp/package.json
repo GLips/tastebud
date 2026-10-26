@@ -2,8 +2,11 @@
   "name": "@taste/mcp",
   "private": true,
   "type": "module",
+  "imports": {
+    "#mcp/*": "./src/*"
+  },
   "exports": {
-    ".": "./src/server.ts"
+    ".": "./src/index.server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",

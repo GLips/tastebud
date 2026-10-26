@@ -1,0 +1,78 @@
+import { Box, Badge, Group, Paper, Stack, Text } from "@mantine/core";
+import * as stylex from "@stylexjs/stylex";
+import type { DecisionOutcome } from "@taste/core/taste-vocabulary";
+
+import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
+import { formatTimeAgo } from "#review/shared/format.ts";
+import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+
+import { useReviewSessionLog } from "./review-session-log.ts";
+import { useReviewClockMs } from "./use-review-clock.ts";
+
+const OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly color: string }> = {
+  accept: { word: "Accepted", color: "teal" },
+  reject: { word: "Rejected", color: "red" },
+  retract: { word: "Retracted", color: "gray" },
+};
+
+const styles = stylex.create({
+  row: {
+    display: "grid",
+    gridTemplateColumns: "12px 72px minmax(0, 1fr) auto auto",
+    columnGap: "10px",
+    alignItems: "center",
+    paddingBlock: "6px",
+    paddingInline: "12px",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: { default: "var(--mantine-color-gray-1)", ":first-child": "transparent" },
+  },
+});
+
+/** What this tab decided, newest first. Decisions are final, so each row links to its decision. */
+export function ReviewSessionList() {
+  const nowMs = useReviewClockMs();
+  const decisions = useReviewSessionLog();
+  const catalog = useReviewCatalog();
+  const known = useKnownPlaces();
+  if (decisions.length === 0) return null;
+  return (
+    <Stack gap="xxs">
+      <Group gap="xxs">
+        <Text size="sm" fw={600}>
+          This session
+        </Text>
+        <Text size="xs" c="dimmed">
+          {decisions.length}
+        </Text>
+      </Group>
+      <Paper p={0}>
+        {decisions.map((entry) => {
+          const outcome = OUTCOME_LABELS[entry.outcome];
+          return (
+            <Box key={entry.derivationId} {...stylex.props(styles.row)}>
+              <KindGlyph catalog={catalog} kind={entry.kind} />
+              <Badge size="xs" color={outcome.color} variant="light">
+                {outcome.word}
+              </Badge>
+              <Text size="sm" truncate>
+                {entry.statement}
+              </Text>
+              <ScopeChips scope={entry.effectiveScope} labels={known.labels} />
+              <Group gap="xs" wrap="nowrap">
+                <Text size="xs" c="dimmed">
+                  {formatTimeAgo(entry.at, nowMs)}
+                </Text>
+                <AnchorLink to="/derivations/$id" params={{ id: entry.derivationId }} size="xs">
+                  View decision
+                </AnchorLink>
+              </Group>
+            </Box>
+          );
+        })}
+      </Paper>
+    </Stack>
+  );
+}
