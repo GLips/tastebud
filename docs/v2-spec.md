@@ -244,6 +244,7 @@ type TasteConfig = Readonly<{
   sourceKinds?: Readonly<Record<string, Labels>>;
   derivedKinds?: Readonly<Record<string, DerivedKind>>;
   hook?: Readonly<{ limit?: number; budgetMs?: number }>; // defaults 3 and 650
+  review?: Readonly<{ port?: number }>; // default 4747
 }>;
 ```
 

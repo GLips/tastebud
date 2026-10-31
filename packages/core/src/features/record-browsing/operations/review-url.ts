@@ -5,12 +5,6 @@ import { resolveAnyRecordRef } from "#core/domains/record-snapshot/index.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
 import { OptionalTrimmedText } from "#core/shared/input-text.ts";
 
-/**
- * Where `taste review` serves the UI by default. Fixed, so links from `taste review --port N` for
- * any other N point at the default port: Taste reads no variable but `TASTE_STORE`.
- */
-const REVIEW_BASE_URL = "http://localhost:4747";
-
 export const ReviewUrlInput = Schema.Struct({
   ref: OptionalTrimmedText.annotate({ description: "A record to link to; omit for the inbox" }),
 });
@@ -20,9 +14,10 @@ export const ReviewUrlResultSchema = Schema.Struct({ url: Schema.String });
 
 /** Decisions and thread entries link to the derivation they belong to. */
 export const buildReviewUrl = Effect.fn("record-browsing.buildReviewUrl")(function* (input: ReviewUrlInput) {
-  const base = REVIEW_BASE_URL;
-  if (input.ref === undefined) return { url: `${base}/` };
   const store = yield* TasteStore;
+  // `taste review --port N` overrides only that one server; links follow the store's config.
+  const base = `http://localhost:${store.config.review.port}`;
+  if (input.ref === undefined) return { url: `${base}/` };
   const { record } = yield* resolveAnyRecordRef(yield* store.snapshot, input.ref);
   switch (record.type) {
     case "Source":

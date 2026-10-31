@@ -52,6 +52,7 @@ export type TasteConfig = Readonly<{
     >
   >;
   hook?: Readonly<{ limit?: number; budgetMs?: number }>;
+  review?: Readonly<{ port?: number }>;
 }>;
 
 /** The config's resolver, with a function's name erased to `custom`. */
@@ -70,7 +71,15 @@ export interface LoadedTasteConfig {
   readonly resolver: PlaceResolverSetting;
   readonly catalog: TasteCatalog;
   readonly hook: HookSettings;
+  readonly review: ReviewSettings;
 }
+
+/** Where `taste review` serves the UI, and so where every review link points. */
+export interface ReviewSettings {
+  readonly port: number;
+}
+
+const DEFAULT_REVIEW_SETTINGS: ReviewSettings = { port: 4747 };
 
 const NonEmpty = Schema.String.check(Schema.isMinLength(1));
 const KindKey = Schema.String.check(
@@ -111,6 +120,9 @@ export const TasteConfigFileSchema = Schema.Struct({
       limit: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThan(0))),
       budgetMs: Schema.optionalKey(PositiveNumber),
     }),
+  ),
+  review: Schema.optionalKey(
+    Schema.Struct({ port: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65535 }))) }),
   ),
 });
 export type TasteConfigFile = typeof TasteConfigFileSchema.Type;
@@ -166,6 +178,7 @@ export const loadedTasteConfigOf = (
     resolver: resolverSettingOf(file.place),
     catalog: catalog.success,
     hook: { ...DEFAULT_HOOK_SETTINGS, ...file.hook },
+    review: { ...DEFAULT_REVIEW_SETTINGS, ...file.review },
   });
 };
 
@@ -194,5 +207,8 @@ export default {
 
   // The prompt hook injects at most \`limit\` items and gives up after \`budgetMs\`.
   hook: { limit: 3, budgetMs: 650 },
+
+  // \`taste review\` serves the UI on this port, and links from agents point at it.
+  review: { port: 4747 },
 };
 `;

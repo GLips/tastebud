@@ -24,9 +24,8 @@ infrastructure, so the error sits below both.
 thresholds are infinite because every edge is already argued in the importee's `visibility.json`. A count adds
 nothing an argued grant does not.
 
-**The review URL base is fixed.** `record-browsing` links to `http://localhost:4747`. Keeping `TASTE_STORE` as
-the only environment variable removed `TASTE_REVIEW_URL`, so `taste review --port N` links are wrong for other
-ports. Accepted.
+**The review port lives in the store config.** `review.port` (default 4747) sets where `taste review` serves
+and `record-browsing` links point; no second environment variable. `--port N` moves only that server.
 
 **The snapshot is built in a domain, with no cache.** `TasteStore` exposes indexed records and
 `domains/record-snapshot` builds the snapshot from them. Nothing caches it, so the inversion costs nothing.

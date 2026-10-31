@@ -129,6 +129,7 @@ export default {
   },
 
   hook: { limit: 3, budgetMs: 650 },
+  review: { port: 4747 }, // where `taste review` serves and agents' links point
 };
 ```
 

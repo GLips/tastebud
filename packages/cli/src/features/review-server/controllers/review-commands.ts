@@ -20,7 +20,7 @@ const listenCommand = Command.make(
 export const reviewCommand = Command.make(
   "review",
   {
-    port: Flag.Int("port").pipe(Flag.withDefault(4747)),
+    port: Flag.optional(Flag.Int("port")).pipe(Flag.withDescription("Overrides the store config's review.port")),
     json: jsonFlag,
     store: storeFlag,
   },

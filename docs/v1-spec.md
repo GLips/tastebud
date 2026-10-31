@@ -153,7 +153,7 @@ Normalising means lowercasing, stripping punctuation and dropping stopwords. A r
 | `taste context --applies-to S` | Every accepted belief in scope, one line each. |
 | `taste show <id>` | One record, with its status and reverse links: what cites it, what supersedes it, its decisions and its thread. |
 | `taste reindex` | Rebuilds the index. |
-| `taste review [--port 4747]` | Starts the review UI dev server with `TASTE_STORE` set and prints the URL. |
+| `taste review [--port N]` | Starts the review UI dev server with `TASTE_STORE` set and prints the URL. The port defaults to the config's `review.port` (4747). |
 | `taste review listen --as <agent-name>` | Never exits. Polls threads (and decisions) every 500ms. Prints one JSON line per new human thread entry: `{"belief":…, "statement":…, "note":…, "at":…, "reply":"taste thread reply <belief> --as <agent-name> \"…\""}`. Keeps a per-listener cursor in `.index/listeners/<name>.json` and writes a heartbeat there every 5s, so the UI can show "agent listening". It's designed to run under Claude Code's Monitor tool or `run_in_background`. |
 | `taste thread reply <belief> --as <agent> "<text>"` | Appends an agent ThreadEntry. |
 | `taste hook preview "<prompt>"` | Prints exactly what the hook would inject. |
