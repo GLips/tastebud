@@ -1,5 +1,6 @@
 /** The MCP server over real stdio, driven by the SDK client as an agent host would. */
 import { afterEach, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/client";
@@ -7,7 +8,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { listTasteOperations, mcpToolNameOf } from "@taste/core/operations";
 import { Schema } from "effect";
 
-import { makeGitRepo, makeTestStore, OWNER } from "./support.ts";
+import { demoConfigText, makeGitRepo, makeTemporaryDirectory, makeTestStore, OWNER } from "./support.ts";
 
 const decodeCapturedSourceId = Schema.decodeUnknownSync(
   Schema.Struct({ source: Schema.Struct({ source: Schema.Struct({ id: Schema.String }) }) }),
@@ -88,4 +89,34 @@ test("capture, propose and recall work from an `in` directory; bad input is an e
     structuredContent: { error: { tag: "InvalidTasteInput", category: "input" } },
   });
   expect(JSON.stringify(invalid.content)).toContain("bogus");
+});
+
+test("setup over MCP: the setup prompt, a check that writes nothing, then a write that creates the store", async () => {
+  const store = join(makeTemporaryDirectory("setup"), "store");
+  const client = await connectTasteMcp(store);
+  const { prompts } = await client.listPrompts();
+  expect(prompts.map((prompt) => prompt.name)).toEqual(["setup"]);
+  const setup = await client.getPrompt({ name: "setup" });
+  expect(JSON.stringify(setup.messages)).toContain("config-show");
+
+  const missing = await client.callTool({ name: "taste_catalog", arguments: {} });
+  expect(missing.isError).toBe(true);
+  expect(JSON.stringify(missing.content)).toContain("`setup` prompt");
+
+  const bad = demoConfigText(`"git"`).replace(`sources: ["memory"]`, `sources: ["chat"]`);
+  const checked = await client.callTool({ name: "taste_config_check", arguments: { text: bad } });
+  expect(checked.structuredContent).toMatchObject({
+    valid: false,
+    createsStore: true,
+    problems: [`derivedKinds.belief.sources: "chat" is not a source kind`],
+  });
+  expect(existsSync(store)).toBe(false);
+
+  const written = await client.callTool({
+    name: "taste_config_write",
+    arguments: { text: demoConfigText(`"git"`), expected_current: "" },
+  });
+  expect(written.structuredContent).toMatchObject({ created: true, loaded: { catalog: { owner: OWNER } } });
+  const catalog = await client.callTool({ name: "taste_catalog", arguments: {} });
+  expect(catalog.isError).toBeFalsy();
 });

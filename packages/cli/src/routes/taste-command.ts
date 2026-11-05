@@ -5,6 +5,9 @@ import { Command } from "effect/cli";
 import {
   captureCommand,
   catalogCommand,
+  configCheckCommand,
+  configShowCommand,
+  configWriteCommand,
   contextCommand,
   hookCommand,
   initCommand,
@@ -20,6 +23,7 @@ import {
   repointPreviewCommand,
   reportCliFailure,
   reviewUrlCommand,
+  setupGuideCommand,
   showCommand,
   threadReplyCommand,
 } from "#cli/features/cli-operations/index.server.ts";
@@ -30,7 +34,7 @@ import { readProcessArguments } from "#cli/infrastructure/process-arguments.ts";
 
 const tasteCommand = Command.make("taste").pipe(
   Command.withDescription(
-    "Human-ratified taste for agents: capture the owner's exact words, propose what follows from them, recall what they accepted and rejected. Start with `taste catalog`.",
+    "Human-ratified taste for agents: capture the owner's exact words, propose what follows from them, recall what they accepted and rejected. Start with `taste catalog`; with no store yet, `taste setup-guide`.",
   ),
   Command.withSubcommands([
     catalogCommand,
@@ -50,6 +54,10 @@ const tasteCommand = Command.make("taste").pipe(
     hookCommand,
     mcpCommand,
     reviewCommand,
+    configShowCommand,
+    configCheckCommand,
+    configWriteCommand,
+    setupGuideCommand,
     initCommand,
     seedCommand,
     reindexCommand,

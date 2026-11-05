@@ -12,3 +12,5 @@ export type {
   TasteConfig,
   TasteConfigFile,
 } from "./config-schema.ts";
+export { unifiedConfigTextDiff } from "./config-text-diff.ts";
+export { TASTE_SETUP_INTERVIEW } from "./setup-interview.ts";

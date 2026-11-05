@@ -11,8 +11,8 @@ import { DEMO_CONFIG_TEXT, DEMO_OWNER } from "#cli/domains/acme-demo-story/index
 import {
   countStoreRecordFiles,
   provideTasteStore,
-  requireEmptyStore,
-  writeNewStoreFiles,
+  requireNoStoreRecords,
+  writeTasteConfigText,
 } from "#cli/infrastructure/taste-core.ts";
 
 import { seedBeliefs } from "./seed-belief-chapter.ts";
@@ -21,8 +21,9 @@ import { resetSeedClock, withSeedClock } from "./seed-story-steps.ts";
 
 /** Writes the demo store at `root`, which must hold no store yet: no config and no records. */
 export const seedTasteDemoStore = Effect.fn("demo-seed.seedTasteDemoStore")(function* (root: string) {
-  yield* requireEmptyStore(root);
-  yield* writeNewStoreFiles(root, DEMO_CONFIG_TEXT);
+  yield* requireNoStoreRecords(root);
+  // Created through the same write as config-write, so an existing config refuses the seed.
+  yield* writeTasteConfigText(root, DEMO_CONFIG_TEXT, "");
   resetSeedClock();
   yield* provideTasteStore(root)(withSeedClock(Effect.andThen(seedBeliefs, seedCallsInsightsAndIdeas)));
   return { root, owner: DEMO_OWNER, recordCount: countStoreRecordFiles(root) };

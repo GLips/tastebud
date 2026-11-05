@@ -182,7 +182,7 @@ export const loadedTasteConfigOf = (
   });
 };
 
-/** The commented `taste.config.ts` that `taste init` writes for `owner`. */
+/** The commented `taste.config.ts` for `owner`: what `taste init` writes and `config-show` offers a new store. */
 export const starterTasteConfigText = (
   owner: string,
 ) => `// Taste's config for this store. Plain data: no imports needed. Edit freely; it reloads on save.

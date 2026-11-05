@@ -1,17 +1,17 @@
 /**
- * Running an operation for the CLI: open the store, build the caller from this process, run, and
- * print its text or JSON. Failures become exit codes in `report-cli-failure`.
+ * Running an operation for the CLI: core opens the store (or, for the config operations, only
+ * locates it), builds the caller from this process, and runs; this prints its text or JSON.
+ * Failures become exit codes in `report-cli-failure`.
  */
 import { Effect, Option } from "effect";
 import { Command } from "effect/cli";
 
 import { processCurrentDirectory } from "#cli/infrastructure/process-arguments.ts";
 import {
-  buildTasteOperationCaller,
   provideTasteStore,
   renderTasteOperationText,
   resolveTasteStoreRoot,
-  runTasteOperation,
+  runTasteOperationAtStoreRoot,
   TASTE_OPERATIONS,
   type TasteOperationName,
   type TasteOperationOutput,
@@ -66,14 +66,8 @@ export const runCliOperation = Effect.fn("cli-operations.runCliOperation")(funct
   input: TasteOperationWireInput,
   options: CliOperationOptions,
 ) {
-  const output = yield* inCliStore(
-    options.store,
-    Effect.gen(function* () {
-      const origin = { via: "cli" as const, actor: options.actor, cwd: processCurrentDirectory() };
-      const caller = yield* buildTasteOperationCaller(name, origin, input);
-      return yield* runTasteOperation(name, input, caller);
-    }),
-  );
+  const origin = { via: "cli" as const, actor: options.actor, cwd: processCurrentDirectory() };
+  const output = yield* runTasteOperationAtStoreRoot(resolveCliStoreRoot(options.store), name, input, origin);
   yield* emitCliResult(options.json, output, (value: TasteOperationOutput<N>) => renderTasteOperationText(name, value));
   return output;
 });

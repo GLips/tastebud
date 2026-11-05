@@ -5,9 +5,14 @@
  */
 import { AGENT_TASTE_OPERATIONS } from "./agent-operations.ts";
 import { HUMAN_TASTE_OPERATIONS } from "./human-operations.ts";
+import { STORE_ROOT_TASTE_OPERATIONS } from "./store-root-operations.ts";
 
 /** Every operation, keyed by its name. */
-export const TASTE_OPERATIONS = { ...AGENT_TASTE_OPERATIONS, ...HUMAN_TASTE_OPERATIONS } as const;
+export const TASTE_OPERATIONS = {
+  ...AGENT_TASTE_OPERATIONS,
+  ...STORE_ROOT_TASTE_OPERATIONS,
+  ...HUMAN_TASTE_OPERATIONS,
+} as const;
 
 export type TasteOperations = typeof TASTE_OPERATIONS;
 export type TasteOperationName = keyof TasteOperations;
@@ -19,3 +24,9 @@ true satisfies { [N in TasteOperationName]: TasteOperations[N]["name"] extends N
 export type TasteOperationInput<N extends TasteOperationName> = TasteOperations[N]["input"]["Encoded"];
 /** What an operation returns: plain JSON, described by its `output` schema. */
 export type TasteOperationOutput<N extends TasteOperationName> = TasteOperations[N]["output"]["Type"];
+
+/** The operations that run with only the store's root, so a missing store doesn't stop them. */
+export type StoreRootTasteOperationName = keyof typeof STORE_ROOT_TASTE_OPERATIONS;
+
+export const isStoreRootTasteOperation = (name: TasteOperationName): name is StoreRootTasteOperationName =>
+  Object.hasOwn(STORE_ROOT_TASTE_OPERATIONS, name);

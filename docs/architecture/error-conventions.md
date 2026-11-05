@@ -8,7 +8,7 @@ reads. It is declared at the lowest layer that raises it, because a lower layer 
 | Raised by | Declared in | Examples |
 |---|---|---|
 | Several layers | `packages/core/src/shared/` | `InvalidTasteInput`, `CorruptRecordFile` |
-| Infrastructure | `infrastructure/store-errors.ts` | `StoreNotInitialised`, `InvalidConfig`, `StoreWriteFailed`, `DecisionLockTimeout`, `PlaceResolutionFailed` |
+| Infrastructure | `infrastructure/store-errors.ts` | `StoreNotInitialised`, `InvalidConfig`, `StoreWriteFailed`, `StoreLockTimeout`, `StoreReadFailed`, `PlaceResolutionFailed` |
 | A domain | `domains/<d>/errors.ts` | `UnknownKind`, `RetiredKind`, `UnknownRecordRef` |
 | A feature | `features/<f>/errors.ts` | `NearRepeat`, `ScopeRequired`, `WideningNeedsAcknowledgement`, `OperationNotAllowed` |
 

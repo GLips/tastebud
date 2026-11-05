@@ -49,12 +49,13 @@ export const buildTasteOperationCaller = Effect.fn("operation-registry.buildTast
   input: TasteOperationWireInput,
 ) {
   const needsContext = TASTE_OPERATIONS[name].readsContext && !hasContextOverride(contextOverrideOf(input));
-  const context = needsContext ? yield* contextOfCallerOrigin(origin) : UNKNOWN_TASTE_CONTEXT;
-  const caller: TasteCaller = {
-    via: origin.via,
-    context,
-    ...(origin.actor !== undefined && { actor: origin.actor }),
-    ...(origin.cwd !== undefined && { cwd: origin.cwd }),
-  };
-  return caller;
+  return tasteCallerOf(origin, needsContext ? yield* contextOfCallerOrigin(origin) : UNKNOWN_TASTE_CONTEXT);
+});
+
+/** The caller from its origin and a context already settled. */
+export const tasteCallerOf = (origin: TasteCallerOrigin, context: TasteCaller["context"]): TasteCaller => ({
+  via: origin.via,
+  context,
+  ...(origin.actor !== undefined && { actor: origin.actor }),
+  ...(origin.cwd !== undefined && { cwd: origin.cwd }),
 });

@@ -2,7 +2,13 @@ export { emitCliResult, inCliStore, resolveCliStoreRoot } from "./controllers/ru
 export type { CliOperationOptions } from "./controllers/run-cli-operation.ts";
 export { reportCliFailure } from "./controllers/report-cli-failure.ts";
 export type { CliFailure } from "./controllers/report-cli-failure.ts";
-export { initCommand } from "./controllers/init-taste-store.ts";
+export {
+  configCheckCommand,
+  configShowCommand,
+  configWriteCommand,
+  initCommand,
+  setupGuideCommand,
+} from "./controllers/config-commands.ts";
 export { reindexCommand } from "./controllers/store-commands.ts";
 export {
   catalogCommand,

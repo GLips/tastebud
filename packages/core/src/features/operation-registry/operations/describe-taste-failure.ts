@@ -20,7 +20,7 @@ const EXIT_CODE_BY_CATEGORY: Record<TasteFailureCategory, number> = { broken: 1,
 const categoryOf = (error: TasteError): TasteFailureCategory =>
   Match.valueTags<TasteError, Record<TasteError["_tag"], () => TasteFailureCategory>>(error, {
     StoreNotInitialised: () => "input",
-    StoreAlreadyExists: () => "conflict",
+    StaleTasteConfig: () => "conflict",
     StoreNotEmpty: () => "conflict",
     InvalidConfig: () => "broken",
     InvalidTasteInput: () => "input",
@@ -35,7 +35,8 @@ const categoryOf = (error: TasteError): TasteFailureCategory =>
     NearRepeat: () => "refused",
     WideningNeedsAcknowledgement: () => "refused",
     DecisionNotAllowed: () => "conflict",
-    DecisionLockTimeout: () => "conflict",
+    StoreLockTimeout: () => "conflict",
+    StoreReadFailed: () => "broken",
     StoreWriteFailed: () => "broken",
     OperationNotAllowed: () => "refused",
   });
@@ -79,6 +80,7 @@ const sentenceOf = (error: TasteError, surface: TasteSurface): string =>
       NearRepeat: (matched) => matched.sentenceFor(surface),
       ScopeRequired: (matched) => matched.sentenceFor(surface),
       KindNotRecallable: (matched) => matched.sentenceFor(surface),
+      StoreNotInitialised: (matched) => matched.sentenceFor(surface),
     }),
     Match.orElse((other) => other.message),
   );

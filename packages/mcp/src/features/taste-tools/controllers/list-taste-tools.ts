@@ -9,8 +9,8 @@ export const listTasteMcpTools = () =>
     inputSchema: buildTasteToolInputSchema(operation),
     annotations: {
       readOnlyHint: operation.kind === "query",
-      // Every write appends; nothing an agent can call overwrites or deletes a record.
-      destructiveHint: false,
+      // Record writes only append; the one overwrite is config-write replacing taste.config.ts.
+      destructiveHint: operation.kind === "overwrite",
     },
   }));
 

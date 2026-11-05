@@ -1,6 +1,6 @@
 ---
 name: taste
-description: Use Taste to remember a person's judgment. Capture their corrections and preferences verbatim, propose conclusions (beliefs, and whatever other kinds the store defines) that cite those words, recall what they accepted and rejected before a judgment call, and answer their review notes. Use when the user corrects you, states a preference or rule, says "remember this", is about to make a choice they have opinions on (style, libraries, architecture, testing, copy), when sweeping notes or call transcripts into a store, or when a Taste review note arrives.
+description: Use Taste to remember a person's judgment. Capture their corrections and preferences verbatim, propose conclusions (beliefs, and whatever other kinds the store defines) that cite those words, recall what they accepted and rejected before a judgment call, and answer their review notes. Use when the user corrects you, states a preference or rule, says "remember this", is about to make a choice they have opinions on (style, libraries, architecture, testing, copy), when sweeping notes or call transcripts into a store, when a Taste review note arrives, or when asked to set Taste up.
 ---
 
 # Taste
@@ -21,6 +21,10 @@ Use the CLI or the MCP tools; they are the same operations with the same field n
 | Hand the owner a link | `taste review-url [<ref>]` | `taste_review_url {ref}` |
 
 On the CLI, `--by` is your own name as an agent (`claude-code/2.x`), never `human:…`. Over MCP your client's name is used. Where a CLI flag is repeatable (`--supports`, `--place`, `--at`, `--kind`), the MCP field is a list, and a dashed flag is the underscored field (`--despite-case` is `despite_case`). Scope is one shape: `--place <key>` is `scope: "places"` with `places: [<key>]`, and `--global` is `scope: "global"`.
+
+## Setup
+
+If there is no store yet (`taste catalog` says so), or the owner wants to change what Taste keeps, run the setup interview with them: the MCP prompt `setup` (`/mcp__taste__setup` in Claude Code), or `taste setup-guide` on the CLI. It starts with `taste config-show` and ends with `taste config-write`, only after the owner says yes to the diff.
 
 ## 1. Read the catalog first
 

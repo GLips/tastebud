@@ -12,8 +12,8 @@ import {
   type TasteOperationName,
   type TasteOperationOutput,
   type TasteOperationWireInput,
+  type TasteServices,
 } from "@taste/core/operations";
-import type { TasteStore } from "@taste/core/record-store";
 import { Effect } from "effect";
 
 import type { ReviewOutcome } from "#review/shared/review-outcome.ts";
@@ -24,7 +24,7 @@ const runAsReviewer = <N extends TasteOperationName>(name: N, input: TasteOperat
   );
 
 /** The store is resolved per call, so `TASTE_STORE` set by `taste review` is honoured without restarting. */
-const settleReviewEffect = <A>(effect: Effect.Effect<A, TasteError, TasteStore>): Promise<ReviewOutcome<A>> =>
+const settleReviewEffect = <A>(effect: Effect.Effect<A, TasteError, TasteServices>): Promise<ReviewOutcome<A>> =>
   Effect.runPromise(
     effect.pipe(
       Effect.map((value): ReviewOutcome<A> => ({ ok: true, value })),
@@ -47,6 +47,6 @@ export const runReviewOperations = <A>(
     run: <N extends TasteOperationName>(
       name: N,
       input: TasteOperationWireInput,
-    ) => Effect.Effect<TasteOperationOutput<N>, TasteError, TasteStore>,
-  ) => Effect.Effect<A, TasteError, TasteStore>,
+    ) => Effect.Effect<TasteOperationOutput<N>, TasteError, TasteServices>,
+  ) => Effect.Effect<A, TasteError, TasteServices>,
 ): Promise<ReviewOutcome<A>> => settleReviewEffect(build(runAsReviewer));

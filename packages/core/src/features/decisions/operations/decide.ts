@@ -18,9 +18,9 @@ import { buildDerivationView, type ViewSource } from "#core/domains/record-views
 import { type DecisionRecord, proposedScopeOf, SCHEMA_VERSION } from "#core/domains/records/index.ts";
 import { DecisionOutcomeSchema } from "#core/domains/taste-vocabulary/index.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
-import { withDecisionLock } from "#core/infrastructure/decision-lock.ts";
 import { homeDirectory } from "#core/infrastructure/home-directory.ts";
 import { stampNewRecord } from "#core/infrastructure/record-ids.ts";
+import { withStoreLock } from "#core/infrastructure/store-lock.ts";
 import { OptionalTrimmedText, OptionalTrimmedTextList, TrimmedText } from "#core/shared/input-text.ts";
 import { InvalidTasteInput } from "#core/shared/invalid-taste-input.ts";
 
@@ -70,8 +70,9 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
   const { config } = store;
   yield* checkDecisionFields(input);
   const override = yield* readScopeOverride(input, homeDirectory());
-  return yield* withDecisionLock(
+  return yield* withStoreLock(
     store.root,
+    "decide",
     Effect.gen(function* () {
       const snapshot = yield* store.snapshot;
       const view: ViewSource = { snapshot, catalog: config.catalog };

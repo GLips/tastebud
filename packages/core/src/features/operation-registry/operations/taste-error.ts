@@ -2,12 +2,13 @@ import type { KindNotRecallable, RetiredKind, UnknownKind } from "#core/domains/
 import type { AmbiguousRecordRef, UnknownRecordRef } from "#core/domains/record-snapshot/index.ts";
 import type { DecisionNotAllowed, WideningNeedsAcknowledgement } from "#core/features/decisions/index.server.ts";
 import type { NearRepeat, ScopeRequired } from "#core/features/proposals/index.server.ts";
-import type { StoreAlreadyExists, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
+import type { StaleTasteConfig, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
 import type {
-  DecisionLockTimeout,
   InvalidConfig,
   PlaceResolutionFailed,
+  StoreLockTimeout,
   StoreNotInitialised,
+  StoreReadFailed,
   StoreWriteFailed,
 } from "#core/infrastructure/store-errors.ts";
 import type { CorruptRecordFile } from "#core/shared/corrupt-record-file.ts";
@@ -18,7 +19,7 @@ import type { OperationNotAllowed } from "../errors.ts";
 /** Every failure core can raise, each a tagged error whose `message` is the sentence a person or agent reads. */
 export type TasteError =
   | StoreNotInitialised
-  | StoreAlreadyExists
+  | StaleTasteConfig
   | StoreNotEmpty
   | InvalidConfig
   | InvalidTasteInput
@@ -33,6 +34,7 @@ export type TasteError =
   | NearRepeat
   | WideningNeedsAcknowledgement
   | DecisionNotAllowed
-  | DecisionLockTimeout
+  | StoreLockTimeout
+  | StoreReadFailed
   | StoreWriteFailed
   | OperationNotAllowed;

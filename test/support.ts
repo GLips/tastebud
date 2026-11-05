@@ -10,10 +10,12 @@ import {
   type TasteOperationName,
   type TasteOperationOutput,
   type TasteOperationWireInput,
+  type TasteServices,
 } from "@taste/core/operations";
 import { resolveTasteContext, type TasteContextRequest } from "@taste/core/place-context";
-import { provideTasteStore, type TasteStore } from "@taste/core/record-store";
-import { initTasteStore } from "@taste/core/store-setup";
+import { provideTasteStore } from "@taste/core/record-store";
+import { starterTasteConfigText } from "@taste/core/store-config";
+import { writeTasteConfigText } from "@taste/core/store-setup";
 import type { TasteCaller } from "@taste/core/taste-caller";
 import { Effect } from "effect";
 
@@ -35,12 +37,12 @@ export const AGENT = "claude-code/test";
 /** A store with the starter config, or with `configText` as its `taste.config.ts`. */
 export const makeTestStore = async (configText?: string) => {
   const root = makeTemporaryDirectory("store");
-  if (configText === undefined) await Effect.runPromise(initTasteStore(root, OWNER));
+  if (configText === undefined) await Effect.runPromise(writeTasteConfigText(root, starterTasteConfigText(OWNER), ""));
   else writeFileSync(join(root, "taste.config.ts"), configText);
   return root;
 };
 
-export const inStore = <A, E>(root: string, effect: Effect.Effect<A, E, TasteStore>) =>
+export const inStore = <A, E>(root: string, effect: Effect.Effect<A, E, TasteServices>) =>
   Effect.runPromise(provideTasteStore(root)(effect));
 
 /** Runs `git` and returns stdout; throws with stderr on failure. */

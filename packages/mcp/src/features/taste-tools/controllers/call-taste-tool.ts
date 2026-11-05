@@ -2,13 +2,12 @@ import { Cause, Effect, Exit, Schema } from "effect";
 
 import { writeTasteMcpServerLog } from "#mcp/infrastructure/server-log.ts";
 import {
-  buildTasteOperationCaller,
   describeTasteFailure,
   renderTasteOperationText,
-  runTasteOperation,
+  resolveTasteStoreRoot,
+  runTasteOperationAtStoreRoot,
   type TasteOperationListing,
   type TasteOperationWireInput,
-  tasteStoreFromEnv,
 } from "#mcp/infrastructure/taste-core.ts";
 
 /** A tool call's arguments are JSON-RPC params, so anything else is a malformed request. */
@@ -44,11 +43,10 @@ export const callTasteTool = async (
       actor: client.actor,
       roots: Effect.promise(client.listRootUris),
     };
-    const caller = yield* buildTasteOperationCaller(name, origin, args);
-    const output = yield* runTasteOperation(name, args, caller);
+    const output = yield* runTasteOperationAtStoreRoot(resolveTasteStoreRoot(storeFlag), name, args, origin);
     return { text: renderTasteOperationText(name, output), output };
   });
-  const exit = await Effect.runPromiseExit(tasteStoreFromEnv(storeFlag)(program));
+  const exit = await Effect.runPromiseExit(program);
   if (Exit.isSuccess(exit)) return { ...textToolResult(exit.value.text), structuredContent: exit.value.output };
   const failed = exit.cause.reasons.find(Cause.isFailReason);
   if (failed !== undefined) {

@@ -1,9 +1,9 @@
 /** The CLI's one door into non-domain core: operations, the store, its host and setup, recall and threads. */
 export {
-  buildTasteOperationCaller,
   describeTasteFailure,
   renderTasteOperationText,
   runTasteOperation,
+  runTasteOperationAtStoreRoot,
   TASTE_OPERATIONS,
   type TasteCallerOrigin,
   type TasteError,
@@ -14,7 +14,7 @@ export {
 } from "@taste/core/operations";
 export { childProcessEnvWithStore, resolveTasteStoreRoot } from "@taste/core/host";
 export { provideTasteStore, TasteStore } from "@taste/core/record-store";
-export { initTasteStore, requireEmptyStore, writeNewStoreFiles, countStoreRecordFiles } from "@taste/core/store-setup";
+export { countStoreRecordFiles, requireNoStoreRecords, writeTasteConfigText } from "@taste/core/store-setup";
 export { buildHookPayload } from "@taste/core/recall";
 export { resolveTasteContext } from "@taste/core/place-context";
 export {

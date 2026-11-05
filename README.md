@@ -20,22 +20,33 @@ You bring the sources and the agents. Taste fetches nothing and calls no model.
 
 Everything else follows from that. The store is append-only markdown with YAML frontmatter, one file per source, derivation, decision and thread entry, laid out by month (`sources/2026/10/…`). The SQLite index in `.index/` is a cache you can delete. The folder can live in git, Dropbox or an Obsidian vault, and you can read it without Taste running.
 
-## Try it
+## Install
+
+Install is only getting an agent connected. Setup is a conversation the agent leads.
 
 ```bash
 git clone https://github.com/GLips/taste && cd taste
 bun install
 ln -s "$PWD/packages/cli/src/main.ts" ~/.local/bin/taste   # any directory on your PATH
 
+claude mcp add taste -- taste mcp                          # Claude Code (Codex: codex mcp add taste -- taste mcp)
+ln -s "$PWD/skills/taste" ~/.claude/skills/taste           # the skill: when to capture, propose and recall
+```
+
+Then **ask your agent to set Taste up**, or run `/mcp__taste__setup` in Claude Code. An agent with only the CLI reads the same interview from `taste setup-guide`. It asks whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `taste.config.ts` and its diff, and writes it once you say yes. Then it captures something you said during the interview and hands you the review link.
+
+The store is `--store`, else `$TASTE_STORE`, else `~/.taste`. Without an agent, `taste init` writes a commented starter config.
+
+## Try the demo
+
+```bash
 taste seed --store /tmp/taste-demo                # a fictional store: Dana, Acme's web and billing repos, three customer calls
 export TASTE_STORE=/tmp/taste-demo
 taste recall "tailwind styling" --at github.com/acme/billing-api::
 taste review                                      # review UI on http://localhost:4747
 ```
 
-[`docs/demo.md`](docs/demo.md) is a five-minute tour of that store. For your own store, `taste init` writes a commented `~/.taste/taste.config.ts`.
-
-The store is `--store`, else `$TASTE_STORE`, else `~/.taste`.
+[`docs/demo.md`](docs/demo.md) is a five-minute tour of that store.
 
 ## The CLI at a glance
 
@@ -52,7 +63,8 @@ The store is `--store`, else `$TASTE_STORE`, else `~/.taste`.
 | `taste places` / `taste repoint` | Places in use and an audit of scopes that match none of your directories; propose moving a scope from one place to another. |
 | `taste hook prompt` / `taste hook preview` | The prompt hook, and exactly what it would inject. |
 | `taste mcp` | The agent commands as MCP tools over stdio. |
-| `taste init` / `taste seed` / `taste reindex` | A new store; the demo store; rebuild the index. |
+| `taste config-show` / `config-check` / `config-write` | Setup's operations: the config and its hash, validate a candidate and diff it, write it (creating the store). `taste setup-guide` is the interview. |
+| `taste init` / `taste seed` / `taste reindex` | The starter config; the demo store; rebuild the index. |
 
 Every command has `--help`, and most take `--json`. Commands that read where you are take `--in <dir>` (resolve that directory) or `--at <place>` (take that place as given). Exit codes: 0 ok, 1 broken, 2 bad input (including a proposal with no scope from an unknown place), 3 refused (a near repeat), 4 conflict.
 
@@ -60,13 +72,9 @@ Only the owner decides, and only in the review UI. `taste open [ref]` prints the
 
 ## Agents
 
-**The skill.** [`skills/taste/SKILL.md`](skills/taste/SKILL.md) teaches an agent when to capture, propose, recall and listen. For Claude Code:
+**The skill.** [`skills/taste/SKILL.md`](skills/taste/SKILL.md) teaches an agent when to capture, propose, recall and listen, and points it at setup.
 
-```bash
-ln -s "$PWD/skills/taste" ~/.claude/skills/taste
-```
-
-**MCP.** `taste mcp` serves the agent commands as tools (`taste_catalog`, `taste_recall`, `taste_propose`, …). The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
+**MCP.** `taste mcp` serves the agent commands as tools (`taste_catalog`, `taste_recall`, `taste_propose`, …) and the `setup` prompt. The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
 
 ```bash
 claude mcp add taste -- taste mcp                          # Claude Code
@@ -93,9 +101,9 @@ Add `--store <dir>` after `mcp`, or set `TASTE_STORE` in the server's environmen
 
 `taste hook preview "<prompt>"` shows exactly what it would inject, and so does the review UI's recall inspector.
 
-## `taste.config.ts`
+## `taste.config.ts` (reference)
 
-Each store has one editable file. It default-exports a plain object, so it needs no imports, and the review server picks up edits without a restart.
+Each store has one editable file. Setup writes it; you can also edit it by hand. It default-exports a plain object, so it needs no imports, and the review server picks up edits without a restart.
 
 ```ts
 export default {

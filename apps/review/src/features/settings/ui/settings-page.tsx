@@ -140,11 +140,21 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   );
 }
 
-const HOOK_SNIPPET = JSON.stringify(
-  { hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "taste hook prompt" }] }] } },
-  null,
-  2,
-);
+/** Single-quoted for the shell the hook runs in, so `$`, backticks and spaces in a path stay literal. */
+const shellQuotedPath = (path: string) => `'${path.replaceAll("'", `'\\''`)}'`;
+
+const hookSnippetFor = (storeRoot: string) =>
+  JSON.stringify(
+    {
+      hooks: {
+        UserPromptSubmit: [
+          { hooks: [{ type: "command", command: `taste hook prompt --store ${shellQuotedPath(storeRoot)}` }] },
+        ],
+      },
+    },
+    null,
+    2,
+  );
 
 const mcpSnippetFor = (storeRoot: string) =>
   JSON.stringify(
@@ -168,8 +178,8 @@ export function SettingsPage() {
       <Stack gap="3xs">
         <Title order={3}>Settings</Title>
         <Text size="xs" c="dimmed">
-          Read-only. The config is code: edit <code>taste.config.ts</code> in the store, and this page picks it up on
-          save.
+          Read-only. The config is code: ask an agent to run Taste's setup, or edit <code>taste.config.ts</code> in the
+          store. This page picks it up on save.
         </Text>
       </Stack>
 
@@ -236,7 +246,7 @@ export function SettingsPage() {
         <Text fw={600}>Install</Text>
         <Stack gap="2xs">
           <Text size="sm">Prompt hook, in Claude Code's settings.json</Text>
-          <CopyableSnippet code={HOOK_SNIPPET} label="hook settings" />
+          <CopyableSnippet code={hookSnippetFor(storeRoot)} label="hook settings" />
         </Stack>
         <Stack gap="2xs">
           <Text size="sm">MCP server, in your MCP client's config</Text>

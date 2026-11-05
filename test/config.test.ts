@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { runTasteOperation } from "@taste/core/operations";
-import { Effect } from "effect";
+import { runTasteOperation, runTasteOperationAtStoreRoot } from "@taste/core/operations";
+import { Effect, Result } from "effect";
 
 import {
   callerFor,
@@ -91,5 +91,24 @@ describe("taste.config.ts", () => {
       ["belief", "insight", "idea"],
       ["belief", "insight"],
     ]);
+  });
+
+  test("two config writes from the same file: one lands, the other is refused as stale", async () => {
+    const root = await makeTestStore(demoConfigText(`"git"`));
+    const origin = { via: "mcp" as const };
+    const { hash } = await Effect.runPromise(runTasteOperationAtStoreRoot(root, "config-show", {}, origin));
+    // Both read the same hash before either writes; only the lock's recheck stops the second.
+    const write = (limit: number) =>
+      Effect.result(
+        runTasteOperationAtStoreRoot(
+          root,
+          "config-write",
+          { text: demoConfigText(`"git"`, `{ limit: ${limit} }`), expected_current: hash ?? "" },
+          origin,
+        ),
+      );
+    const results = await Effect.runPromise(Effect.all([write(4), write(5)], { concurrency: "unbounded" }));
+    const outcomes = results.map((result) => (Result.isSuccess(result) ? "written" : result.failure._tag));
+    expect(outcomes.toSorted()).toEqual(["StaleTasteConfig", "written"]);
   });
 });

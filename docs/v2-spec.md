@@ -222,7 +222,7 @@ This keeps records append-only and makes scope part of what the human ratifies. 
 
 ### 4.3 `taste.config.ts`
 
-It is a default-exported plain object. It needs no imports, so it loads in any store. `taste init` writes a commented starter.
+It is a default-exported plain object. It needs no imports, so it loads in any store. An agent writes it with the owner through the setup interview (§5.2); `taste init` writes the commented starter through the same `config-write`.
 
 ```ts
 type PlaceKey = string;
@@ -304,12 +304,21 @@ declareTasteOperation({
 | `review-url` | agent | The review UI's URL for the store or for one record, so an agent can hand the human a link. |
 | `repoint` | agent | Propose revisions that replace exact place A with B on accepted derivations (§6). It only proposes, so agents may call it. |
 | `reindex` | agent | Rebuild `.index/`. |
+| `config-show` | agent | The config's text, hash and loaded view. On a missing store, a result (`exists: false`, the root, a starter), not a failure. |
+| `config-check` | agent | Validate a whole candidate text exactly as loading does: every problem by field, the unified diff, and `probes` resolved under the candidate's `place`. Writes nothing. |
+| `config-write` | agent | The same validation, then an atomic replace; creates the store (config and `.gitignore`) when there is none. `expected_current` (the hash or text last read, `""` for a new store) must match, else `StaleTasteConfig` (conflict). |
 | `inbox` | human | Pending derivations grouped by kind, then scope, then subject. |
 | `decide` | human | Accept (with an optional scope amendment and acknowledgements), reject or retract. Reached only through the review UI's server functions. `taste decide <ref>` opens that record's review page and writes nothing. |
 | `thread-note` | human | A human's comment on a thread, from the review UI. |
-| `init`, `seed` | human | CLI only. |
+| `seed` | human | CLI only. Writes its config through `config-write`'s path, so it never overwrites a store. |
 
 The MCP server exposes every `agent` operation as `taste_<name>`, with `-` turned into `_`. `review listen` and `review` stay CLI process commands.
+
+### 5.2 Setup
+
+Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTE_SETUP_INTERVIEW`, served as the MCP prompt `setup` (`/mcp__taste__setup` in Claude Code) and printed by `taste setup-guide`.
+
+The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 
 **Trust boundary.** Neither an actor string nor `audience: "human"` proves a human acted. Human operations are kept off the agent surfaces, CLI and MCP alike: the only writers of decisions and human thread notes are the review server and `taste seed`. The local filesystem remains the trust boundary. Taste does not claim protection against an agent that deliberately writes files.
 
@@ -403,7 +412,8 @@ Integration tests run through operations, with temp stores and real git.
    - `tools/list` holds exactly the agent operations.
    - `taste_propose` then `taste_recall` work with an `in` argument.
    - Invalid input gives `isError`.
-8. **CLI:** `taste capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `taste decide` writes nothing.
+   - Setup from nothing: the `setup` prompt, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
+8. **CLI:** `taste capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `taste decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
 9. **`taste hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context.
 
 ## 11. Demo seed

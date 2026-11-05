@@ -6,7 +6,7 @@ through the registry.
 1. **Domain first.** Put any pure rule it needs (scope math, a record shape, a text helper) in a core domain,
    `packages/core/src/domains/<d>/`, exported from the domain's `index.ts`. No IO, no `Date.now()`.
 2. **The operation.** Add `features/<f>/operations/<verb-noun>.ts` with an `Effect.fn("<f>.<export>")`
-   that takes the decoded input and yields `TasteStore` and other services. Read and write the store only
+   that takes the decoded input and yields `TasteStore` (only `TasteStoreRoot` for a config operation, which runs before a store exists) and other services. Read and write the store only
    through `record-store` and infrastructure. Raise failures as tagged errors at the lowest layer that knows
    about them ([error-conventions.md](../error-conventions.md)), and add new ones to `TasteError`.
 3. **Its text.** Add `render<Thing>Text(result)` beside it for the CLI's non-JSON output.
@@ -14,7 +14,7 @@ through the registry.
    `index.server.ts`. If the feature is new, give it a `visibility.json` granting `operation-registry`, and a
    core `package.json` export only if a shell imports it directly.
 5. **Declare it.** Add a `declareTasteOperation({ name, audience, kind, description, input, output, run,
-   renderText })` entry to `agent-operations.ts` or `human-operations.ts` in
+   renderText })` entry to `agent-operations.ts`, `store-root-operations.ts` or `human-operations.ts` in
    `features/operation-registry/operations/`. If it needs to know where the caller is, include the context
    fields from `ContextOverrideInputSchema` in its input; the registry resolves context only for inputs with `in`.
 6. **CLI command (agent operations).** Add the command in the matching

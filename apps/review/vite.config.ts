@@ -31,7 +31,9 @@ const CORE_FEATURE_SUBPATHS = [
 export default defineConfig({
   root: import.meta.dirname,
   // The store lives wherever TASTE_STORE points; its files change under Vite and must never trigger a reload.
-  server: { watch: { ignored: ["**/.taste/**", "**/*demo-store/**", "**/.index/**"] } },
+  // `.taste.config.*.ts` are core's short-lived copies of a store's config (store-config-module.ts), imported
+  // through Vite and deleted at once, in whatever directory the store is; watching them reloads in a loop.
+  server: { watch: { ignored: ["**/.taste/**", "**/*demo-store/**", "**/.index/**", "**/.taste.config.*.ts"] } },
   plugins: [
     stylexVitePlugin,
     tanstackStart({

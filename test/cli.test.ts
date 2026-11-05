@@ -1,6 +1,6 @@
 /** The CLI end to end, as an agent's shell runs it: a real process, a temp store, a real git repo. */
 import { expect, test } from "bun:test";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Schema } from "effect";
@@ -111,4 +111,23 @@ test("--at says where the caller is, so a cwd the resolver can't read never runs
   const placed = await runTaste(store, cwd, ["catalog", "--at", "clients/acme", "--json"]);
   expect(placed.exitCode).toBe(0);
   expect(decodeContextJson(placed.stdout).context).toMatchObject({ origin: "at", places: ["clients/acme"] });
+});
+
+test("config-write creates a store from nothing for catalog to read, and refuses a stale expected_current", async () => {
+  const cwd = makeTemporaryDirectory("setup");
+  const store = join(cwd, "store");
+  const missing = await runTaste(store, cwd, ["catalog", "--json"]);
+  expect([missing.exitCode, decodeFailureJson(missing.stdout).error.tag]).toEqual([2, "StoreNotInitialised"]);
+
+  const text = demoConfigText(`"directories"`);
+  const created = await runTaste(store, cwd, ["config-write", "--text", text, "--expected-current", ""]);
+  expect(created.exitCode).toBe(0);
+  const catalog = await runTaste(store, cwd, ["catalog"]);
+  expect(catalog.stdout).toContain(`owner ${OWNER} · resolver directories`);
+
+  // The agent believed there was no store; there is one now, so the write must not clobber it.
+  const edited = text.replace("limit: 3", "limit: 5");
+  const stale = await runTaste(store, cwd, ["config-write", "--text", edited, "--expected-current", "", "--json"]);
+  expect([stale.exitCode, decodeFailureJson(stale.stdout).error.tag]).toEqual([4, "StaleTasteConfig"]);
+  expect(readFileSync(join(store, "taste.config.ts"), "utf8")).toBe(text);
 });

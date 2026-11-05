@@ -97,6 +97,16 @@ export class TasteStore extends Context.Service<
   }
 >()("@taste/TasteStore") {}
 
+/**
+ * Where the store is, whether or not it exists yet. The config operations run with only this, since
+ * setup starts before there is a store to open; an open store provides it too.
+ */
+export class TasteStoreRoot extends Context.Service<TasteStoreRoot, { readonly root: string }>()(
+  "@taste/TasteStoreRoot",
+) {}
+
+const tasteStoreRootLayer = (root: string) => Layer.succeed(TasteStoreRoot, TasteStoreRoot.of({ root }));
+
 /** Opens the store at `root`, loading its config. Closes the index when the scope ends. */
 const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInitialised | InvalidConfig> =>
   Layer.effect(
@@ -167,10 +177,16 @@ export const withFreshTasteConfig = Effect.fn("record-store.withFreshTasteConfig
   return yield* Effect.provideService(effect, TasteStore, TasteStore.of({ ...store, config }));
 });
 
-/** Provides an open store to `effect` and closes its index afterwards. */
+/** Provides an open store (and its root) to `effect` and closes its index afterwards. */
 export const provideTasteStore =
   (root: string) =>
   <A, E, R>(
     effect: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E | StoreNotInitialised | InvalidConfig, Exclude<R, TasteStore>> =>
-    Effect.provide(effect, makeTasteStoreLayer(root));
+  ): Effect.Effect<A, E | StoreNotInitialised | InvalidConfig, Exclude<R, TasteStore | TasteStoreRoot>> =>
+    Effect.provide(effect, Layer.merge(makeTasteStoreLayer(root), tasteStoreRootLayer(root)));
+
+/** Provides only the store's root, for operations that must run where no store exists yet. */
+export const provideTasteStoreRoot =
+  (root: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, TasteStoreRoot>> =>
+    Effect.provide(effect, tasteStoreRootLayer(root));
