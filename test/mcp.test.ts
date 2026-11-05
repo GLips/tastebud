@@ -6,15 +6,23 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { listTasteOperations, mcpToolNameOf } from "@taste/core/operations";
+import { TASTE_VERSION } from "@taste/core/taste-vocabulary";
 import { Schema } from "effect";
 
-import { demoConfigText, makeGitRepo, makeTemporaryDirectory, makeTestStore, OWNER } from "./support.ts";
+import {
+  demoConfigText,
+  makeGitRepo,
+  makeTemporaryDirectory,
+  makeTestStore,
+  OWNER,
+  runTaste,
+  TASTE_COMMAND_LINE,
+  tasteProcessEnv,
+} from "./support.ts";
 
 const decodeCapturedSourceId = Schema.decodeUnknownSync(
   Schema.Struct({ source: Schema.Struct({ source: Schema.Struct({ id: Schema.String }) }) }),
 );
-
-const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 const openClients: Array<Client> = [];
 afterEach(async () => {
@@ -23,15 +31,27 @@ afterEach(async () => {
 
 const connectTasteMcp = async (store: string) => {
   const client = new Client({ name: "taste-test", version: "1.0.0" });
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  );
+  const [command = "", ...leading] = TASTE_COMMAND_LINE;
   await client.connect(
-    new StdioClientTransport({ command: "bun", args: [MAIN, "mcp"], env: { ...env, TASTE_STORE: store } }),
+    new StdioClientTransport({
+      command,
+      args: [...leading, "mcp"],
+      env: tasteProcessEnv({ TASTE_STORE: store }),
+      // Outside the checkout, so the release smoke run can't lean on workspace files.
+      cwd: makeTemporaryDirectory("mcp-cwd"),
+    }),
   );
   openClients.push(client);
   return client;
 };
+
+test("the server and `taste --version` both report TASTE_VERSION", async () => {
+  const store = await makeTestStore();
+  const client = await connectTasteMcp(store);
+  expect(client.getServerVersion()).toMatchObject({ name: "taste", version: TASTE_VERSION });
+  const printed = await runTaste(store, makeTemporaryDirectory("version"), ["--version"]);
+  expect(printed.stdout.trim()).toEndWith(TASTE_VERSION);
+});
 
 test("tools/list holds exactly the agent operations, with strict schemas", async () => {
   const client = await connectTasteMcp(await makeTestStore());

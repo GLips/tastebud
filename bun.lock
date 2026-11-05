@@ -59,6 +59,7 @@
       "dependencies": {
         "@taste/core": "workspace:*",
         "@taste/mcp": "workspace:*",
+        "@taste/review": "workspace:*",
         "effect": "4.0.5",
       },
     },

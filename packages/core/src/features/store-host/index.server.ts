@@ -1,5 +1,6 @@
+export { ReviewPortTaken } from "./errors.ts";
 export {
-  childProcessEnvWithStore,
+  pinTasteStoreForThisProcess,
   resolveTasteStoreRoot,
   tasteStoreFromEnv,
 } from "./operations/taste-store-from-env.ts";

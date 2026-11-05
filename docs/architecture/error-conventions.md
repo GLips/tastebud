@@ -11,6 +11,7 @@ reads. It is declared at the lowest layer that raises it, because a lower layer 
 | Infrastructure | `infrastructure/store-errors.ts` | `StoreNotInitialised`, `InvalidConfig`, `StoreWriteFailed`, `StoreLockTimeout`, `StoreReadFailed`, `PlaceResolutionFailed` |
 | A domain | `domains/<d>/errors.ts` | `UnknownKind`, `RetiredKind`, `UnknownRecordRef` |
 | A feature | `features/<f>/errors.ts` | `NearRepeat`, `ScopeRequired`, `WideningNeedsAcknowledgement`, `OperationNotAllowed` |
+| A shell | the core feature its door imports | `ReviewPortTaken` (`features/store-host/errors.ts`) |
 
 An error that reads differently per surface implements `sentenceFor(surface)`; `NearRepeat` tells the CLI to
 pass `--despite`, MCP to pass `despite`, and review to tick each match.

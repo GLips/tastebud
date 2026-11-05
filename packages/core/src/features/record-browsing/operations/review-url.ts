@@ -16,7 +16,7 @@ export const ReviewUrlResultSchema = Schema.Struct({ url: Schema.String });
 export const buildReviewUrl = Effect.fn("record-browsing.buildReviewUrl")(function* (input: ReviewUrlInput) {
   const store = yield* TasteStore;
   // `taste review --port N` overrides only that one server; links follow the store's config.
-  const base = `http://localhost:${store.config.review.port}`;
+  const base = `http://127.0.0.1:${store.config.review.port}`;
   if (input.ref === undefined) return { url: `${base}/` };
   const { record } = yield* resolveAnyRecordRef(yield* store.snapshot, input.ref);
   switch (record.type) {

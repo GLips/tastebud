@@ -39,6 +39,7 @@ const categoryOf = (error: TasteError): TasteFailureCategory =>
     StoreReadFailed: () => "broken",
     StoreWriteFailed: () => "broken",
     OperationNotAllowed: () => "refused",
+    ReviewPortTaken: () => "input",
   });
 
 /**

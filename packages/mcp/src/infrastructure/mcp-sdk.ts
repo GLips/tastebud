@@ -1,11 +1,12 @@
 /** The `@modelcontextprotocol/server` owner: building the server, its transport, and what the client says. */
 import { ProtocolError, ProtocolErrorCode, Server } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { TASTE_VERSION } from "@taste/core/taste-vocabulary";
 
 export type TasteMcpSdkServer = Server;
 
 export const createTasteMcpSdkServer = (instructions: string): TasteMcpSdkServer =>
-  new Server({ name: "taste", version: "0.1.0" }, { capabilities: { tools: {}, prompts: {} }, instructions });
+  new Server({ name: "taste", version: TASTE_VERSION }, { capabilities: { tools: {}, prompts: {} }, instructions });
 
 /** The JSON-RPC error for a request naming something the server doesn't have, like an unknown prompt. */
 export const invalidMcpParams = (message: string) => new ProtocolError(ProtocolErrorCode.InvalidParams, message);

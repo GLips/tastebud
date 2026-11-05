@@ -8,7 +8,7 @@ Execution is cheap now that agents do it, so a person's judgment is the moat. Ta
 
 You bring the sources and the agents. Taste fetches nothing and calls no model.
 
-> Status: v2. It runs from source with [Bun](https://bun.sh). The contract is [`docs/v2-spec.md`](docs/v2-spec.md); build notes are in [`docs/notes.md`](docs/notes.md).
+> Status: v2. It ships as one compiled executable; working on it needs [Bun](https://bun.sh). The contract is [`docs/v2-spec.md`](docs/v2-spec.md); build notes are in [`docs/notes.md`](docs/notes.md).
 
 ## The model
 
@@ -24,14 +24,19 @@ Everything else follows from that. The store is append-only markdown with YAML f
 
 Install is only getting an agent connected. Setup is a conversation the agent leads.
 
+Taste is one executable with the review UI inside; nothing else to install, no Bun. Releases aren't published
+yet, so for now build it from a checkout (see [Developing](#developing)). Once they are:
+
 ```bash
-git clone https://github.com/GLips/taste && cd taste
-bun install
-ln -s "$PWD/packages/cli/src/main.ts" ~/.local/bin/taste   # any directory on your PATH
+curl -fsSL https://github.com/GLips/taste/releases/latest/download/install.sh | sh   # into ~/.local/bin
+# or: npm install -g <the npm name>, or download taste-<os>-<arch>.tar.gz from the release page
 
 claude mcp add taste -- taste mcp                          # Claude Code (Codex: codex mcp add taste -- taste mcp)
-ln -s "$PWD/skills/taste" ~/.claude/skills/taste           # the skill: when to capture, propose and recall
 ```
+
+The skill (when to capture, propose and recall) is [`skills/taste`](skills/taste); copy or link it into
+`~/.claude/skills/taste`. Binaries run on macOS (arm64, x64) and Linux (x64, arm64). A config may import its own
+relative files and `node:` builtins, never packages.
 
 Then **ask your agent to set Taste up**, or run `/mcp__taste__setup` in Claude Code. An agent with only the CLI reads the same interview from `taste setup-guide`. It asks whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `taste.config.ts` and its diff, and writes it once you say yes. Then it captures something you said during the interview and hands you the review link.
 
@@ -43,7 +48,7 @@ The store is `--store`, else `$TASTE_STORE`, else `~/.taste`. Without an agent, 
 taste seed --store /tmp/taste-demo                # a fictional store: Dana, Acme's web and billing repos, three customer calls
 export TASTE_STORE=/tmp/taste-demo
 taste recall "tailwind styling" --at github.com/acme/billing-api::
-taste review                                      # review UI on http://localhost:4747
+taste review                                      # review UI on http://127.0.0.1:4747
 ```
 
 [`docs/demo.md`](docs/demo.md) is a five-minute tour of that store.
@@ -145,6 +150,19 @@ export default {
 - `recall` is `inject` (the hook, `context` and recall), `pull` (recall and `context --kind` only) or `never` (only list, show and the review UI).
 - `sources` lists the source kinds a derivation of that kind must cite. A kind you remove later is retired: its records stay readable but can't be proposed, accepted or recalled.
 - The demo's [`demo/.taste/taste.config.ts`](demo/.taste/taste.config.ts) has three full proposal prompts to copy from.
+
+## Developing
+
+```bash
+git clone https://github.com/GLips/taste && cd taste
+bun install
+bun run build:review                                       # the review UI `taste review` serves
+ln -s "$PWD/packages/cli/src/main.ts" ~/.local/bin/taste   # run from source, any directory on your PATH
+ln -s "$PWD/skills/taste" ~/.claude/skills/taste
+```
+
+`bun run dev:review` runs the UI with hot reload on :4747. `bun run build:binary` compiles `dist/bin/<os>-<arch>/taste`
+for this machine (`--all` for every platform), and `bun run check` is the gate.
 
 ## Out of scope
 

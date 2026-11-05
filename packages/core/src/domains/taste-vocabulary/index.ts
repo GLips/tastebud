@@ -19,3 +19,4 @@ export {
   shortIdOf,
   type TasteRecordType,
 } from "./taste-vocabulary.ts";
+export { TASTE_VERSION } from "./taste-version.ts";

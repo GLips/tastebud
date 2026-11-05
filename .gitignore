@@ -6,3 +6,4 @@ dist/
 /.taste/
 demo-store/
 *.demo-store/
+*.bun-build

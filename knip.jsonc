@@ -10,6 +10,7 @@
     ".": {
       "entry": [
         "scripts/*.ts",
+        "scripts/release/write-npm-packages.ts",
         "test/**/*.ts",
         // `check:rules` runs the specs; oxlint.config.ts is already an entry by knip's oxlint plugin.
         "lint/**/*.test.ts",

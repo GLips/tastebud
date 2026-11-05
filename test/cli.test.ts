@@ -5,9 +5,15 @@ import { join } from "node:path";
 
 import { Schema } from "effect";
 
-import { AGENT, demoConfigText, makeGitRepo, makeTemporaryDirectory, makeTestStore, OWNER } from "./support.ts";
-
-const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
+import {
+  AGENT,
+  demoConfigText,
+  makeGitRepo,
+  makeTemporaryDirectory,
+  makeTestStore,
+  OWNER,
+  runTaste,
+} from "./support.ts";
 
 /** Decoders for the `--json` fields these tests read; other fields pass through unchecked. */
 const decodeCapturedJson = Schema.decodeUnknownSync(
@@ -37,22 +43,6 @@ const decodeContextJson = Schema.decodeUnknownSync(
     }),
   ),
 );
-
-const runTaste = async (store: string, cwd: string, args: ReadonlyArray<string>) => {
-  const child = Bun.spawn(["bun", MAIN, ...args], {
-    cwd,
-    env: { ...process.env, TASTE_STORE: store },
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return { stdout, stderr, exitCode };
-};
 
 const countRecordFiles = (store: string) =>
   readdirSync(store, { recursive: true }).filter((path) => String(path).endsWith(".md")).length;

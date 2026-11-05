@@ -1,3 +1,4 @@
+import { TASTE_VERSION } from "@taste/core/taste-vocabulary";
 /** The full command tree and its runner. `main.ts` loads this for everything but the prompt hook. */
 import { Cause, Effect, Exit } from "effect";
 import { Command } from "effect/cli";
@@ -66,7 +67,7 @@ const tasteCommand = Command.make("taste").pipe(
 
 export const runTasteCli = async () => {
   const exit = await Effect.runPromiseExit(
-    Command.run(tasteCommand, { version: "0.1.0" }).pipe(Effect.provide(cliPlatformLayer)),
+    Command.run(tasteCommand, { version: TASTE_VERSION }).pipe(Effect.provide(cliPlatformLayer)),
   );
   if (Exit.isSuccess(exit)) return;
   const failed = exit.cause.reasons.find(Cause.isFailReason);

@@ -1,5 +1,6 @@
-// vite.config.ts: the review UI, served by `taste review` (bun --bun vite). TanStack Start in SPA mode: the server
-// only answers server functions and the shell; every screen renders in the browser.
+// vite.config.ts: the review UI. `taste review` serves its build (`bun run build:review`); `bun run dev:review` runs
+// it with HMR. Screens render in the browser (`defaultSsr: false` in start.ts); the server answers the shell, per
+// request, and server functions.
 import { unplugin as stylexUnplugin } from "@stylexjs/unplugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
@@ -28,8 +29,19 @@ const CORE_FEATURE_SUBPATHS = [
   "places-audit",
 ].map((feature) => `@taste/core/${feature}`);
 
+/** Server function ids read `<feature>.<export>`, so a test or a stack trace can name one. */
+const reviewServerFunctionId = ({ filename, functionName }: { filename: string; functionName: string }) => {
+  const feature = /\/features\/([^/]+)\//.exec(filename)?.[1];
+  return feature === undefined ? undefined : `${feature}.${functionName.replace(/_createServerFn_handler$/, "")}`;
+};
+
+// The CLI bundles core and effect already; left external here, `bun build --compile` resolves them to those same
+// modules, one copy per binary. A predicate because Vite's `ssr.external` refuses packages whose exports are `.ts`.
+const isSharedWithCli = (id: string) => id.startsWith("@taste/core/") || id === "effect" || id.startsWith("effect/");
+
 export default defineConfig({
   root: import.meta.dirname,
+  environments: { ssr: { build: { rolldownOptions: { external: isSharedWithCli } } } },
   // The store lives wherever TASTE_STORE points; its files change under Vite and must never trigger a reload.
   // `.taste.config.*.ts` are core's short-lived copies of a store's config (store-config-module.ts), imported
   // through Vite and deleted at once, in whatever directory the store is; watching them reloads in a loop.
@@ -37,7 +49,7 @@ export default defineConfig({
   plugins: [
     stylexVitePlugin,
     tanstackStart({
-      spa: { enabled: true },
+      serverFns: { generateFunctionId: reviewServerFunctionId },
       // The trust boundary: core's features and infrastructure touch the filesystem and SQLite, so only `*.server.ts`
       // repos may reach them, and no browser module may import one. Core's domains are pure, so they stay reachable.
       importProtection: {

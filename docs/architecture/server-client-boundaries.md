@@ -1,7 +1,8 @@
 # Server and client in the review app
 
-The review app is TanStack Start in SPA mode. The server answers server functions and serves the shell; every
-screen renders in the browser. Core's features and infrastructure touch the filesystem and SQLite, so none of
+The review app is TanStack Start with `defaultSsr: false`: the server renders only the shell and answers server
+functions; screens render in the browser. `taste review` serves the build in-process
+(`review-app-server.ts`); `dev:review` is Vite. Core's features and infrastructure touch the filesystem and SQLite, so none of
 it may reach the browser bundle.
 
 ## How a screen reaches the store

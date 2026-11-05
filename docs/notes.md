@@ -4,7 +4,7 @@ Deviations from the spec, shortcuts, and open questions that still hold. The con
 
 ## Core and storage
 
-- **SQLite:** core wraps `bun:sqlite` directly rather than an Effect SQL client. The index is a disposable cache refreshed with sync prepared statements; Effect services and errors still wrap it. Core therefore needs Bun, and the review dev server runs as `bunx --bun vite` so server functions can load core.
+- **SQLite:** core wraps `bun:sqlite` directly rather than an Effect SQL client. The index is a disposable cache refreshed with sync prepared statements; Effect services and errors still wrap it. Core therefore needs Bun: `taste` ships compiled with Bun inside, serving the review server functions in-process, and `dev:review` runs `bun --bun vite`.
 - **Filesystem:** core uses `node:fs` sync calls inside Effects rather than an Effect `FileSystem` service.
 - **Index:** one `records` table, a `files` table and an FTS5 `search` table (porter stemming, ranked by bm25). Status and reverse links are computed in TypeScript from a full snapshot on every read, which is fine at the scale of one person's store.
 - **Freshness:** a removed or touched file triggers a full rebuild; new files are added incrementally. A rebuild deletes only `taste.sqlite*`, so listener cursors in `.index/listeners/` survive `taste reindex`. Deleting `.index/` by hand resets them.

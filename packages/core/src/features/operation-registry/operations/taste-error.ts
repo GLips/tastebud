@@ -2,6 +2,7 @@ import type { KindNotRecallable, RetiredKind, UnknownKind } from "#core/domains/
 import type { AmbiguousRecordRef, UnknownRecordRef } from "#core/domains/record-snapshot/index.ts";
 import type { DecisionNotAllowed, WideningNeedsAcknowledgement } from "#core/features/decisions/index.server.ts";
 import type { NearRepeat, ScopeRequired } from "#core/features/proposals/index.server.ts";
+import type { ReviewPortTaken } from "#core/features/store-host/index.server.ts";
 import type { StaleTasteConfig, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
 import type {
   InvalidConfig,
@@ -37,4 +38,5 @@ export type TasteError =
   | StoreLockTimeout
   | StoreReadFailed
   | StoreWriteFailed
-  | OperationNotAllowed;
+  | OperationNotAllowed
+  | ReviewPortTaken;

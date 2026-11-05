@@ -4,7 +4,8 @@ import getEffectTscPath from "@effect/tsgo/lib/getExePath";
 
 /**
  * The gate: every check at once, each step's output printed whole when it ends. A failure in any
- * step fails the run after all of them have reported.
+ * step fails the run after all of them have reported. It builds the review UI first, which
+ * `taste review`'s test serves.
  *
  *   bun scripts/check.ts             every step (`bun run check`)
  *   bun scripts/check.ts typecheck   the typecheck steps alone (`bun run typecheck`)
@@ -54,6 +55,13 @@ if (selection !== undefined && selection !== "typecheck")
 const steps = selection === "typecheck" ? typecheckSteps : [...typecheckSteps, ...otherSteps];
 
 const started = performance.now();
+if (selection === undefined) {
+  const build = Bun.spawnSync(["bun", "run", "build:review"], { cwd: root, stdout: "pipe", stderr: "pipe" });
+  if (build.exitCode !== 0) {
+    process.stdout.write(`\n── build:review: FAILED\n${build.stdout.toString()}${build.stderr.toString()}`);
+    process.exit(1);
+  }
+}
 const results = await Promise.all(
   steps.map(async (step) => {
     const stepStarted = performance.now();

@@ -9,11 +9,11 @@ import { UNKNOWN_TASTE_CONTEXT } from "@taste/core/places";
 import { provideTasteStore } from "@taste/core/record-store";
 import { Effect } from "effect";
 
-const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
+import { TASTE_COMMAND_LINE } from "./support.ts";
 
 test("the demo seed covers every status with a history that runs forward from evidence to decision", async () => {
   const root = join(mkdtempSync(join(tmpdir(), "taste-seed-")), "store");
-  const seeded = Bun.spawnSync(["bun", MAIN, "seed", "--store", root], { stdout: "pipe", stderr: "pipe" });
+  const seeded = Bun.spawnSync([...TASTE_COMMAND_LINE, "seed", "--store", root], { stdout: "pipe", stderr: "pipe" });
   expect(seeded.stderr.toString()).toBe("");
   expect(seeded.exitCode).toBe(0);
 

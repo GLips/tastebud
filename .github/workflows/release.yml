@@ -1,0 +1,110 @@
+# Builds the taste binary on each release platform, runs the gate and the compiled-binary smoke tests, and
+# uploads the archives. Release and npm publish run only when the repo variable TASTE_PUBLISH_ENABLED is
+# "true", which waits on the npm name (scripts/release/release-names.ts).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15, platform: darwin-arm64 }
+          - { runner: macos-15-intel, platform: darwin-x64 }
+          - { runner: ubuntu-24.04, platform: linux-x64 }
+          - { runner: ubuntu-24.04-arm, platform: linux-arm64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      # check:rules runs oxlint's RuleTester, which needs real Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Tag matches TASTE_VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(bun -e 'import { TASTE_VERSION } from "@taste/core/taste-vocabulary"; console.log(TASTE_VERSION)')"
+          test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} is not v${version}"; exit 1; }
+      - run: bun run check
+      - run: bun scripts/build-taste-binary.ts --target bun-${{ matrix.platform }}
+      # The binary alone, outside the checkout, so nothing it embeds can fall back on workspace files.
+      - name: Smoke-test the compiled binary
+        run: |
+          smoke="${RUNNER_TEMP}/taste-smoke"
+          mkdir -p "$smoke"
+          cp dist/bin/${{ matrix.platform }}/taste "$smoke/taste"
+          TASTE_TEST_BINARY="$smoke/taste" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts
+      - name: Archive
+        run: tar -czf taste-${{ matrix.platform }}.tar.gz -C dist/bin/${{ matrix.platform }} taste
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taste-${{ matrix.platform }}
+          path: taste-${{ matrix.platform }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') && vars.TASTE_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Checksums
+        run: cd release && sha256sum taste-*.tar.gz > SHA256SUMS
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release/* scripts/release/install.sh --generate-notes
+
+  publish-npm:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/') && vars.TASTE_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Unpack the binaries
+        run: |
+          for archive in release/taste-*.tar.gz; do
+            platform="$(basename "$archive" .tar.gz)"; platform="${platform#taste-}"
+            mkdir -p "dist/bin/$platform" && tar -xzf "$archive" -C "dist/bin/$platform"
+          done
+      - run: bun scripts/release/write-npm-packages.ts
+      # Platform packages first: the launcher's optionalDependencies must already resolve when it lands.
+      - name: Publish
+        run: |
+          for package in dist/npm/darwin-arm64 dist/npm/darwin-x64 dist/npm/linux-x64 dist/npm/linux-arm64 dist/npm/launcher; do
+            npm publish "$package" --provenance --access public
+          done

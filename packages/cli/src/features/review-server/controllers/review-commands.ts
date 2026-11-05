@@ -1,4 +1,4 @@
-/** `taste review` (starts the UI dev server) and `taste review listen` (wakes an agent on human notes). */
+/** `taste review` (serves the review UI) and `taste review listen` (wakes an agent on human notes). */
 import { Command, Flag } from "effect/cli";
 
 import { jsonFlag, storeFlag } from "#cli/shared/cli-flags.ts";
@@ -25,4 +25,4 @@ export const reviewCommand = Command.make(
     store: storeFlag,
   },
   ({ port, json, store }) => startReviewServer(port, json, store),
-).pipe(Command.withDescription("Start the review UI on localhost"), Command.withSubcommands([listenCommand]));
+).pipe(Command.withDescription("Start the review UI on 127.0.0.1"), Command.withSubcommands([listenCommand]));

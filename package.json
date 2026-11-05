@@ -20,6 +20,8 @@
     "format:check": "oxfmt --check .",
     "knip": "knip --no-progress",
     "dev:review": "bun run --cwd apps/review dev",
+    "build:review": "bun run --cwd apps/review build",
+    "build:binary": "bun scripts/build-taste-binary.ts",
     "prepare": "lefthook install"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 /** Asks git about a directory. Bun.spawn with git's repository overrides removed from the environment. */
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { processEnvironmentWithoutGitOverrides } from "#core/env.ts";
 
@@ -13,16 +13,28 @@ interface GitOutput {
   readonly stdout: string;
 }
 
+// Bun.spawn throws ENOENT synchronously when git is not on PATH. Without git no directory is a checkout, so
+// that reads as git's own "command not found" exit and `place: "git"` falls back to the directory.
+const GIT_NOT_INSTALLED: GitOutput = { exitCode: 127, stdout: "" };
+
+const isExecutableMissing = Schema.is(Schema.Struct({ code: Schema.Literal("ENOENT") }));
+
 const runGit = (directory: string, args: ReadonlyArray<string>) =>
   Effect.tryPromise({
     try: async (): Promise<GitOutput> => {
-      const child = Bun.spawn(["git", "-C", directory, ...args], {
-        env: processEnvironmentWithoutGitOverrides(),
-        stdout: "pipe",
-        stderr: "ignore",
-        stdin: "ignore",
-        timeout: GIT_TIMEOUT_MS,
-      });
+      let child: Bun.Subprocess<"ignore", "pipe", "ignore">;
+      try {
+        child = Bun.spawn(["git", "-C", directory, ...args], {
+          env: processEnvironmentWithoutGitOverrides(),
+          stdout: "pipe",
+          stderr: "ignore",
+          stdin: "ignore",
+          timeout: GIT_TIMEOUT_MS,
+        });
+      } catch (error) {
+        if (isExecutableMissing(error)) return GIT_NOT_INSTALLED;
+        throw error;
+      }
       const [stdout, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited]);
       if (child.signalCode !== null) throw new Error(`git ${args[0] ?? ""} timed out after ${GIT_TIMEOUT_MS} ms`);
       return { exitCode, stdout: stdout.trim() };

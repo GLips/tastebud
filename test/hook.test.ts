@@ -13,9 +13,8 @@ import {
   makeTemporaryDirectory,
   makeTestStore,
   runOperation,
+  TASTE_COMMAND_LINE,
 } from "./support.ts";
-
-const MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 const decodeHookOutput = Schema.decodeUnknownSync(
   Schema.fromJsonString(
@@ -27,7 +26,7 @@ const decodeHookOutput = Schema.decodeUnknownSync(
 const reviewer: TasteCaller = { via: "review", context: { places: [], origin: "unknown" } };
 
 const runHookPrompt = async (store: string, event: unknown) => {
-  const child = Bun.spawn(["bun", MAIN, "hook", "prompt"], {
+  const child = Bun.spawn([...TASTE_COMMAND_LINE, "hook", "prompt"], {
     env: { ...process.env, TASTE_STORE: store },
     stdin: new TextEncoder().encode(JSON.stringify(event)),
     stdout: "pipe",

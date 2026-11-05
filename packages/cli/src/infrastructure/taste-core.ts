@@ -12,7 +12,7 @@ export {
   type TasteOperationOutput,
   type TasteOperationWireInput,
 } from "@taste/core/operations";
-export { childProcessEnvWithStore, resolveTasteStoreRoot } from "@taste/core/host";
+export { pinTasteStoreForThisProcess, resolveTasteStoreRoot, ReviewPortTaken } from "@taste/core/host";
 export { provideTasteStore, TasteStore } from "@taste/core/record-store";
 export { countStoreRecordFiles, requireNoStoreRecords, writeTasteConfigText } from "@taste/core/store-setup";
 export { buildHookPayload } from "@taste/core/recall";

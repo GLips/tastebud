@@ -1,1 +1,3 @@
-{}
+{
+  "operation-registry": "puts ReviewPortTaken in the TasteError union and its mapper"
+}

@@ -5,8 +5,15 @@
   "imports": {
     "#review/*": "./src/*"
   },
+  "exports": {
+    "./bundle": {
+      "types": "./review-bundle.d.ts",
+      "default": "./dist/review-bundle.ts"
+    }
+  },
   "scripts": {
-    "dev": "bun --bun vite --port 4747"
+    "dev": "bun --bun vite --port 4747",
+    "build": "bun --bun vite build && bun ../../scripts/write-review-bundle-module.ts"
   },
   "dependencies": {
     "@mantine/core": "9.5.2",

@@ -186,6 +186,7 @@ export const loadedTasteConfigOf = (
 export const starterTasteConfigText = (
   owner: string,
 ) => `// Taste's config for this store. Plain data: no imports needed. Edit freely; it reloads on save.
+// A config may import relative files and \`node:\` builtins only; no packages.
 export default {
   // The human whose taste this store holds. Only they ratify derivations.
   owner: ${JSON.stringify(owner)},

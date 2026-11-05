@@ -75,7 +75,7 @@ taste show <the superseded belief's id>
 ## 6. The review UI
 
 ```bash
-taste review        # http://localhost:4747
+taste review        # http://127.0.0.1:4747
 ```
 
 - **Inbox:** pending derivations by kind, then scope. Look for the scope chips:

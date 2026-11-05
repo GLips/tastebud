@@ -71,6 +71,8 @@ Run \`config-check\` with the complete file text. Fix every problem it reports a
 
 Keep the file readable: comments on why each kind exists are welcome, and the starter's comments are worth keeping.
 
+A config may import relative files and \`node:\` builtins only; no packages. Taste runs as one executable, so there is nowhere to install a package for the config to find.
+
 ## 7. Wire up their agents
 
 Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Taste reaches each one, because recall only works through what is installed:

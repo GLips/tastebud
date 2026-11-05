@@ -2,7 +2,7 @@
 
 ## Packages and their owners
 
-An SDK is imported only by the module that owns it (`lint/policy/package-owners.ts`, checked by
+An SDK is imported only by its owner module (`lint/policy/package-owners.ts`, checked by
 `boundary/sdk-containment`). Everything else calls the owner.
 
 | Package | Owner |
@@ -11,6 +11,7 @@ An SDK is imported only by the module that owns it (`lint/policy/package-owners.
 | `yaml` | `packages/core/src/infrastructure/frontmatter-codec.ts` |
 | `@modelcontextprotocol/server` (and `/stdio`) | `packages/mcp/src/infrastructure/mcp-sdk.ts` |
 | `@taste/mcp` | `packages/cli/src/infrastructure/mcp-server.ts` |
+| `@taste/review` | `packages/cli/src/infrastructure/review-app-server.ts` |
 | `@mantine/core` `Textarea` | `apps/review/src/shared/ui/textarea.tsx` |
 
 `effect`, React, TanStack, StyleX, Mantine (except `Textarea`) and `lucide-react` are the framework and are
@@ -20,7 +21,7 @@ IO is the infrastructure layer's job in every tree. `taste/io-only-in-infrastruc
 `node:child_process`, `node:os`, `node:crypto`, `bun:sqlite`, `Bun.spawn`/`file`/`write`/`stdin` and the
 `process` streams, exit and argv outside `infrastructure/`. `taste/no-ambient-nondeterminism` bans
 `Date.now()`, bare `new Date()`, `Math.random()` and random ids in domains, shared and feature layers; time
-comes from Effect `Clock`, ids from `infrastructure/record-ids.ts`. `process.env` is read only in core's `env.ts`.
+comes from Effect `Clock`, ids from `infrastructure/record-ids.ts`. `process.env` is touched only in core's `env.ts`.
 
 ## The core door
 
@@ -31,7 +32,7 @@ comes from Effect `Clock`, ids from `infrastructure/record-ids.ts`. `process.env
 
 `taste/core-server-door` allows a runtime import of a non-domain subpath in exactly one file per shell:
 `infrastructure/taste-core.ts` in cli and mcp, `infrastructure/taste-core.server.ts` in review. In review, only
-`features/*/repo/*.server.ts` may import that door. Type-only imports are free everywhere, because they erase.
+`features/*/repo/*.server.ts` may import that door. Type-only imports, which erase, are free.
 
 `taste/domain-runtime-packages` keeps core `domains/` and `shared/` to pure `effect` specifiers (root modules,
 `effect/schema`, `effect/encoding`) and other domain subpaths, since domains reach the browser through their barrels.

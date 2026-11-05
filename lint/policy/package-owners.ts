@@ -116,4 +116,9 @@ export const PACKAGE_OWNERS: PackageOwnership[] = [
     owners: ["infrastructure/mcp-server.ts"],
     why: "`taste mcp` hands the process's stdio to the MCP server, and only one module may do that. Any other CLI import of the MCP package can start a second server or print to the stdout it owns, which corrupts the protocol for the connected agent.",
   },
+  {
+    package: "@taste/review",
+    owners: ["infrastructure/review-app-server.ts"],
+    why: "`taste review` serves the built review UI in-process, and the lazy import keeps every other command from loading it. A second import site loads the whole UI bundle into commands that never serve it (the prompt hook has a 650 ms budget), or binds a second server with different headers.",
+  },
 ];
