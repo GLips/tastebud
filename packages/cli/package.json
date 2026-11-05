@@ -1,17 +1,18 @@
 {
-  "name": "@taste/cli",
+  "name": "@tastebud/cli",
   "private": true,
+  "license": "MIT",
   "bin": {
-    "taste": "src/main.ts"
+    "tastebud": "src/main.ts"
   },
   "type": "module",
   "imports": {
     "#cli/*": "./src/*"
   },
   "dependencies": {
-    "@taste/core": "workspace:*",
-    "@taste/mcp": "workspace:*",
-    "@taste/review": "workspace:*",
+    "@tastebud/core": "workspace:*",
+    "@tastebud/mcp": "workspace:*",
+    "@tastebud/review": "workspace:*",
     "effect": "4.0.5"
   }
 }

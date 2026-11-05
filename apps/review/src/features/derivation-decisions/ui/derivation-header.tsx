@@ -1,9 +1,9 @@
 /** The top of the derivation page: what it says and who proposed it, where it applies, and its evidence. */
 import { Box, CopyButton, Group, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { CatalogView, DerivedKindView } from "@taste/core/kind-catalog";
-import type { DerivationView } from "@taste/core/record-views";
-import { shortIdOf } from "@taste/core/taste-vocabulary";
+import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { DerivationView } from "@tastebud/core/record-views";
+import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 

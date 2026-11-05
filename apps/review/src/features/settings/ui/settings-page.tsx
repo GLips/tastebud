@@ -17,8 +17,8 @@ import {
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import type { DerivedKindView } from "@taste/core/kind-catalog";
-import type { RecallPolicy } from "@taste/core/taste-vocabulary";
+import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Check, ChevronRight, Copy } from "lucide-react";
 import { useState } from "react";
 
@@ -70,7 +70,7 @@ function CopyableSnippet({ code, label }: { code: string; label: string }) {
   );
 }
 
-const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "taste", pull: "cyan", never: "gray" };
+const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
 function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   const catalog = useReviewCatalog();
@@ -148,7 +148,7 @@ const hookSnippetFor = (storeRoot: string) =>
     {
       hooks: {
         UserPromptSubmit: [
-          { hooks: [{ type: "command", command: `taste hook prompt --store ${shellQuotedPath(storeRoot)}` }] },
+          { hooks: [{ type: "command", command: `tastebud hook prompt --store ${shellQuotedPath(storeRoot)}` }] },
         ],
       },
     },
@@ -158,7 +158,7 @@ const hookSnippetFor = (storeRoot: string) =>
 
 const mcpSnippetFor = (storeRoot: string) =>
   JSON.stringify(
-    { mcpServers: { taste: { command: "taste", args: ["mcp"], env: { TASTE_STORE: storeRoot } } } },
+    { mcpServers: { tastebud: { command: "tastebud", args: ["mcp"], env: { TASTEBUD_STORE: storeRoot } } } },
     null,
     2,
   );
@@ -178,8 +178,8 @@ export function SettingsPage() {
       <Stack gap="3xs">
         <Title order={3}>Settings</Title>
         <Text size="xs" c="dimmed">
-          Read-only. The config is code: ask an agent to run Taste's setup, or edit <code>taste.config.ts</code> in the
-          store. This page picks it up on save.
+          Read-only. The config is code: ask an agent to run Tastebud's setup, or edit <code>tastebud.config.ts</code>{" "}
+          in the store. This page picks it up on save.
         </Text>
       </Stack>
 
@@ -195,7 +195,7 @@ export function SettingsPage() {
           </FactRow>
           <FactRow label="Config">
             <Text fz="xs" {...stylex.props(styles.mono)}>
-              {storeRoot.replace(/\/+$/, "")}/taste.config.ts
+              {storeRoot.replace(/\/+$/, "")}/tastebud.config.ts
             </Text>
           </FactRow>
           <FactRow label="Resolver">
@@ -252,7 +252,7 @@ export function SettingsPage() {
           <Text size="sm">MCP server, in your MCP client's config</Text>
           <CopyableSnippet code={mcpSnippetFor(storeRoot)} label="MCP config" />
           <Text size="xs" c="dimmed">
-            Or with Claude Code: <code>claude mcp add taste --env TASTE_STORE={storeRoot} -- taste mcp</code>
+            Or with Claude Code: <code>claude mcp add tastebud --env TASTEBUD_STORE={storeRoot} -- tastebud mcp</code>
           </Text>
         </Stack>
       </Stack>

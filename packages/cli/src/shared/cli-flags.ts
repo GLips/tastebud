@@ -7,7 +7,7 @@ export const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDefault(false),
 );
 export const storeFlag = Flag.optional(Flag.String("store")).pipe(
-  Flag.withDescription("Store root (default: $TASTE_STORE, then ~/.taste)"),
+  Flag.withDescription("Store root (default: $TASTEBUD_STORE, then ~/.tastebud)"),
 );
 
 export const optionalTextFlag = (name: string, description: string) =>

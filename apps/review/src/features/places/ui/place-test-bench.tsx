@@ -5,8 +5,8 @@
 import { Box, ActionIcon, Button, Code, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import type { AuditPlacesResult } from "@taste/core/places-audit";
-import type { PlaceResolverName } from "@taste/core/taste-vocabulary";
+import type { AuditPlacesResult } from "@tastebud/core/places-audit";
+import type { PlaceResolverName } from "@tastebud/core/taste-vocabulary";
 import { ArrowRight, LocateFixed, Plus, X } from "lucide-react";
 import { useState } from "react";
 
@@ -30,7 +30,7 @@ const styles = stylex.create({
 const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
   git: "a repo place from the origin remote and the subdirectory, else the directory itself",
   directories: "always the working directory",
-  custom: "a function in taste.config.ts",
+  custom: "a function in tastebud.config.ts",
 };
 
 /** "Where am I?": one directory through the configured resolver, without touching the probes. */
@@ -159,7 +159,7 @@ export function PlaceTestBench({
             </Text>
           </Tooltip>
           {probes.length > 0 && audit !== undefined && (
-            <Text size="xs" c={unmatchedCount > 0 ? "orange.8" : "taste.8"}>
+            <Text size="xs" c={unmatchedCount > 0 ? "orange.8" : "tastebud.8"}>
               {unmatchedCount === 0
                 ? `Every accepted scope place is matched by ${probes.length === 1 ? "this probe" : `these ${probes.length} probes`}`
                 : `${unmatchedCount} ${unmatchedCount === 1 ? "place" : "places"} unmatched by ${probes.length === 1 ? "this probe" : `these ${probes.length} probes`}`}

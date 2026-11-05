@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 
 // The logo's green, as a Mantine ramp: shade 6 is the mark itself (#3BB273).
-const tasteGreen: MantineColorsTuple = [
+const tastebudGreen: MantineColorsTuple = [
   "#e9f8f0",
   "#d6efe2",
   "#aedcc4",
@@ -54,7 +54,7 @@ const reviewFontSizes = {
  * 3px rings: one marks the selected Inbox card, one a thread listener that is live.
  */
 const reviewShadows = {
-  selectedCard: "0 0 0 3px var(--mantine-color-taste-1)",
+  selectedCard: "0 0 0 3px var(--mantine-color-tastebud-1)",
   listeningDot: "0 0 0 3px var(--mantine-color-teal-1)",
 };
 
@@ -62,9 +62,9 @@ const remScale = (scale: Readonly<Record<string, number>>): Record<string, strin
   Object.fromEntries(Object.entries(scale).map(([name, px]) => [name, rem(px)]));
 
 /** A quiet, light reviewing tool: neutral ground, the logo's green as the one accent, colour reserved for state. */
-export const tasteMantineTheme = createTheme({
-  primaryColor: "taste",
-  colors: { taste: tasteGreen },
+export const tastebudMantineTheme = createTheme({
+  primaryColor: "tastebud",
+  colors: { tastebud: tastebudGreen },
   primaryShade: { light: 7, dark: 5 },
   spacing: remScale(spacing),
   radius: remScale(radius),

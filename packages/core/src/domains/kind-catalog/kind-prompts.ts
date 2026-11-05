@@ -1,7 +1,7 @@
 /**
- * The shipped instruction for the built-in `belief` kind. `taste catalog` hands it to agents, so it is
+ * The shipped instruction for the built-in `belief` kind. `tastebud catalog` hands it to agents, so it is
  * written to be followed as-is. It spells inputs as CLI flags; the catalog's text tells MCP callers
- * how those map to `taste_propose` fields.
+ * how those map to `tastebud_propose` fields.
  */
 export const BELIEF_PROPOSAL_PROMPT = `Propose a belief when the owner's own words show a durable preference or judgment: how they like work done, or what they hold true about their world. A belief is one line a future agent can act on. It counts only once the owner accepts it in the review UI; you never decide.
 
@@ -13,7 +13,7 @@ When to propose
 Something you noticed mid-task is allowed, but wait for a second instance unless the owner stated it outright.
 
 Before proposing
-- Recall first: taste recall "<topic>". If an accepted belief already covers it, don't propose.
+- Recall first: tastebud recall "<topic>". If an accepted belief already covers it, don't propose.
 - If a rejected belief matches, read its reason. The default is to drop the idea.
 - A rejection is not its opposite. "Rejected: use Tailwind everywhere" does not mean "never use Tailwind".
 

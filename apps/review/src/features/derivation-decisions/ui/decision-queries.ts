@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import type { DerivationScope } from "@taste/core/places";
+import type { DerivationScope } from "@tastebud/core/places";
 
 import { REVIEW_POLL_MS, REVIEW_QUERY_KEYS } from "#review/shared/query-keys.ts";
 import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";

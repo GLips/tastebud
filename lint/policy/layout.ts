@@ -350,7 +350,7 @@ export type TreeVocabulary = {
   /**
    * True when EVERY file in the tree runs on the server: a CLI or a stdio
    * server has no browser bundle, so position cannot be what says so.
-   * `isServerContext` reads it. A Taste addition to the catalog vocabulary.
+   * `isServerContext` reads it. A Tastebud addition to the catalog vocabulary.
    */
   serverOnly: boolean;
 };

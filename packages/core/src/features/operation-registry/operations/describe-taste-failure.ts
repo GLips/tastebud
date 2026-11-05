@@ -20,7 +20,7 @@ const EXIT_CODE_BY_CATEGORY: Record<TasteFailureCategory, number> = { broken: 1,
 const categoryOf = (error: TasteError): TasteFailureCategory =>
   Match.valueTags<TasteError, Record<TasteError["_tag"], () => TasteFailureCategory>>(error, {
     StoreNotInitialised: () => "input",
-    StaleTasteConfig: () => "conflict",
+    StaleTastebudConfig: () => "conflict",
     StoreNotEmpty: () => "conflict",
     InvalidConfig: () => "broken",
     InvalidTasteInput: () => "input",

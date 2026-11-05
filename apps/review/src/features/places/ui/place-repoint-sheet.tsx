@@ -5,7 +5,7 @@
 import { Alert, Anchor, Button, Drawer, Group, Loader, Stack, Text, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { canonicalPlaceKey, type PlaceKey } from "@taste/core/places";
+import { canonicalPlaceKey, type PlaceKey } from "@tastebud/core/places";
 import { Result } from "effect";
 import { FolderSearch } from "lucide-react";
 import { useState } from "react";
@@ -190,7 +190,7 @@ export function PlaceRepointSheet({
           />
           {target !== undefined && (
             <Group gap="xs">
-              <PlaceChip place={target} label={known.labelOf(target)} color="taste" linked={false} />
+              <PlaceChip place={target} label={known.labelOf(target)} color="tastebud" linked={false} />
               <PlaceKeyCopy place={target} />
             </Group>
           )}
@@ -280,7 +280,7 @@ export function PlaceRepointSheet({
         )}
         {result !== undefined ? (
           <Alert
-            color="taste"
+            color="tastebud"
             variant="light"
             title={
               result.proposals.length === 1

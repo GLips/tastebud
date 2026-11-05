@@ -1,4 +1,4 @@
-import type { PlaceKey } from "@taste/core/places";
+import type { PlaceKey } from "@tastebud/core/places";
 
 /** Every place in use with its short label; named here so shared/ui and every feature can take it as a prop. */
 export interface KnownPlaces {

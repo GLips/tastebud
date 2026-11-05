@@ -4,16 +4,16 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runTasteOperation } from "@taste/core/operations";
-import { UNKNOWN_TASTE_CONTEXT } from "@taste/core/places";
-import { provideTasteStore } from "@taste/core/record-store";
+import { runTasteOperation } from "@tastebud/core/operations";
+import { UNKNOWN_TASTE_CONTEXT } from "@tastebud/core/places";
+import { provideTasteStore } from "@tastebud/core/record-store";
 import { Effect } from "effect";
 
-import { TASTE_COMMAND_LINE } from "./support.ts";
+import { TASTEBUD_COMMAND_LINE } from "./support.ts";
 
 test("the demo seed covers every status with a history that runs forward from evidence to decision", async () => {
-  const root = join(mkdtempSync(join(tmpdir(), "taste-seed-")), "store");
-  const seeded = Bun.spawnSync([...TASTE_COMMAND_LINE, "seed", "--store", root], { stdout: "pipe", stderr: "pipe" });
+  const root = join(mkdtempSync(join(tmpdir(), "tastebud-seed-")), "store");
+  const seeded = Bun.spawnSync([...TASTEBUD_COMMAND_LINE, "seed", "--store", root], { stdout: "pipe", stderr: "pipe" });
   expect(seeded.stderr.toString()).toBe("");
   expect(seeded.exitCode).toBe(0);
 

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DecisionOutcome } from "@taste/core/taste-vocabulary";
+import type { DecisionOutcome } from "@tastebud/core/taste-vocabulary";
 import { useState } from "react";
 
 import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";

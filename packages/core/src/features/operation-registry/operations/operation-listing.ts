@@ -24,4 +24,4 @@ export const listTasteOperations = (audience: TasteOperationAudience): ReadonlyA
   Object.values(TASTE_OPERATIONS).filter((operation) => operation.audience === audience);
 
 /** MCP's tool name for an operation. */
-export const mcpToolNameOf = (name: TasteOperationName): string => `taste_${name.replaceAll("-", "_")}`;
+export const mcpToolNameOf = (name: TasteOperationName): string => `tastebud_${name.replaceAll("-", "_")}`;

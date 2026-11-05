@@ -3,7 +3,7 @@ node_modules/
 .agent_cache/
 dist/
 .DS_Store
-/.taste/
+/.tastebud/
 demo-store/
 *.demo-store/
 *.bun-build

@@ -11,7 +11,7 @@
     "docs/**",
     "lint/policy/**",
     "lint/oxlint/*/**",
-    "!lint/oxlint/taste/**",
+    "!lint/oxlint/tastebud/**",
     "lint/structural/*/**",
     "lint/structural/*.ts",
     "!lint/structural/arch.config.ts",

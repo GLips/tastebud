@@ -1,7 +1,7 @@
 /** The recall inspector's right column: the exact payload the prompt hook would print, or why it stays silent. */
 import { Alert, Badge, Code, Group, Paper, SegmentedControl, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { HookPayload } from "@taste/core/recall";
+import type { HookPayload } from "@tastebud/core/recall";
 import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";

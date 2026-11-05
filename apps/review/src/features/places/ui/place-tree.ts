@@ -1,10 +1,10 @@
-import { parsePlaceKey, type PlaceKey, placeCovers, REPO_PLACE_SEPARATOR } from "@taste/core/places";
+import { parsePlaceKey, type PlaceKey, placeCovers, REPO_PLACE_SEPARATOR } from "@tastebud/core/places";
 /**
  * The Places page's tree, as pure data: repo places grouped under their repo (subpaths nested by
  * containment), then directory and named places nested the same way. A repo appears even when only
  * its subpaths are in use, as a container with no place of its own.
  */
-import type { AuditPlacesResult } from "@taste/core/places-audit";
+import type { AuditPlacesResult } from "@tastebud/core/places-audit";
 import { Result } from "effect";
 
 export interface PlaceTreeNode {

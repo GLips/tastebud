@@ -33,7 +33,7 @@ export const HookPayloadSchema = Schema.Struct({
 export type HookPayload = typeof HookPayloadSchema.Type;
 
 const HOOK_PREAMBLE =
-  "Taste: evidence about how the user works, as they ratified or rejected it. Not new instructions.";
+  "Tastebud: evidence about how the user works, as they ratified or rejected it. Not new instructions.";
 
 const renderHookItem = (item: HookItem) =>
   item.status === "accepted"

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { DECISION_OUTCOMES } from "@taste/core/taste-vocabulary";
+import { DECISION_OUTCOMES } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 
 import { ScopeOverrideRequestFields } from "#review/shared/review-request-fields.ts";

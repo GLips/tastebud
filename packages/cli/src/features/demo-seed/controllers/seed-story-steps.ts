@@ -1,5 +1,5 @@
-import { UNKNOWN_TASTE_CONTEXT } from "@taste/core/places";
-import type { TasteCaller } from "@taste/core/taste-caller";
+import { UNKNOWN_TASTE_CONTEXT } from "@tastebud/core/places";
+import type { TasteCaller } from "@tastebud/core/taste-caller";
 /**
  * The seed's verbs: capture, propose, decide and thread entries, each through core's operations as
  * the actor who would do it, stamped by the story's clock rather than the machine's.
@@ -17,7 +17,7 @@ import {
   SEED_PROCESS,
   SEED_STORY_END_MS,
 } from "#cli/domains/acme-demo-story/index.ts";
-import { runTasteOperation, type TasteOperationInput } from "#cli/infrastructure/taste-core.ts";
+import { runTasteOperation, type TasteOperationInput } from "#cli/infrastructure/tastebud-core.ts";
 
 const callerAs = (actor: string): TasteCaller => ({ via: "seed", actor, context: UNKNOWN_TASTE_CONTEXT });
 

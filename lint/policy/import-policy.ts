@@ -399,8 +399,8 @@ export function importSurfaceFor(profile: SourceProfile, area: TargetArea): Impo
  * per-package spelling, on purpose, because a per-package list is how the
  * exception grows until the layer stops being a domain layer.
  */
-// Taste: `"package"` added because every domain is written in Effect Schema/Match.
-// `taste/domain-runtime-packages` narrows it back to pure `effect` specifiers.
+// Tastebud: `"package"` added because every domain is written in Effect Schema/Match.
+// `tastebud/domain-runtime-packages` narrows it back to pure `effect` specifiers.
 const DOMAIN_RUNTIME_AREAS: readonly TargetArea[] = ["domain", "shared", "package"];
 
 /** The profile the flag above governs. */

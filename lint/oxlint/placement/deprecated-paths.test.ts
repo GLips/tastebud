@@ -10,18 +10,18 @@ describeRule("placement/deprecated-paths", deprecatedPathsRule, {
     {
       name: "a shell importing the core root barrel that no longer exists",
       filename: CLI_CONTROLLER,
-      code: `import { runTasteOperation } from "@taste/core";`,
+      code: `import { runTasteOperation } from "@tastebud/core";`,
       errors: [
         {
           message:
-            "The @taste/core root export no longer exists. Import a pure domain subpath (@taste/core/<domain>), or a feature subpath through this shell's #cli/infrastructure/taste-core door.",
+            "The @tastebud/core root export no longer exists. Import a pure domain subpath (@tastebud/core/<domain>), or a feature subpath through this shell's #cli/infrastructure/tastebud-core door.",
         },
       ],
     },
     {
       name: "a review component importing the renamed vocabulary subpath",
       filename: UI,
-      code: `import { kindLabel } from "@taste/core/vocabulary";`,
+      code: `import { kindLabel } from "@tastebud/core/vocabulary";`,
       errors: [{ messageId: "coreVocabularyRenamed" }],
     },
     {
@@ -36,13 +36,13 @@ describeRule("placement/deprecated-paths", deprecatedPathsRule, {
     {
       name: "a type-only import of the root barrel still points at an export that will not resolve",
       filename: UI,
-      code: `import type { TasteRecord } from "@taste/core";`,
+      code: `import type { TasteRecord } from "@tastebud/core";`,
       errors: [{ messageId: "coreRootBarrelRemoved" }],
     },
     {
       name: "a dynamic import carries the dependency without an import declaration",
       filename: UI,
-      code: `export const load = async () => (await import("@taste/core/catalog-view")).catalogView;`,
+      code: `export const load = async () => (await import("@tastebud/core/catalog-view")).catalogView;`,
       errors: [{ messageId: "coreCatalogViewRenamed" }],
     },
     {
@@ -75,7 +75,7 @@ describeRule("placement/deprecated-paths", deprecatedPathsRule, {
     {
       name: "a pure domain subpath, which is what review may import",
       filename: UI,
-      code: `import { kindLabel } from "@taste/core/taste-vocabulary";`,
+      code: `import { kindLabel } from "@tastebud/core/taste-vocabulary";`,
     },
     {
       name: "a live module whose name merely starts with a removed one",
@@ -90,7 +90,7 @@ describeRule("placement/deprecated-paths", deprecatedPathsRule, {
     {
       name: "a package whose name merely starts with the core package",
       filename: CLI_CONTROLLER,
-      code: `import { x } from "@taste/core-legacy";`,
+      code: `import { x } from "@tastebud/core-legacy";`,
     },
     {
       name: "a relative specifier is deliberately unfenced — nothing resolves it to a project path",
@@ -100,12 +100,12 @@ describeRule("placement/deprecated-paths", deprecatedPathsRule, {
     {
       name: "a test may still reference a path under migration",
       filename: "/repo/apps/review/src/features/places/ui/places-page.test.tsx",
-      code: `import { kindLabel } from "@taste/core/vocabulary";`,
+      code: `import { kindLabel } from "@tastebud/core/vocabulary";`,
     },
     {
       name: "a one-off script sits outside the architecture contract",
       filename: "/repo/scripts/codemod-imports.ts",
-      code: `import { runTasteOperation } from "@taste/core";`,
+      code: `import { runTasteOperation } from "@tastebud/core";`,
     },
   ],
 });

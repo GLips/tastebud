@@ -64,9 +64,9 @@ describeRule("boundary/import-policy", importPolicyRule, {
       errors: [{ messageId: "deniedDirection" }],
     },
     {
-      name: "a shared helper reading the env, which carries TASTE_STORE and is server exposure",
+      name: "a shared helper reading the env, which carries TASTEBUD_STORE and is server exposure",
       filename: `${CORE}/shared/input-text.ts`,
-      code: `import { tasteStoreEnv } from "#core/env";`,
+      code: `import { tastebudStoreEnv } from "#core/env";`,
       errors: [{ messageId: "deniedDirection" }],
     },
     {
@@ -149,7 +149,7 @@ describeRule("boundary/import-policy", importPolicyRule, {
     {
       name: "a domain reaching the env at runtime, which the caller could have passed",
       filename: `${CORE}/domains/places/index.ts`,
-      code: `import { tasteStoreEnv } from "#core/env";`,
+      code: `import { tastebudStoreEnv } from "#core/env";`,
       errors: [{ messageId: "impureDomainRuntimeImport" }],
     },
     {
@@ -244,8 +244,8 @@ describeRule("boundary/import-policy", importPolicyRule, {
 
   legal: [
     {
-      // Taste widens DOMAIN_RUNTIME_AREAS by `package`; taste/domain-runtime-packages narrows it back.
-      name: "a domain importing effect at runtime, which Taste's domains are written in",
+      // Tastebud widens DOMAIN_RUNTIME_AREAS by `package`; tastebud/domain-runtime-packages narrows it back.
+      name: "a domain importing effect at runtime, which Tastebud's domains are written in",
       filename: `${CORE}/domains/records/record-schemas.ts`,
       code: `import { Schema } from "effect";`,
     },
@@ -305,7 +305,7 @@ describeRule("boundary/import-policy", importPolicyRule, {
     {
       name: "an operation taking the widest licence in the feature: adapter, env, domain, another server barrel",
       filename: `${CORE}/features/recall/operations/recall.ts`,
-      code: `import { openRecordIndex } from "#core/infrastructure/record-index/record-index";\nimport { tasteStoreEnv } from "#core/env";\nimport { placeKeysFor } from "#core/domains/places";\nimport { TasteStore } from "#core/features/record-store/index.server";`,
+      code: `import { openRecordIndex } from "#core/infrastructure/record-index/record-index";\nimport { tastebudStoreEnv } from "#core/env";\nimport { placeKeysFor } from "#core/domains/places";\nimport { TasteStore } from "#core/features/record-store/index.server";`,
     },
     {
       name: "a feature reaching its own internals by its own alias is inside the feature",

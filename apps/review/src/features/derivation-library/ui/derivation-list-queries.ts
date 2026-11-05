@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import type { DerivationStatus } from "@taste/core/taste-vocabulary";
+import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 import { REVIEW_POLL_MS, REVIEW_QUERY_KEYS } from "#review/shared/query-keys.ts";
 import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";

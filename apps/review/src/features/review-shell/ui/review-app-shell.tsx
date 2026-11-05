@@ -35,7 +35,7 @@ const styles = stylex.create({
     gap: "6px",
     ":hover": { backgroundColor: "var(--mantine-color-gray-1)" },
   },
-  navActive: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
+  navActive: { backgroundColor: "var(--mantine-color-tastebud-0)", color: "var(--mantine-color-tastebud-9)" },
   divider: { width: "1px", height: "16px", backgroundColor: "var(--mantine-color-gray-2)", marginInline: "4px" },
   who: { display: "flex", alignItems: "center", gap: "5px", cursor: "default" },
   main: { paddingBlock: "20px" },
@@ -43,7 +43,7 @@ const styles = stylex.create({
 
 // TanStack's `activeProps` styles the current tab; StyleX can't express "this link is active", so this is inline.
 const ACTIVE_NAV = {
-  style: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
+  style: { backgroundColor: "var(--mantine-color-tastebud-0)", color: "var(--mantine-color-tastebud-9)" },
 };
 
 /** Past this many derived kinds the header folds them into one Library menu. */
@@ -130,7 +130,7 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
           <Group justify="space-between" wrap="nowrap" {...stylex.props(styles.bar)}>
             <Group gap="lg" wrap="nowrap">
               <Link to="/" {...stylex.props(styles.brand)}>
-                <Box component="img" src="/brand/lockup.svg" alt="taste" {...stylex.props(styles.lockup)} />
+                <Box component="img" src="/brand/lockup.svg" alt="tastebud" {...stylex.props(styles.lockup)} />
               </Link>
               <Group gap="3xs" wrap="nowrap" fz="sm">
                 <Link to="/" {...stylex.props(styles.navLink)} activeOptions={{ exact: true }} activeProps={ACTIVE_NAV}>
@@ -168,7 +168,7 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
                   variant="subtle"
                   color="gray"
                   aria-label="Settings"
-                  activeProps={{ "data-active": true, style: { color: "var(--mantine-color-taste-9)" } }}
+                  activeProps={{ "data-active": true, style: { color: "var(--mantine-color-tastebud-9)" } }}
                 >
                   <Settings size={16} />
                 </ActionIcon>

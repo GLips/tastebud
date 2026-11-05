@@ -1,10 +1,10 @@
 import { Match } from "effect";
 import { CliError } from "effect/cli";
 
-import { describeTasteFailure, type TasteError } from "#cli/infrastructure/taste-core.ts";
+import { describeTasteFailure, type TasteError } from "#cli/infrastructure/tastebud-core.ts";
 import { writeStderr, writeStdout } from "#cli/infrastructure/terminal.ts";
 
-/** How a command ended badly: a typed failure, or a defect (a bug in Taste). */
+/** How a command ended badly: a typed failure, or a defect (a bug in Tastebud). */
 export type CliFailure =
   | { readonly _tag: "Fail"; readonly error: TasteError | CliError.CliError }
   | { readonly _tag: "Die"; readonly defect: unknown };
@@ -19,7 +19,7 @@ const cliErrorExitCode = (error: CliError.CliError) =>
 const reportTasteError = (error: TasteError, json: boolean) => {
   const { envelope, exitCode } = describeTasteFailure(error, "cli");
   if (json) writeStdout(`${JSON.stringify({ error: envelope }, null, 2)}\n`);
-  else writeStderr(`taste: ${envelope.sentence}\n`);
+  else writeStderr(`tastebud: ${envelope.sentence}\n`);
   return exitCode;
 };
 

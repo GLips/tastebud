@@ -10,37 +10,37 @@ An SDK is imported only by its owner module (`lint/policy/package-owners.ts`, ch
 | `bun:sqlite` | `packages/core/src/infrastructure/record-index/` |
 | `yaml` | `packages/core/src/infrastructure/frontmatter-codec.ts` |
 | `@modelcontextprotocol/server` (and `/stdio`) | `packages/mcp/src/infrastructure/mcp-sdk.ts` |
-| `@taste/mcp` | `packages/cli/src/infrastructure/mcp-server.ts` |
-| `@taste/review` | `packages/cli/src/infrastructure/review-app-server.ts` |
+| `@tastebud/mcp` | `packages/cli/src/infrastructure/mcp-server.ts` |
+| `@tastebud/review` | `packages/cli/src/infrastructure/review-app-server.ts` |
 | `@mantine/core` `Textarea` | `apps/review/src/shared/ui/textarea.tsx` |
 
 `effect`, React, TanStack, StyleX, Mantine (except `Textarea`) and `lucide-react` are the framework and are
 unconstrained, except where the rules below fence them.
 
-IO is the infrastructure layer's job in every tree. `taste/io-only-in-infrastructure` bans `node:fs`,
+IO is the infrastructure layer's job in every tree. `tastebud/io-only-in-infrastructure` bans `node:fs`,
 `node:child_process`, `node:os`, `node:crypto`, `bun:sqlite`, `Bun.spawn`/`file`/`write`/`stdin` and the
-`process` streams, exit and argv outside `infrastructure/`. `taste/no-ambient-nondeterminism` bans
+`process` streams, exit and argv outside `infrastructure/`. `tastebud/no-ambient-nondeterminism` bans
 `Date.now()`, bare `new Date()`, `Math.random()` and random ids in domains, shared and feature layers; time
 comes from Effect `Clock`, ids from `infrastructure/record-ids.ts`. `process.env` is touched only in core's `env.ts`.
 
 ## The core door
 
-`@taste/core` has no root export. Shells import:
+`@tastebud/core` has no root export. Shells import:
 
-- `@taste/core/<domain>` (`places`, `kind-catalog`, `record-views`, …): pure and client-safe, importable anywhere.
-- `@taste/core/operations`, `@taste/core/host` and feature subpaths: server code.
+- `@tastebud/core/<domain>` (`places`, `kind-catalog`, `record-views`, …): pure and client-safe, importable anywhere.
+- `@tastebud/core/operations`, `@tastebud/core/host` and feature subpaths: server code.
 
-`taste/core-server-door` allows a runtime import of a non-domain subpath in exactly one file per shell:
-`infrastructure/taste-core.ts` in cli and mcp, `infrastructure/taste-core.server.ts` in review. In review, only
+`tastebud/core-server-door` allows a runtime import of a non-domain subpath in exactly one file per shell:
+`infrastructure/tastebud-core.ts` in cli and mcp, `infrastructure/tastebud-core.server.ts` in review. In review, only
 `features/*/repo/*.server.ts` may import that door. Type-only imports, which erase, are free.
 
-`taste/domain-runtime-packages` keeps core `domains/` and `shared/` to pure `effect` specifiers (root modules,
+`tastebud/domain-runtime-packages` keeps core `domains/` and `shared/` to pure `effect` specifiers (root modules,
 `effect/schema`, `effect/encoding`) and other domain subpaths, since domains reach the browser through their barrels.
 
 ## Between trees
 
 A package imports another by its name, never by path: the global `no-restricted-imports` bans
-`**/packages/*/src/**` and `**/apps/*/src/**`, and `taste/relative-imports-stay-in-tree` rejects a relative
+`**/packages/*/src/**` and `**/apps/*/src/**`, and `tastebud/relative-imports-stay-in-tree` rejects a relative
 specifier that resolves outside its tree. Each package typechecks alone and installs are isolated, so a
 missing dependency fails there too. Inside a tree, cross-directory imports use the alias (`#review/shared/…`);
 relative imports stay within a directory.

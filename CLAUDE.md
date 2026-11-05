@@ -2,9 +2,9 @@
 
 ## Rules
 
-`bun run check` is the gate: every package's typecheck, oxlint (catalog plus the `taste` plugin), the rule
+`bun run check` is the gate: every package's typecheck, oxlint (catalog plus the `tastebud` plugin), the rule
 specs (`check:rules`), the structural checks (`check:structural`), knip, oxfmt and `bun test`. It runs every
-step and reports all failures. Fix the code, not the rule; a rule that is wrong for Taste is a decision for
+step and reports all failures. Fix the code, not the rule; a rule that is wrong for Tastebud is a decision for
 Graham ([decisions](docs/architecture/decisions.md)).
 
 **Four trees**, declared in `lint/policy/declared-trees.ts`, each with an import alias:
@@ -20,9 +20,9 @@ Graham ([decisions](docs/architecture/decisions.md)).
 - CLI commands: `cli-operations` controllers. MCP tools come from the registry.
 - Review: `features/<f>/ui → controllers → service → repo` ([how-to](docs/architecture/how-to/new-review-feature.md)).
 
-**The core door** ([boundaries](docs/architecture/boundaries.md)): shells import pure `@taste/core/<domain>`
+**The core door** ([boundaries](docs/architecture/boundaries.md)): shells import pure `@tastebud/core/<domain>`
 subpaths anywhere. Non-domain subpaths (`operations`, `host`, features) are imported at runtime only in
-`infrastructure/taste-core.ts` (cli, mcp) or `infrastructure/taste-core.server.ts` (review), and in review only
+`infrastructure/tastebud-core.ts` (cli, mcp) or `infrastructure/tastebud-core.server.ts` (review), and in review only
 `repo/*.server.ts` imports that door ([server and client](docs/architecture/server-client-boundaries.md)).
 
 **Barrels and grants:** a feature exposes `index.server.ts` (and `index.ts` if client-safe) with named
@@ -32,7 +32,7 @@ exports. Importing another feature's barrel needs a reason in its `visibility.js
 raises them, all in the `TasteError` union, shown only through `describeTasteFailure`. Match tags with
 `Match`/`catchTag`, never `_tag` comparisons or `instanceof`.
 
-**Environment:** `TASTE_STORE` is the only variable, read only in core `env.ts`.
+**Environment:** `TASTEBUD_STORE` is the only variable, read only in core `env.ts`.
 
 **Effect:** exported controllers and operations are `Effect.fn("<feature>.<export>")`. Decode outside data
 with Schema at the boundary; no `as` casts.

@@ -5,7 +5,7 @@
 import { Box, ActionIcon, Button, Group, Kbd, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { canonicalPlaceKey, type DerivationScope, type PlaceKey, scopePlacesOf } from "@taste/core/places";
+import { canonicalPlaceKey, type DerivationScope, type PlaceKey, scopePlacesOf } from "@tastebud/core/places";
 import { Result } from "effect";
 import { ArrowRight, Globe, MapPin, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useState } from "react";

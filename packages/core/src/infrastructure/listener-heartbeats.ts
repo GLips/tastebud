@@ -1,5 +1,5 @@
 /**
- * Listener cursors: one JSON file per `taste review listen --as <name>` under `.index/listeners/`,
+ * Listener cursors: one JSON file per `tastebud review listen --as <name>` under `.index/listeners/`,
  * holding what it has printed and its last heartbeat. `.index/` is disposable, so a missing or
  * unreadable cursor just starts over. Heartbeats run on wall time, never Effect's `Clock`.
  */

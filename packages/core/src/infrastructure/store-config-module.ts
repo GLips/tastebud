@@ -1,5 +1,5 @@
 /**
- * A store's `taste.config.ts` on disk: importing the module bundled with its relative imports, importing a
+ * A store's `tastebud.config.ts` on disk: importing the module bundled with its relative imports, importing a
  * candidate text the same way, and replacing the file atomically.
  */
 import { createHash } from "node:crypto";
@@ -43,10 +43,10 @@ export const hashStoreConfigText = (text: string) => createHash("sha256").update
 const loadFailure = (path: string) => (cause: unknown) =>
   new InvalidConfig({ path, problems: [`it failed to load: ${String(cause)}`] });
 
-/** A fresh sibling name for a config copy. Warning: the review's `vite.config.ts` ignores `.taste.config.*.ts`. */
+/** A fresh sibling name for a config copy. Warning: the review's `vite.config.ts` ignores `.tastebud.config.*.ts`. */
 const configCopyPath = (directory: string) => {
   importedCopies += 1;
-  return join(directory, `.taste.config.${process.pid}.${Date.now()}.${importedCopies}.ts`);
+  return join(directory, `.tastebud.config.${process.pid}.${Date.now()}.${importedCopies}.ts`);
 };
 
 const mtimeOf = (path: string) => statSync(path, { throwIfNoEntry: false })?.mtimeMs;

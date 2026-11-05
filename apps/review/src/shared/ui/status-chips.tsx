@@ -1,6 +1,6 @@
 import { Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DerivationStatus } from "@taste/core/taste-vocabulary";
+import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 const STATUS_COLORS: Record<DerivationStatus, string> = {
   pending: "blue",

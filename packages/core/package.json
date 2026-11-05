@@ -1,6 +1,7 @@
 {
-  "name": "@taste/core",
+  "name": "@tastebud/core",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "imports": {
     "#core/*": "./src/*"

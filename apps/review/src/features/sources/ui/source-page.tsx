@@ -15,7 +15,7 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { shortIdOf } from "@taste/core/taste-vocabulary";
+import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";

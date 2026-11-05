@@ -16,7 +16,7 @@ import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { DERIVATION_STATUSES, type DerivationStatus, DerivationStatusSchema } from "@taste/core/taste-vocabulary";
+import { DERIVATION_STATUSES, type DerivationStatus, DerivationStatusSchema } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 import { CornerDownRight, MessageSquare, Search } from "lucide-react";
 import { useState } from "react";
@@ -96,7 +96,7 @@ export function KindLibraryPage() {
           </Group>
           <Text size="xs" c="dimmed">
             {kind === undefined
-              ? "This kind is no longer in taste.config.ts; its records are read-only."
+              ? "This kind is no longer in tastebud.config.ts; its records are read-only."
               : [kind.description, describeKindDelivery(kind)].filter(Boolean).join(" ")}
           </Text>
         </Stack>

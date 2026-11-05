@@ -1,5 +1,5 @@
 /**
- * Writes `apps/review/dist/review-bundle.ts`, the module `@taste/review/bundle` names: every built client file
+ * Writes `apps/review/dist/review-bundle.ts`, the module `@tastebud/review/bundle` names: every built client file
  * imported `with { type: "file" }` (a path in dist/ from source, an embedded `$bunfs` file in a compiled binary)
  * and the server entry's `fetch`. Runs after `vite build`; apps/review/review-bundle.d.ts declares its shape.
  */

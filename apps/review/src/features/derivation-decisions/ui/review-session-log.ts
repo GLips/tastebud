@@ -3,8 +3,8 @@
  * append-only, so the list links to each one instead of offering to take it back. Kept in
  * sessionStorage so it survives moving between screens and a reload.
  */
-import { DerivationScopeSchema } from "@taste/core/places";
-import { DecisionOutcomeSchema } from "@taste/core/taste-vocabulary";
+import { DerivationScopeSchema } from "@tastebud/core/places";
+import { DecisionOutcomeSchema } from "@tastebud/core/taste-vocabulary";
 import { Option, Schema } from "effect";
 import { useSyncExternalStore } from "react";
 
@@ -25,7 +25,7 @@ const decodeStoredSession = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(ReviewSessionDecisionSchema)),
 );
 
-const STORAGE_KEY = "taste.review.session";
+const STORAGE_KEY = "tastebud.review.session";
 const listeners = new Set<() => void>();
 let cached: ReadonlyArray<ReviewSessionDecision> | undefined;
 

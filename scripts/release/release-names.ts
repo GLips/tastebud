@@ -1,14 +1,14 @@
 /**
- * The names a release is published under. `@taste-placeholder/taste` is a valid npm name, so packing and
- * installing work offline; nothing publishes until Graham picks the real one (`taste` and `taste-cli` are taken).
+ * The names a release is published under. Platform packages are `${TASTEBUD_NPM_PACKAGE_NAME}-<os>-<arch>`
+ * (`tastebud-darwin-arm64`, …), derived where they are written and resolved.
  */
-export const TASTE_NPM_PACKAGE_NAME = "@taste-placeholder/taste";
+export const TASTEBUD_NPM_PACKAGE_NAME = "tastebud";
 
 /** The GitHub repo whose releases hold the binaries; install.sh and the launcher's hint point at it. */
-export const TASTE_RELEASE_REPO = "GLips/taste";
+export const TASTEBUD_RELEASE_REPO = "GLips/tastebud";
 
 /** Every platform a release ships, as `bun build --compile --target` spells it. */
-export const TASTE_RELEASE_TARGETS: ReadonlyArray<string> = [
+export const TASTEBUD_RELEASE_TARGETS: ReadonlyArray<string> = [
   "bun-darwin-arm64",
   "bun-darwin-x64",
   "bun-linux-x64",

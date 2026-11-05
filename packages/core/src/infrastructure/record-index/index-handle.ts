@@ -15,7 +15,7 @@ export const openIndexHandle = (root: string): IndexHandle => {
 };
 
 /**
- * The handle to use now. A long-lived process (`taste review listen`) keeps one connection; if
+ * The handle to use now. A long-lived process (`tastebud review listen`) keeps one connection; if
  * someone deletes `.index/`, it points at an unlinked file and SQLite fails with "disk I/O error".
  */
 export const reopenIndexIfReplaced = (root: string, handle: IndexHandle): IndexHandle => {

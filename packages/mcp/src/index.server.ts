@@ -1,1 +1,1 @@
-export { serveTasteMcpOverStdio } from "#mcp/routes/mcp-server.ts";
+export { serveTastebudMcpOverStdio } from "#mcp/routes/mcp-server.ts";

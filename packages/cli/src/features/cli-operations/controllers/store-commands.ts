@@ -1,4 +1,4 @@
-/** `taste reindex`. */
+/** `tastebud reindex`. */
 import { Command } from "effect/cli";
 
 import { jsonFlag, storeFlag } from "#cli/shared/cli-flags.ts";

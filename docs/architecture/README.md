@@ -1,6 +1,6 @@
 # Architecture docs
 
-Taste's layout is enforced by `bun run check` (oxlint plugins plus `lint/structural`). These docs explain the
+Tastebud's layout is enforced by `bun run check` (oxlint plugins plus `lint/structural`). These docs explain the
 shape the checks hold; when a doc and a check disagree, the check is the system.
 
 | Read when | Doc |

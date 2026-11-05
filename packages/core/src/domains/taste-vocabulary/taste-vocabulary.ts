@@ -1,5 +1,5 @@
 /**
- * Taste's closed vocabularies, in one browser-safe module. Core, every shell and the review UI derive
+ * Tastebud's closed vocabularies, in one browser-safe module. Core, every shell and the review UI derive
  * from these; importProtection keeps the rest of core out of the browser, so anything the UI needs
  * at runtime lives in `src/shared`, which core exports as subpaths.
  */

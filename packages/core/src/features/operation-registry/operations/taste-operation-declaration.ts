@@ -20,7 +20,7 @@ export type TasteServices = TasteStore | TasteStoreRoot;
 
 /** `agent` operations are on the CLI and MCP; `human` ones only behind the review server and the seed. */
 export type TasteOperationAudience = "agent" | "human";
-/** A query only reads; a command appends records (or rebuilds the index); an overwrite replaces `taste.config.ts`. */
+/** A query only reads; a command appends records (or rebuilds the index); an overwrite replaces `tastebud.config.ts`. */
 export type TasteOperationKind = "query" | "command" | "overwrite";
 
 /** An operation's input is a struct, so its encoded form is an object a JSON schema can describe. */
@@ -44,7 +44,7 @@ export interface TasteOperationDeclaration<
   E extends TasteError,
   R extends TasteServices,
 > {
-  /** CLI `taste <name>`; MCP tool `taste_<name>` with `-` as `_`. */
+  /** CLI `tastebud <name>`; MCP tool `tastebud_<name>` with `-` as `_`. */
   readonly name: Name;
   readonly audience: TasteOperationAudience;
   readonly kind: TasteOperationKind;

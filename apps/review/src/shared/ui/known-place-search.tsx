@@ -5,7 +5,7 @@
  */
 import { Autocomplete, type AutocompleteProps, Group, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { PlaceKey } from "@taste/core/places";
+import type { PlaceKey } from "@tastebud/core/places";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 

@@ -18,7 +18,7 @@ An adapter is the one module that talks to an SDK, a file format, a process or t
 6. **Time and randomness.** Read the clock through Effect `Clock` and ids through `record-ids.ts`, so tests
    control both.
 7. **Browser.** If review code runs it in the browser, it must be listed in
-   `CLIENT_SAFE_INFRASTRUCTURE`; otherwise it stays behind `taste-core.server.ts`.
+   `CLIENT_SAFE_INFRASTRUCTURE`; otherwise it stays behind `tastebud-core.server.ts`.
 8. **Inject it.** Features yield the adapter's service or call its functions. Tests use a real scratch store;
    mock only at the network or clock boundary.
 

@@ -1,4 +1,4 @@
-import { DERIVATION_STATUSES } from "@taste/core/taste-vocabulary";
+import { DERIVATION_STATUSES } from "@tastebud/core/taste-vocabulary";
 /** Commands that read: one per query operation, plus `open`. */
 import { Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -41,8 +41,11 @@ export const recallCommand = Command.make(
 ).pipe(
   describedAs("recall"),
   Command.withExamples([
-    { command: 'taste recall "styling the admin page"', description: "What applies in this directory" },
-    { command: 'taste recall "error handling" --kind insight --in ~/code/web', description: "Another kind, elsewhere" },
+    { command: 'tastebud recall "styling the admin page"', description: "What applies in this directory" },
+    {
+      command: 'tastebud recall "error handling" --kind insight --in ~/code/web',
+      description: "Another kind, elsewhere",
+    },
   ]),
 );
 
@@ -67,8 +70,11 @@ export const recallExplainCommand = Command.make(
 ).pipe(
   describedAs("recall-explain"),
   Command.withExamples([
-    { command: "taste recall-explain 3f9a2c", description: "Why this derivation does or doesn't reach an agent here" },
-    { command: 'taste recall-explain --text "named exports" --in ~/code/web', description: "The closest matches" },
+    {
+      command: "tastebud recall-explain 3f9a2c",
+      description: "Why this derivation does or doesn't reach an agent here",
+    },
+    { command: 'tastebud recall-explain --text "named exports" --in ~/code/web', description: "The closest matches" },
   ]),
 );
 

@@ -1,4 +1,4 @@
-import type { TasteOperationInput } from "@taste/core/operations";
+import type { TasteOperationInput } from "@tastebud/core/operations";
 
 import { readRecallExplanation, readRecallWithHookPayload } from "../repo/recall-inspector.server.ts";
 

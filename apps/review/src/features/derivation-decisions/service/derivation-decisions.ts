@@ -1,5 +1,5 @@
 /** The owner's decisions and notes: written here and nowhere else in the review UI, as the store owner. */
-import type { TasteOperationInput } from "@taste/core/operations";
+import type { TasteOperationInput } from "@tastebud/core/operations";
 
 import {
   readAcceptPreview,

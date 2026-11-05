@@ -1,4 +1,4 @@
-/** `taste review listen`: human thread entries a named listener has not printed yet. */
+/** `tastebud review listen`: human thread entries a named listener has not printed yet. */
 import { Effect } from "effect";
 
 import { derivationById } from "#core/domains/record-snapshot/index.ts";
@@ -14,7 +14,7 @@ import { threadReplyInstruction } from "./thread-entry.ts";
 
 export const LISTEN_POLL_MS = 500;
 
-/** One JSON line of `taste review listen` output. */
+/** One JSON line of `tastebud review listen` output. */
 export interface ListenEvent {
   readonly derivation: string;
   readonly kind: string;
@@ -32,7 +32,7 @@ export const validateListenerName = Effect.fn("review-threads.validateListenerNa
 });
 
 /**
- * One poll of `taste review listen --as <name>`: returns human thread entries not yet printed by
+ * One poll of `tastebud review listen --as <name>`: returns human thread entries not yet printed by
  * this listener and records them in its cursor, so a restarted listener never repeats one. The
  * first poll ever only creates the cursor.
  */

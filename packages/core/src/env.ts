@@ -1,18 +1,18 @@
 /**
- * The one reader and writer of `process.env` in Taste. `TASTE_STORE` is the only variable Taste defines; the
+ * The one reader and writer of `process.env` in Tastebud. `TASTEBUD_STORE` is the only variable Tastebud defines; the
  * rest is passed through, to git and to a store's custom place resolver.
  */
 type ProcessEnvironment = Readonly<Record<string, string | undefined>>;
 
-/** `TASTE_STORE`, the store root a shell uses when no `--store` is given. Blank counts as unset. */
-export const readTasteStoreVariable = (): string | undefined => process.env["TASTE_STORE"] || undefined;
+/** `TASTEBUD_STORE`, the store root a shell uses when no `--store` is given. Blank counts as unset. */
+export const readTastebudStoreVariable = (): string | undefined => process.env["TASTEBUD_STORE"] || undefined;
 
 /**
- * Points this process's `TASTE_STORE` at `root`, so code resolving its store per call (the review server
- * functions `taste review` serves in-process) reaches the store the command was given.
+ * Points this process's `TASTEBUD_STORE` at `root`, so code resolving its store per call (the review server
+ * functions `tastebud review` serves in-process) reaches the store the command was given.
  */
-export const pinTasteStoreVariable = (root: string): void => {
-  process.env["TASTE_STORE"] = root;
+export const pinTastebudStoreVariable = (root: string): void => {
+  process.env["TASTEBUD_STORE"] = root;
 };
 
 /** The whole environment, for a custom resolver's `env` and for child processes. */

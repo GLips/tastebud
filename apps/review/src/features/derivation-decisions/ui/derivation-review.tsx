@@ -7,7 +7,7 @@
 import { Alert, Button, Group, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DerivationSummary, DerivationView } from "@taste/core/record-views";
+import type { DerivationSummary, DerivationView } from "@tastebud/core/record-views";
 import { Check, SquarePen, Undo2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -272,7 +272,7 @@ export function DerivationReviewPanels({
         </Alert>
       )}
       {acceptedRevision !== undefined && (
-        <Alert color="taste" variant="light" title="Revision accepted">
+        <Alert color="tastebud" variant="light" title="Revision accepted">
           It applies in the new scope now, and replaces this one.{" "}
           <AnchorLink to="/derivations/$id" params={{ id: acceptedRevision.id }}>
             Open the revision
@@ -294,7 +294,7 @@ export function DerivationReviewPanels({
         />
       )}
       {latestRevision !== undefined && mode !== "accepting-revision" && acceptedRevision === undefined && (
-        <Alert color="taste" variant="light" title="Revision proposed">
+        <Alert color="tastebud" variant="light" title="Revision proposed">
           It applies in the new scope once you accept it.{" "}
           <AnchorLink to="/derivations/$id" params={{ id: latestRevision.id }}>
             Review the revision

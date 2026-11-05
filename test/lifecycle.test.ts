@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describeTasteFailure, runTasteOperation, type TasteOperationWireInput } from "@taste/core/operations";
-import { pollListenerEvents, threadReplyInstruction } from "@taste/core/review-threads";
-import type { TasteCaller } from "@taste/core/taste-caller";
+import { describeTasteFailure, runTasteOperation, type TasteOperationWireInput } from "@tastebud/core/operations";
+import { pollListenerEvents, threadReplyInstruction } from "@tastebud/core/review-threads";
+import type { TasteCaller } from "@tastebud/core/taste-caller";
 import { Effect } from "effect";
 
 import {

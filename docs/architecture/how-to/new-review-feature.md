@@ -4,7 +4,7 @@ A review feature is a directory `apps/review/src/features/<f>/` with four layers
 one below it.
 
 1. **repo:** `repo/<f>.server.ts` calls core through the door:
-   `runReviewOperation("<operation>", input)` from `#review/infrastructure/taste-core.server.ts`. This is the
+   `runReviewOperation("<operation>", input)` from `#review/infrastructure/tastebud-core.server.ts`. This is the
    only layer that may import that file.
 2. **service:** `service/<f>.ts` maps the repo's result to what the screen needs. Often a one-line forward;
    keep it, the layering is uniform on purpose.
@@ -33,4 +33,4 @@ Keep render pure: read time through `useReviewClockMs()`. Show a query's three s
 `<LoadedQueryContent query={…}>{(data) => …}</LoadedQueryContent>` instead of nested ternaries.
 
 Check that the feature appears as expected against a scratch store
-(`TASTE_STORE=/tmp/… bun --bun vite --port <spare>` in `apps/review`), then run `bun run check`.
+(`TASTEBUD_STORE=/tmp/… bun --bun vite --port <spare>` in `apps/review`), then run `bun run check`.

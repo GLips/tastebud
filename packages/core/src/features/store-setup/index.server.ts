@@ -1,19 +1,19 @@
-export { StaleTasteConfig, StoreNotEmpty } from "./errors.ts";
+export { StaleTastebudConfig, StoreNotEmpty } from "./errors.ts";
 export {
-  CheckTasteConfigInput,
-  CheckTasteConfigResultSchema,
-  checkTasteConfigText,
-} from "./operations/check-taste-config.ts";
-export { ShowTasteConfigResultSchema, showTasteConfigText } from "./operations/show-taste-config.ts";
+  CheckTastebudConfigInput,
+  CheckTastebudConfigResultSchema,
+  checkTastebudConfigText,
+} from "./operations/check-tastebud-config.ts";
+export { ShowTastebudConfigResultSchema, showTastebudConfigText } from "./operations/show-tastebud-config.ts";
 export { countStoreRecordFiles, requireNoStoreRecords } from "./operations/store-record-count.ts";
 export {
-  renderCheckTasteConfigText,
-  renderShowTasteConfigText,
-  renderWriteTasteConfigText,
-} from "./operations/taste-config-text.ts";
+  renderCheckTastebudConfigText,
+  renderShowTastebudConfigText,
+  renderWriteTastebudConfigText,
+} from "./operations/tastebud-config-text.ts";
 export {
-  WriteTasteConfigInput,
-  WriteTasteConfigResultSchema,
-  writeOperationTasteConfigText,
-  writeTasteConfigText,
-} from "./operations/write-taste-config.ts";
+  WriteTastebudConfigInput,
+  WriteTastebudConfigResultSchema,
+  writeOperationTastebudConfigText,
+  writeTastebudConfigText,
+} from "./operations/write-tastebud-config.ts";

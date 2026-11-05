@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { runTasteOperation, runTasteOperationAtStoreRoot } from "@taste/core/operations";
+import { runTasteOperation, runTasteOperationAtStoreRoot } from "@tastebud/core/operations";
 import { Effect, Result } from "effect";
 
 import {
@@ -18,7 +18,7 @@ import {
   unknownCaller,
 } from "./support.ts";
 
-describe("taste.config.ts", () => {
+describe("tastebud.config.ts", () => {
   test("a custom resolver and custom kinds load; capture-time calls see the source", async () => {
     const resolver = `({ cwd, source }) =>
       source?.kind === "call-quote" ? ["clients/acme"] : cwd?.endsWith("/acme-ads") ? ["clients/acme/ads/"] : []`;
@@ -75,7 +75,7 @@ describe("taste.config.ts", () => {
     expect(error.message).toContain(`derivedKinds.insight.sources: "transcript" is not a source kind`);
 
     // A long-lived store (the review server, MCP) sees each edit on its next operation.
-    writeFileSync(join(root, "taste.config.ts"), demoConfigText("() => []"));
+    writeFileSync(join(root, "tastebud.config.ts"), demoConfigText("() => []"));
     const catalogKeys = runTasteOperation("catalog", {}, unknownCaller).pipe(
       Effect.map(({ catalog }) => catalog.derivedKinds.map((kind) => kind.key)),
     );
@@ -83,7 +83,7 @@ describe("taste.config.ts", () => {
       root,
       Effect.gen(function* () {
         const first = yield* catalogKeys;
-        writeFileSync(join(root, "taste.config.ts"), demoConfigText("() => []").replace(/\n    idea: .*\n/, "\n"));
+        writeFileSync(join(root, "tastebud.config.ts"), demoConfigText("() => []").replace(/\n    idea: .*\n/, "\n"));
         return [first, yield* catalogKeys];
       }),
     );
@@ -109,6 +109,6 @@ describe("taste.config.ts", () => {
       );
     const results = await Effect.runPromise(Effect.all([write(4), write(5)], { concurrency: "unbounded" }));
     const outcomes = results.map((result) => (Result.isSuccess(result) ? "written" : result.failure._tag));
-    expect(outcomes.toSorted()).toEqual(["StaleTasteConfig", "written"]);
+    expect(outcomes.toSorted()).toEqual(["StaleTastebudConfig", "written"]);
   });
 });

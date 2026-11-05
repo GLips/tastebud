@@ -87,8 +87,8 @@ export type PackageOwnership = {
 
 /**
  * Owner paths are source-root-relative in whichever declared tree holds them.
- * `@taste/core`'s non-domain subpaths are one package name to this table, so
- * `taste/core-server-door` contains them instead.
+ * `@tastebud/core`'s non-domain subpaths are one package name to this table, so
+ * `tastebud/core-server-door` contains them instead.
  */
 export const PACKAGE_OWNERS: PackageOwnership[] = [
   {
@@ -112,13 +112,13 @@ export const PACKAGE_OWNERS: PackageOwnership[] = [
     why: "The MCP server's name, version, capabilities and stdio transport are decided once in the SDK adapter. A second server built elsewhere advertises a different tool surface over the same transport, or writes to stdout beside it and corrupts the protocol stream.",
   },
   {
-    package: "@taste/mcp",
+    package: "@tastebud/mcp",
     owners: ["infrastructure/mcp-server.ts"],
-    why: "`taste mcp` hands the process's stdio to the MCP server, and only one module may do that. Any other CLI import of the MCP package can start a second server or print to the stdout it owns, which corrupts the protocol for the connected agent.",
+    why: "`tastebud mcp` hands the process's stdio to the MCP server, and only one module may do that. Any other CLI import of the MCP package can start a second server or print to the stdout it owns, which corrupts the protocol for the connected agent.",
   },
   {
-    package: "@taste/review",
+    package: "@tastebud/review",
     owners: ["infrastructure/review-app-server.ts"],
-    why: "`taste review` serves the built review UI in-process, and the lazy import keeps every other command from loading it. A second import site loads the whole UI bundle into commands that never serve it (the prompt hook has a 650 ms budget), or binds a second server with different headers.",
+    why: "`tastebud review` serves the built review UI in-process, and the lazy import keeps every other command from loading it. A second import site loads the whole UI bundle into commands that never serve it (the prompt hook has a 650 ms budget), or binds a second server with different headers.",
   },
 ];

@@ -209,7 +209,7 @@ export function RecallInspectorPage() {
 
       {submitted.query === "" ? (
         <Center py={60}>
-          <Text c="dimmed">Type a prompt to see what Taste would offer for it.</Text>
+          <Text c="dimmed">Type a prompt to see what Tastebud would offer for it.</Text>
         </Center>
       ) : (
         <LoadedQueryContent query={inspection} failurePanel={RecallFailure}>

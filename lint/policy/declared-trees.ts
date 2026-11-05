@@ -187,7 +187,7 @@ export const DECLARED_TREES: ValidatedTrees = declareTrees([
   {
     // Operations play the controllers role; core has no router, so the three
     // source-root entry spellings name files that never exist. `./host` is a
-    // feature barrel, not an entry. The one env module carries TASTE_STORE.
+    // feature barrel, not an entry. The one env module carries TASTEBUD_STORE.
     root: "packages/core/src",
     vocabulary: {
       ...RECOMMENDED_VOCABULARY,
@@ -211,7 +211,7 @@ export const DECLARED_TREES: ValidatedTrees = declareTrees([
     vocabulary: {
       ...RECOMMENDED_VOCABULARY,
       aliasPrefix: "#cli/",
-      rootRouteName: "taste-command",
+      rootRouteName: "tastebud-command",
       sourceRootPositions: { ...RECOMMENDED_VOCABULARY.sourceRootPositions, serverEntry: "main" },
       envModules: {},
       serverOnly: true,
@@ -235,7 +235,7 @@ export const DECLARED_TREES: ValidatedTrees = declareTrees([
   },
   {
     // TanStack Start: `start.ts` is the server entry, `router.tsx` the router.
-    // No env module: review reads TASTE_STORE through `@taste/core/host`.
+    // No env module: review reads TASTEBUD_STORE through `@tastebud/core/host`.
     root: "apps/review/src",
     vocabulary: {
       ...RECOMMENDED_VOCABULARY,

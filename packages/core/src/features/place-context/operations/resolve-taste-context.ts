@@ -15,7 +15,7 @@ import {
   type TasteContext,
   UNKNOWN_TASTE_CONTEXT,
 } from "#core/domains/places/index.ts";
-import type { LoadedTasteConfig, PlaceContext } from "#core/domains/store-config/index.ts";
+import type { LoadedTastebudConfig, PlaceContext } from "#core/domains/store-config/index.ts";
 import { type ContextOverrideInput, hasContextOverride, type TasteCaller } from "#core/domains/taste-caller/index.ts";
 import { processEnvironment } from "#core/env.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
@@ -65,7 +65,7 @@ const canonicalResolvedKeys = (directory: string, returned: Result.Result<Readon
 
 /** The configured resolver applied to one directory. `source` is passed at capture time only. */
 export const resolvePlacesForDirectory = Effect.fn("place-context.resolvePlacesForDirectory")(function* (
-  config: LoadedTasteConfig,
+  config: LoadedTastebudConfig,
   directory: string,
   source?: PlaceContext["source"],
 ) {
@@ -99,7 +99,7 @@ export type DirectoryContextOrigin = "in" | "cwd" | "mcp-root";
 
 /** A directory's context under `origin`; no places means unknown context. */
 export const contextFromDirectory = Effect.fn("place-context.contextFromDirectory")(function* (
-  config: LoadedTasteConfig,
+  config: LoadedTastebudConfig,
   directory: string,
   origin: DirectoryContextOrigin,
   source: PlaceContext["source"],

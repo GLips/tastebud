@@ -3,7 +3,7 @@ import type { AmbiguousRecordRef, UnknownRecordRef } from "#core/domains/record-
 import type { DecisionNotAllowed, WideningNeedsAcknowledgement } from "#core/features/decisions/index.server.ts";
 import type { NearRepeat, ScopeRequired } from "#core/features/proposals/index.server.ts";
 import type { ReviewPortTaken } from "#core/features/store-host/index.server.ts";
-import type { StaleTasteConfig, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
+import type { StaleTastebudConfig, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
 import type {
   InvalidConfig,
   PlaceResolutionFailed,
@@ -20,7 +20,7 @@ import type { OperationNotAllowed } from "../errors.ts";
 /** Every failure core can raise, each a tagged error whose `message` is the sentence a person or agent reads. */
 export type TasteError =
   | StoreNotInitialised
-  | StaleTasteConfig
+  | StaleTastebudConfig
   | StoreNotEmpty
   | InvalidConfig
   | InvalidTasteInput

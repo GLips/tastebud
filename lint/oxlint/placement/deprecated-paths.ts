@@ -39,7 +39,7 @@ import { visitModuleSources } from "../lib/module-source-visitor.ts";
 // Only alias and package forms are fenced. A relative specifier resolves against the importing
 // file's own directory, and a per-file lint has no project root to resolve it against.
 //
-// Taste's entries: the core root barrel and two renamed domain subpaths (shells and tests imported
+// Tastebud's entries: the core root barrel and two renamed domain subpaths (shells and tests imported
 // them by package name), and core's flat modules, which moved into features/, domains/ and
 // infrastructure/. `shared/` survives, so only its three moved files are listed.
 const CORE_FLAT_MODULES = [
@@ -85,9 +85,9 @@ const CORE_FLAT_MODULES = [
 ];
 
 const DEPRECATED_PATHS = [
-  { pattern: /^@taste\/core$/, messageId: "coreRootBarrelRemoved" },
-  { pattern: /^@taste\/core\/vocabulary(\/|$)/, messageId: "coreVocabularyRenamed" },
-  { pattern: /^@taste\/core\/catalog-view(\/|$)/, messageId: "coreCatalogViewRenamed" },
+  { pattern: /^@tastebud\/core$/, messageId: "coreRootBarrelRemoved" },
+  { pattern: /^@tastebud\/core\/vocabulary(\/|$)/, messageId: "coreVocabularyRenamed" },
+  { pattern: /^@tastebud\/core\/catalog-view(\/|$)/, messageId: "coreCatalogViewRenamed" },
   {
     pattern: new RegExp(`^#core/(${CORE_FLAT_MODULES.join("|")})(/|$)`),
     messageId: "coreFlatModuleMoved",
@@ -99,11 +99,11 @@ export const deprecatedPathsRule = defineTreeRule({
     type: "problem",
     messages: {
       coreRootBarrelRemoved:
-        "The @taste/core root export no longer exists. Import a pure domain subpath (@taste/core/<domain>), or a feature subpath through this shell's {{infrastructure}}/taste-core door.",
+        "The @tastebud/core root export no longer exists. Import a pure domain subpath (@tastebud/core/<domain>), or a feature subpath through this shell's {{infrastructure}}/tastebud-core door.",
       coreVocabularyRenamed:
-        "@taste/core/vocabulary is now @taste/core/taste-vocabulary. Import from there instead.",
+        "@tastebud/core/vocabulary is now @tastebud/core/taste-vocabulary. Import from there instead.",
       coreCatalogViewRenamed:
-        "@taste/core/catalog-view is now part of @taste/core/kind-catalog. Import from there instead.",
+        "@tastebud/core/catalog-view is now part of @tastebud/core/kind-catalog. Import from there instead.",
       coreFlatModuleMoved:
         "Core's flat modules no longer exist. The code moved to #core/features/<feature>/ (operations), #core/domains/<domain>/ (pure logic) or #core/infrastructure/ (IO). Import it from its new home.",
     },

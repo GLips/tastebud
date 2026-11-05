@@ -7,22 +7,22 @@ import { isArgumentSurface, type TasteSurface } from "#core/shared/taste-surface
 export const errorCodeOf = (cause: unknown): string | undefined =>
   Predicate.hasProperty(cause, "code") && Predicate.isString(cause.code) ? cause.code : undefined;
 
-/** No `taste.config.ts` at the resolved root. The sentence sends an agent to setup, spelled for its surface. */
+/** No `tastebud.config.ts` at the resolved root. The sentence sends an agent to setup, spelled for its surface. */
 export class StoreNotInitialised extends Data.TaggedError("StoreNotInitialised")<{
   readonly root: string;
 }> {
   sentenceFor(surface: TasteSurface) {
     const setup = isArgumentSurface(surface)
-      ? "Set it up with the owner: run this server's `setup` prompt, which starts with taste_config_show. To use a different store, the MCP server must be started with --store <dir>"
-      : "Set it up with the owner: `taste setup-guide` is the interview, starting with `taste config-show`. To use a different store, pass --store or set TASTE_STORE";
-    return `No Taste store at ${this.root} yet. ${setup}.`;
+      ? "Set it up with the owner: run this server's `setup` prompt, which starts with tastebud_config_show. To use a different store, the MCP server must be started with --store <dir>"
+      : "Set it up with the owner: `tastebud setup-guide` is the interview, starting with `tastebud config-show`. To use a different store, pass --store or set TASTEBUD_STORE";
+    return `No Tastebud store at ${this.root} yet. ${setup}.`;
   }
   override get message() {
     return this.sentenceFor("cli");
   }
 }
 
-/** `taste.config.ts` failed to load or validate. Each problem names its field. */
+/** `tastebud.config.ts` failed to load or validate. Each problem names its field. */
 export class InvalidConfig extends Data.TaggedError("InvalidConfig")<{
   readonly path: string;
   readonly problems: ReadonlyArray<string>;

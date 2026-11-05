@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { DERIVATION_STATUSES } from "@taste/core/taste-vocabulary";
+import { DERIVATION_STATUSES } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 
 import { loadDerivationList } from "../service/derivation-list.ts";

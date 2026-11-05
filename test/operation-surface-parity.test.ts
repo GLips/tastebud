@@ -6,7 +6,7 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
-import { listTasteOperations } from "@taste/core/operations";
+import { listTasteOperations } from "@tastebud/core/operations";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 

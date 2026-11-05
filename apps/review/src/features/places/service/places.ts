@@ -1,4 +1,4 @@
-import type { TasteOperationInput } from "@taste/core/operations";
+import type { TasteOperationInput } from "@tastebud/core/operations";
 
 import { readPlacesAudit, readRepointPreview, writeRepointProposals } from "../repo/places.server.ts";
 

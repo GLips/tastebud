@@ -6,7 +6,7 @@
  */
 import { Badge, CopyButton, Group, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { type DerivationScope, formatPlaceLabel, parsePlaceKey, type PlaceKey } from "@taste/core/places";
+import { type DerivationScope, formatPlaceLabel, parsePlaceKey, type PlaceKey } from "@tastebud/core/places";
 import { Result } from "effect";
 import { Check, Copy, Folder, FolderGit2, Globe, type LucideIcon, Tag } from "lucide-react";
 
@@ -41,7 +41,7 @@ const styles = stylex.create({
     cursor: "pointer",
     textDecorationLine: { default: "none", ":hover": "underline", ":focus-visible": "underline" },
     textUnderlineOffset: "2px",
-    outline: { default: "none", ":focus-visible": "2px solid var(--mantine-color-taste-5)" },
+    outline: { default: "none", ":focus-visible": "2px solid var(--mantine-color-tastebud-5)" },
     outlineOffset: "1px",
   },
 });
@@ -144,7 +144,7 @@ export function PlaceKeyCopy({ place }: { place: PlaceKey }) {
               {place}
             </Text>
             {copied ? (
-              <Check size={11} color="var(--mantine-color-taste-7)" />
+              <Check size={11} color="var(--mantine-color-tastebud-7)" />
             ) : (
               <Copy size={11} color="var(--mantine-color-gray-5)" />
             )}

@@ -1,26 +1,26 @@
 /**
  * The setup interview an agent runs with the owner. It is the one copy: the MCP server serves it as
- * the `setup` prompt and `taste setup-guide` prints it, which is where the skill points.
+ * the `setup` prompt and `tastebud setup-guide` prints it, which is where the skill points.
  */
-export const TASTE_SETUP_INTERVIEW = `# Set up Taste with the owner
+export const TASTEBUD_SETUP_INTERVIEW = `# Set up Tastebud with the owner
 
-You are setting up (or adjusting) a Taste store with its owner: the person whose judgment it holds. You interview them, draft the store's \`taste.config.ts\`, show them exactly what will be written, and write it once they say yes. Config is settings, not taste, so their yes in this chat is the ratification.
+You are setting up (or adjusting) a Tastebud store with its owner: the person whose judgment it holds. You interview them, draft the store's \`tastebud.config.ts\`, show them exactly what will be written, and write it once they say yes. Config is settings, not taste, so their yes in this chat is the ratification.
 
 How to run it:
 - One question at a time, each with your recommendation, so the owner can just say "yes". Skip anything they've already told you.
 - Use their words. When they describe what they care about, quote them back in the kind descriptions and prompts.
 - Never write without an explicit yes to the exact diff.
 
-Operations are spelled \`config-show\` here: over MCP that's the tool \`taste_config_show\`, on the CLI \`taste config-show\`. On the CLI, pass a file's text with \`--text -\` and pipe it in.
+Operations are spelled \`config-show\` here: over MCP that's the tool \`tastebud_config_show\`, on the CLI \`tastebud config-show\`. On the CLI, pass a file's text with \`--text -\` and pipe it in.
 
-Which store you reach depends on how you reach Taste. The CLI takes it per command: \`--store <dir>\`, else \`TASTE_STORE\`, else \`~/.taste\`. Over MCP, every tool uses the one store the server was started with; no tool argument changes it.
+Which store you reach depends on how you reach Tastebud. The CLI takes it per command: \`--store <dir>\`, else \`TASTEBUD_STORE\`, else \`~/.tastebud\`. Over MCP, every tool uses the one store the server was started with; no tool argument changes it.
 
 ## 1. Look before asking
 
 Call \`config-show\`.
-- **No store** (\`exists: false\`): it says where the store would go (\`root\`) and gives a commented \`starter\` text. Start from that. Confirm the location ("Your store will live at ~/.taste. OK, or somewhere else, like a synced folder?"). To use another one:
+- **No store** (\`exists: false\`): it says where the store would go (\`root\`) and gives a commented \`starter\` text. Start from that. Confirm the location ("Your store will live at ~/.tastebud. OK, or somewhere else, like a synced folder?"). To use another one:
   - On the CLI, pass \`--store <dir>\` to every command from here on.
-  - Over MCP, the server has to be registered again with the new store (\`claude mcp remove taste\`, then \`claude mcp add taste -- taste mcp --store <dir>\`, or the host's equivalent) and the host restarted or the server reconnected. Ask before changing their agent settings. Then call \`config-show\` again and check \`root\` before going on.
+  - Over MCP, the server has to be registered again with the new store (\`claude mcp remove tastebud\`, then \`claude mcp add tastebud -- tastebud mcp --store <dir>\`, or the host's equivalent) and the host restarted or the server reconnected. Ask before changing their agent settings. Then call \`config-show\` again and check \`root\` before going on.
 - **A store exists**: summarise what's there (owner, kinds, resolver, review port) and offer to adjust it rather than start over. Keep its \`hash\`: you pass it back when writing.
 - **Its file has problems**: list them, and offer to fix those first.
 
@@ -71,27 +71,27 @@ Run \`config-check\` with the complete file text. Fix every problem it reports a
 
 Keep the file readable: comments on why each kind exists are welcome, and the starter's comments are worth keeping.
 
-A config may import relative files and \`node:\` builtins only; no packages. Taste runs as one executable, so there is nowhere to install a package for the config to find.
+A config may import relative files and \`node:\` builtins only; no packages. Tastebud runs as one executable, so there is nowhere to install a package for the config to find.
 
 ## 7. Wire up their agents
 
-Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Taste reaches each one, because recall only works through what is installed:
-- **Claude Code**: \`inject\` kinds reach every prompt through the prompt hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the Taste skill and the MCP server's instructions tell it to do.
+Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Tastebud reaches each one, because recall only works through what is installed:
+- **Claude Code**: \`inject\` kinds reach every prompt through the prompt hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the Tastebud skill and the MCP server's instructions tell it to do.
 - **Other hosts** have no prompt hook: nothing is injected, and the agent recalls only when it calls \`recall\` or \`context\`, prompted by the MCP server's instructions (and the skill, where the host loads skills).
 - A newly registered MCP server or skill needs the host restarted or the server reconnected; a new hook takes effect in a new session.
 
-Suggest the lines for each host, and never edit their agent settings without a yes. If the store isn't \`~/.taste\`, every line carries \`--store <root>\` with the actual root from \`config-show\`:
-- Claude Code: \`claude mcp add taste -- taste mcp --store <root>\`.
-- Codex: \`codex mcp add taste -- taste mcp --store <root>\`.
-- Cursor: \`{ "mcpServers": { "taste": { "command": "taste", "args": ["mcp", "--store", "<root>"] } } }\` in \`~/.cursor/mcp.json\`.
-- If they have an \`inject\` kind and use Claude Code, the prompt hook in \`~/.claude/settings.json\`: \`{ "hooks": { "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "taste hook prompt --store <root>" }] }] } }\`.
-- The Taste skill teaches agents when to capture, propose and recall.
-- The review UI: \`taste review --store <root>\`.
-(Leave \`--store <root>\` off every line when the store is \`~/.taste\`.)
+Suggest the lines for each host, and never edit their agent settings without a yes. If the store isn't \`~/.tastebud\`, every line carries \`--store <root>\` with the actual root from \`config-show\`:
+- Claude Code: \`claude mcp add tastebud -- tastebud mcp --store <root>\`.
+- Codex: \`codex mcp add tastebud -- tastebud mcp --store <root>\`.
+- Cursor: \`{ "mcpServers": { "tastebud": { "command": "tastebud", "args": ["mcp", "--store", "<root>"] } } }\` in \`~/.cursor/mcp.json\`.
+- If they have an \`inject\` kind and use Claude Code, the prompt hook in \`~/.claude/settings.json\`: \`{ "hooks": { "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "tastebud hook prompt --store <root>" }] }] } }\`.
+- The Tastebud skill teaches agents when to capture, propose and recall.
+- The review UI: \`tastebud review --store <root>\`.
+(Leave \`--store <root>\` off every line when the store is \`~/.tastebud\`.)
 
 ## 8. Prove the loop
 
-Pick something the owner said during this interview that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, \`capture\` it verbatim as a \`memory\` (or the right source kind), said by their \`human:\` id, and \`propose\` the conclusion it supports by that kind's prompt. Hand them the link from \`review-url\` and tell them to run \`taste review\` (with \`--store <root>\` if it isn't ~/.taste) and accept it there: only they can.
+Pick something the owner said during this interview that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, \`capture\` it verbatim as a \`memory\` (or the right source kind), said by their \`human:\` id, and \`propose\` the conclusion it supports by that kind's prompt. Hand them the link from \`review-url\` and tell them to run \`tastebud review\` (with \`--store <root>\` if it isn't ~/.tastebud) and accept it there: only they can.
 
 Once they say they've accepted it, show it coming back:
 - \`recall\` on its topic, from a place its scope covers. It should appear under accepted.

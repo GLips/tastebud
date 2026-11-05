@@ -1,7 +1,7 @@
-import type { TasteOperationInput } from "@taste/core/operations";
+import type { TasteOperationInput } from "@tastebud/core/operations";
 import { Effect } from "effect";
 
-import { runReviewOperation, runReviewOperations } from "#review/infrastructure/taste-core.server.ts";
+import { runReviewOperation, runReviewOperations } from "#review/infrastructure/tastebud-core.server.ts";
 
 /** Recall and the hook payload for the same prompt, against one open store. */
 export const readRecallWithHookPayload = (

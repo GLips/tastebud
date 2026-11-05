@@ -1,4 +1,4 @@
-/** `taste review` (serves the review UI) and `taste review listen` (wakes an agent on human notes). */
+/** `tastebud review` (serves the review UI) and `tastebud review listen` (wakes an agent on human notes). */
 import { Command, Flag } from "effect/cli";
 
 import { jsonFlag, storeFlag } from "#cli/shared/cli-flags.ts";

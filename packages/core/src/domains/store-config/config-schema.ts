@@ -1,5 +1,5 @@
 /**
- * `taste.config.ts`: the store's one editable file. It is a default-exported plain object, so it
+ * `tastebud.config.ts`: the store's one editable file. It is a default-exported plain object, so it
  * needs no imports and loads in any store. A `place` function can only be checked to be a function;
  * what it returns is decoded on every call. Importing the module is infrastructure's job.
  */
@@ -18,7 +18,7 @@ import type { PlaceKey } from "#core/domains/places/index.ts";
 import { HumanAccountSchema, KIND_KEY_PATTERN } from "#core/domains/records/index.ts";
 import { RECALL_POLICIES } from "#core/domains/taste-vocabulary/index.ts";
 
-export const TASTE_CONFIG_FILE = "taste.config.ts";
+export const TASTEBUD_CONFIG_FILE = "tastebud.config.ts";
 
 /** What a custom resolver is told. Capture-time calls carry `source`; recall-time calls don't. */
 export type PlaceContext = Readonly<{
@@ -34,8 +34,8 @@ export type PlaceResolverFunction = (
 
 type KindLabels = Readonly<{ singular: string; plural: string; description?: string }>;
 
-/** The shape `taste.config.ts` default-exports (spec §4.3). Loading checks it with the schema below. */
-export type TasteConfig = Readonly<{
+/** The shape `tastebud.config.ts` default-exports (spec §4.3). Loading checks it with the schema below. */
+export type TastebudConfig = Readonly<{
   owner: `human:${string}`;
   place?: "git" | "directories" | PlaceResolverFunction;
   sourceKinds?: Readonly<Record<string, KindLabels>>;
@@ -65,7 +65,7 @@ export type PlaceResolverSetting =
       readonly resolvePlaces: (context: PlaceContext) => Promise<Result.Result<ReadonlyArray<string>, string>>;
     };
 
-export interface LoadedTasteConfig {
+export interface LoadedTastebudConfig {
   readonly path: string;
   readonly owner: string;
   readonly resolver: PlaceResolverSetting;
@@ -74,7 +74,7 @@ export interface LoadedTasteConfig {
   readonly review: ReviewSettings;
 }
 
-/** Where `taste review` serves the UI, and so where every review link points. */
+/** Where `tastebud review` serves the UI, and so where every review link points. */
 export interface ReviewSettings {
   readonly port: number;
 }
@@ -99,7 +99,7 @@ const PlaceSettingSchema = Schema.Union([
   Schema.declare(isPlaceResolverFunction),
 ]).annotate({ message: `expected "git", "directories" or a function` });
 
-export const TasteConfigFileSchema = Schema.Struct({
+export const TastebudConfigFileSchema = Schema.Struct({
   owner: HumanAccountSchema,
   place: Schema.optionalKey(PlaceSettingSchema),
   sourceKinds: Schema.optionalKey(Schema.Record(KindKey, Schema.Struct(labelFields))),
@@ -125,11 +125,11 @@ export const TasteConfigFileSchema = Schema.Struct({
     Schema.Struct({ port: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65535 }))) }),
   ),
 });
-export type TasteConfigFile = typeof TasteConfigFileSchema.Type;
+export type TastebudConfigFile = typeof TastebudConfigFileSchema.Type;
 
 const decodePlaceResolverResult = Schema.decodeUnknownResult(Schema.Array(Schema.String));
 
-const resolverSettingOf = (place: TasteConfigFile["place"]): PlaceResolverSetting => {
+const resolverSettingOf = (place: TastebudConfigFile["place"]): PlaceResolverSetting => {
   if (place === undefined || place === "git") return { name: "git" };
   if (place === "directories") return { name: "directories" };
   return {
@@ -142,7 +142,7 @@ const resolverSettingOf = (place: TasteConfigFile["place"]): PlaceResolverSettin
   };
 };
 
-const buildCatalog = (file: TasteConfigFile): Result.Result<TasteCatalog, ReadonlyArray<string>> => {
+const buildCatalog = (file: TastebudConfigFile): Result.Result<TasteCatalog, ReadonlyArray<string>> => {
   const sourceKinds: ReadonlyArray<SourceKindDefinition> =
     file.sourceKinds === undefined
       ? DEFAULT_SOURCE_KINDS
@@ -166,10 +166,10 @@ const buildCatalog = (file: TasteConfigFile): Result.Result<TasteCatalog, Readon
 };
 
 /** A decoded config file as the config every operation reads, or each problem naming its field. */
-export const loadedTasteConfigOf = (
+export const loadedTastebudConfigOf = (
   path: string,
-  file: TasteConfigFile,
-): Result.Result<LoadedTasteConfig, ReadonlyArray<string>> => {
+  file: TastebudConfigFile,
+): Result.Result<LoadedTastebudConfig, ReadonlyArray<string>> => {
   const catalog = buildCatalog(file);
   if (Result.isFailure(catalog)) return Result.fail(catalog.failure);
   return Result.succeed({
@@ -182,10 +182,10 @@ export const loadedTasteConfigOf = (
   });
 };
 
-/** The commented `taste.config.ts` for `owner`: what `taste init` writes and `config-show` offers a new store. */
-export const starterTasteConfigText = (
+/** The commented `tastebud.config.ts` for `owner`: what `tastebud init` writes and `config-show` offers a new store. */
+export const starterTastebudConfigText = (
   owner: string,
-) => `// Taste's config for this store. Plain data: no imports needed. Edit freely; it reloads on save.
+) => `// Tastebud's config for this store. Plain data: no imports needed. Edit freely; it reloads on save.
 // A config may import relative files and \`node:\` builtins only; no packages.
 export default {
   // The human whose taste this store holds. Only they ratify derivations.
@@ -209,7 +209,7 @@ export default {
   // The prompt hook injects at most \`limit\` items and gives up after \`budgetMs\`.
   hook: { limit: 3, budgetMs: 650 },
 
-  // \`taste review\` serves the UI on this port, and links from agents point at it.
+  // \`tastebud review\` serves the UI on this port, and links from agents point at it.
   review: { port: 4747 },
 };
 `;

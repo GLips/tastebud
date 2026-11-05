@@ -5,7 +5,7 @@ import { formatContextLine, section } from "#core/domains/record-text/index.ts";
 
 /** Kind prompts are config text written once for both surfaces, so the catalog says how to read their flags. */
 const PROMPT_SPELLING_NOTE =
-  "Prompts spell inputs as CLI flags. Over MCP, each is the taste_propose field of the same name with " +
+  "Prompts spell inputs as CLI flags. Over MCP, each is the tastebud_propose field of the same name with " +
   '_ for -, except --place <key> (scope: "places" with places: [<key>]) and --global (scope: "global").';
 
 export const renderCatalogText = (result: {

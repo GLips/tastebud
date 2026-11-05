@@ -20,7 +20,7 @@ export class RetiredKind extends Data.TaggedError("RetiredKind")<{
   readonly recordId: string;
 }> {
   override get message() {
-    return `${this.recordId} is a "${this.kind}", a kind no longer in taste.config.ts; it can only be listed and shown.`;
+    return `${this.recordId} is a "${this.kind}", a kind no longer in tastebud.config.ts; it can only be listed and shown.`;
   }
 }
 
@@ -30,8 +30,8 @@ export class KindNotRecallable extends Data.TaggedError("KindNotRecallable")<{
 }> {
   sentenceFor(surface: TasteSurface) {
     const instead = isArgumentSurface(surface)
-      ? `taste_list with kind: "${this.kind}"`
-      : `\`taste list --kind ${this.kind}\``;
+      ? `tastebud_list with kind: "${this.kind}"`
+      : `\`tastebud list --kind ${this.kind}\``;
     return `"${this.kind}" has recall: never; use ${instead} instead.`;
   }
   override get message() {

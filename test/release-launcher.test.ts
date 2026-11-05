@@ -3,8 +3,8 @@ import { expect, test } from "bun:test";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { buildTasteLauncher } from "../scripts/release/build-taste-launcher.ts";
-import { TASTE_NPM_PACKAGE_NAME } from "../scripts/release/release-names.ts";
+import { buildTastebudLauncher } from "../scripts/release/build-tastebud-launcher.ts";
+import { TASTEBUD_NPM_PACKAGE_NAME } from "../scripts/release/release-names.ts";
 import { makeTemporaryDirectory } from "./support.ts";
 
 // Bun puts a `node` that is Bun itself first on a child's PATH; the launcher must run under Node.
@@ -15,20 +15,20 @@ const realNode = Bun.which("node", {
     .join(":"),
 });
 
-const EXIT_SEVEN_BINARY = '#!/bin/sh\necho "taste got: $*"\nexit 7\n';
+const EXIT_SEVEN_BINARY = '#!/bin/sh\necho "tastebud got: $*"\nexit 7\n';
 
 /** node_modules with the launcher package and, if `withPlatformPackage`, this platform's, running `binaryScript`. */
 const installLauncher = async (withPlatformPackage: boolean, binaryScript = EXIT_SEVEN_BINARY) => {
   const modules = join(makeTemporaryDirectory("npm"), "node_modules");
-  const launcherDir = join(modules, TASTE_NPM_PACKAGE_NAME);
-  const launcher = await buildTasteLauncher(join(launcherDir, "bin"));
-  writeFileSync(join(launcherDir, "package.json"), JSON.stringify({ name: TASTE_NPM_PACKAGE_NAME, type: "module" }));
+  const launcherDir = join(modules, TASTEBUD_NPM_PACKAGE_NAME);
+  const launcher = await buildTastebudLauncher(join(launcherDir, "bin"));
+  writeFileSync(join(launcherDir, "package.json"), JSON.stringify({ name: TASTEBUD_NPM_PACKAGE_NAME, type: "module" }));
   if (withPlatformPackage) {
-    const platformDir = join(modules, `${TASTE_NPM_PACKAGE_NAME}-${process.platform}-${process.arch}`);
+    const platformDir = join(modules, `${TASTEBUD_NPM_PACKAGE_NAME}-${process.platform}-${process.arch}`);
     mkdirSync(join(platformDir, "bin"), { recursive: true });
     writeFileSync(join(platformDir, "package.json"), "{}");
-    writeFileSync(join(platformDir, "bin/taste"), binaryScript);
-    chmodSync(join(platformDir, "bin/taste"), 0o755);
+    writeFileSync(join(platformDir, "bin/tastebud"), binaryScript);
+    chmodSync(join(platformDir, "bin/tastebud"), 0o755);
   }
   return launcher;
 };
@@ -45,7 +45,7 @@ test("the launcher runs the platform binary with its arguments and passes its ex
   expect(realNode).not.toBeNull();
   expect(runLauncher(await installLauncher(true))).toEqual({
     exitCode: 7,
-    stdout: "taste got: review --port 4801\n",
+    stdout: "tastebud got: review --port 4801\n",
     stderr: "",
   });
 });
@@ -53,7 +53,7 @@ test("the launcher runs the platform binary with its arguments and passes its ex
 test("with no platform package the launcher exits 1 naming the reinstall and the releases page", async () => {
   const missing = runLauncher(await installLauncher(false));
   expect(missing.exitCode).toBe(1);
-  expect(missing.stderr).toContain(`npm install ${TASTE_NPM_PACKAGE_NAME}`);
+  expect(missing.stderr).toContain(`npm install ${TASTEBUD_NPM_PACKAGE_NAME}`);
   expect(missing.stderr).toContain("/releases");
 });
 

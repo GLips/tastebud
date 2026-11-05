@@ -2,9 +2,9 @@
 import { Alert, Button, Group, Stack, Table, Text, Title } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { placeCovers, scopePlacesOf } from "@taste/core/places";
-import type { AuditPlacesResult } from "@taste/core/places-audit";
-import type { DerivationSummary } from "@taste/core/record-views";
+import { placeCovers, scopePlacesOf } from "@tastebud/core/places";
+import type { AuditPlacesResult } from "@tastebud/core/places-audit";
+import type { DerivationSummary } from "@tastebud/core/record-views";
 import { Globe, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
@@ -141,7 +141,7 @@ function ProbeReachNotice({
     );
   if (acceptedHereCount === 0) return null;
   return (
-    <Text size="xs" c="taste.8">
+    <Text size="xs" c="tastebud.8">
       Reached by {matchingProbes.map((probe) => probe.probe).join(", ") || "your probes"}.
     </Text>
   );

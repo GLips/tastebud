@@ -5,7 +5,7 @@ import getEffectTscPath from "@effect/tsgo/lib/getExePath";
 /**
  * The gate: every check at once, each step's output printed whole when it ends. A failure in any
  * step fails the run after all of them have reported. It builds the review UI first, which
- * `taste review`'s test serves.
+ * `tastebud review`'s test serves.
  *
  *   bun scripts/check.ts             every step (`bun run check`)
  *   bun scripts/check.ts typecheck   the typecheck steps alone (`bun run typecheck`)
@@ -39,7 +39,7 @@ const typecheckSteps = typecheckPrograms.map((program) => {
       `${program}/tsconfig.json`,
       "--incremental",
       "--tsBuildInfoFile",
-      `node_modules/.cache/taste-check/${label}.tsbuildinfo`,
+      `node_modules/.cache/tastebud-check/${label}.tsbuildinfo`,
     ],
   };
 });

@@ -12,7 +12,7 @@ import {
   makeTemporaryDirectory,
   makeTestStore,
   OWNER,
-  runTaste,
+  runTastebud,
 } from "./support.ts";
 
 /** Decoders for the `--json` fields these tests read; other fields pass through unchecked. */
@@ -52,7 +52,7 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and open 
   const repo = makeGitRepo("git@github.com:acme/web.git", ["apps/checkout"]);
   const checkout = join(repo, "apps/checkout");
 
-  const captured = await runTaste(store, checkout, [
+  const captured = await runTastebud(store, checkout, [
     "capture",
     "--said-by",
     OWNER,
@@ -69,25 +69,25 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and open 
 
   const proposeArgs = ["propose", "--kind", "belief", "--statement", "Use named exports, never default exports"];
   proposeArgs.push("--supports", sourceId, "--reasoning", "She said so outright.", "--by", AGENT, "--json");
-  const proposed = await runTaste(store, checkout, proposeArgs);
+  const proposed = await runTastebud(store, checkout, proposeArgs);
   expect(proposed.exitCode).toBe(0);
   const { derivation } = decodeProposedJson(proposed.stdout);
   // Proposed from a subdirectory, the defaulted scope is the repo root.
   expect(derivation.proposedScope).toEqual({ scope: "places", places: ["github.com/acme/web::"] });
 
-  const repeated = await runTaste(store, checkout, proposeArgs);
+  const repeated = await runTastebud(store, checkout, proposeArgs);
   expect(repeated.exitCode).toBe(3);
   const { error } = decodeFailureJson(repeated.stdout);
   expect([error.tag, error.category, error.matches?.length]).toEqual(["NearRepeat", "refused", 1]);
 
-  const recalled = await runTaste(store, repo, ["recall", "default exports", "--json"]);
+  const recalled = await runTastebud(store, repo, ["recall", "default exports", "--json"]);
   expect(recalled.exitCode).toBe(0);
   const recall = decodeContextJson(recalled.stdout);
   expect(recall.context).toMatchObject({ origin: "cwd", places: ["github.com/acme/web::"] });
   expect(recall.sources?.map((hit) => hit.source.id)).toContain(sourceId);
 
   const before = countRecordFiles(store);
-  const opened = await runTaste(store, repo, ["open", derivation.id]);
+  const opened = await runTastebud(store, repo, ["open", derivation.id]);
   expect(opened.exitCode).toBe(0);
   expect(opened.stdout.trim()).toEndWith(`/derivations/${derivation.id}`);
   expect(countRecordFiles(store)).toBe(before);
@@ -96,9 +96,9 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and open 
 test("--at says where the caller is, so a cwd the resolver can't read never runs", async () => {
   const store = await makeTestStore(demoConfigText(`() => { throw new Error("no place here"); }`));
   const cwd = makeTemporaryDirectory("anywhere");
-  const broken = await runTaste(store, cwd, ["catalog", "--json"]);
+  const broken = await runTastebud(store, cwd, ["catalog", "--json"]);
   expect(decodeFailureJson(broken.stdout).error.tag).toBe("PlaceResolutionFailed");
-  const placed = await runTaste(store, cwd, ["catalog", "--at", "clients/acme", "--json"]);
+  const placed = await runTastebud(store, cwd, ["catalog", "--at", "clients/acme", "--json"]);
   expect(placed.exitCode).toBe(0);
   expect(decodeContextJson(placed.stdout).context).toMatchObject({ origin: "at", places: ["clients/acme"] });
 });
@@ -106,18 +106,18 @@ test("--at says where the caller is, so a cwd the resolver can't read never runs
 test("config-write creates a store from nothing for catalog to read, and refuses a stale expected_current", async () => {
   const cwd = makeTemporaryDirectory("setup");
   const store = join(cwd, "store");
-  const missing = await runTaste(store, cwd, ["catalog", "--json"]);
+  const missing = await runTastebud(store, cwd, ["catalog", "--json"]);
   expect([missing.exitCode, decodeFailureJson(missing.stdout).error.tag]).toEqual([2, "StoreNotInitialised"]);
 
   const text = demoConfigText(`"directories"`);
-  const created = await runTaste(store, cwd, ["config-write", "--text", text, "--expected-current", ""]);
+  const created = await runTastebud(store, cwd, ["config-write", "--text", text, "--expected-current", ""]);
   expect(created.exitCode).toBe(0);
-  const catalog = await runTaste(store, cwd, ["catalog"]);
+  const catalog = await runTastebud(store, cwd, ["catalog"]);
   expect(catalog.stdout).toContain(`owner ${OWNER} · resolver directories`);
 
   // The agent believed there was no store; there is one now, so the write must not clobber it.
   const edited = text.replace("limit: 3", "limit: 5");
-  const stale = await runTaste(store, cwd, ["config-write", "--text", edited, "--expected-current", "", "--json"]);
-  expect([stale.exitCode, decodeFailureJson(stale.stdout).error.tag]).toEqual([4, "StaleTasteConfig"]);
-  expect(readFileSync(join(store, "taste.config.ts"), "utf8")).toBe(text);
+  const stale = await runTastebud(store, cwd, ["config-write", "--text", edited, "--expected-current", "", "--json"]);
+  expect([stale.exitCode, decodeFailureJson(stale.stdout).error.tag]).toEqual([4, "StaleTastebudConfig"]);
+  expect(readFileSync(join(store, "tastebud.config.ts"), "utf8")).toBe(text);
 });

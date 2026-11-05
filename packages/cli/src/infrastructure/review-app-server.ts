@@ -1,11 +1,11 @@
 /**
- * The `@taste/review` owner: serves the built review UI in this process, from a source checkout (after
+ * The `@tastebud/review` owner: serves the built review UI in this process, from a source checkout (after
  * `bun run build:review`) and from a compiled binary alike. Embedded client files are static routes; the shell
  * and every server function go to TanStack Start's server entry.
  */
 import { Effect, Schema } from "effect";
 
-import { ReviewPortTaken } from "./taste-core.ts";
+import { ReviewPortTaken } from "./tastebud-core.ts";
 
 const IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
@@ -28,7 +28,7 @@ export const serveReviewApp = (port: number) =>
     // A literal lazy import: `bun build --compile` still embeds the bundle, and other commands never load it. From
     // an unbuilt checkout this dies naming apps/review/dist/review-bundle.ts: run `bun run build:review`.
     const { REVIEW_CLIENT_ASSETS, fetchReviewServerEntry } = yield* Effect.promise(
-      () => import("@taste/review/bundle"),
+      () => import("@tastebud/review/bundle"),
     );
     const routes = Object.fromEntries(
       Object.entries(REVIEW_CLIENT_ASSETS).map(([urlPath, filePath]) => [

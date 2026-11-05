@@ -37,7 +37,7 @@ Match on tags with `Match.valueTags`, `Effect.catchTag` or `Effect.catchTags`. C
 ## Defects and boundaries
 
 Trust internal code: no try/catch or defensive checks for what cannot happen. Decode at boundaries: store
-files, `taste.config.ts`, SQLite rows, MCP arguments and process input are decoded with Effect Schema and fail
+files, `tastebud.config.ts`, SQLite rows, MCP arguments and process input are decoded with Effect Schema and fail
 as typed errors. Defects (bugs) propagate. The one deliberate exception is the prompt hook, which must never
 break a prompt: `run-prompt-hook.ts` runs with `Effect.runPromiseExit` and stays silent on failure.
 

@@ -3,8 +3,8 @@
  * the catalog (so three kinds never collide), and the one line that says how a kind reaches agents.
  */
 import { Tooltip } from "@mantine/core";
-import type { CatalogView, DerivedKindView } from "@taste/core/kind-catalog";
-import type { RecallPolicy } from "@taste/core/taste-vocabulary";
+import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Diamond, Hexagon, type LucideIcon, Pentagon, Square, Triangle } from "lucide-react";
 
 // Shapes stay clear of the circle, which status dots own; colours stay clear of green, red, orange and blue.

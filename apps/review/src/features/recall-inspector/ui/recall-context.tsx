@@ -1,7 +1,7 @@
 /** Where the recall inspector stood: the resolved context and its places, or why it couldn't resolve one. */
 import { Box, Alert, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { TasteContext } from "@taste/core/places";
+import type { TasteContext } from "@tastebud/core/places";
 import { LocateFixed } from "lucide-react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";

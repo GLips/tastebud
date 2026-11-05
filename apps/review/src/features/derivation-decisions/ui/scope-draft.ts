@@ -13,7 +13,7 @@ import {
   REPO_PLACE_SEPARATOR,
   scopeGroupKey,
   scopePlacesOf,
-} from "@taste/core/places";
+} from "@tastebud/core/places";
 import { Result } from "effect";
 
 export type ScopeDraft =

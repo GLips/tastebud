@@ -1,4 +1,4 @@
-// vite.config.ts: the review UI. `taste review` serves its build (`bun run build:review`); `bun run dev:review` runs
+// vite.config.ts: the review UI. `tastebud review` serves its build (`bun run build:review`); `bun run dev:review` runs
 // it with HMR. Screens render in the browser (`defaultSsr: false` in start.ts); the server answers the shell, per
 // request, and server functions.
 import { unplugin as stylexUnplugin } from "@stylexjs/unplugin";
@@ -27,7 +27,7 @@ const CORE_FEATURE_SUBPATHS = [
   "proposals",
   "inbox",
   "places-audit",
-].map((feature) => `@taste/core/${feature}`);
+].map((feature) => `@tastebud/core/${feature}`);
 
 /** Server function ids read `<feature>.<export>`, so a test or a stack trace can name one. */
 const reviewServerFunctionId = ({ filename, functionName }: { filename: string; functionName: string }) => {
@@ -37,15 +37,15 @@ const reviewServerFunctionId = ({ filename, functionName }: { filename: string; 
 
 // The CLI bundles core and effect already; left external here, `bun build --compile` resolves them to those same
 // modules, one copy per binary. A predicate because Vite's `ssr.external` refuses packages whose exports are `.ts`.
-const isSharedWithCli = (id: string) => id.startsWith("@taste/core/") || id === "effect" || id.startsWith("effect/");
+const isSharedWithCli = (id: string) => id.startsWith("@tastebud/core/") || id === "effect" || id.startsWith("effect/");
 
 export default defineConfig({
   root: import.meta.dirname,
   environments: { ssr: { build: { rolldownOptions: { external: isSharedWithCli } } } },
-  // The store lives wherever TASTE_STORE points; its files change under Vite and must never trigger a reload.
-  // `.taste.config.*.ts` are core's short-lived copies of a store's config (store-config-module.ts), imported
+  // The store lives wherever TASTEBUD_STORE points; its files change under Vite and must never trigger a reload.
+  // `.tastebud.config.*.ts` are core's short-lived copies of a store's config (store-config-module.ts), imported
   // through Vite and deleted at once, in whatever directory the store is; watching them reloads in a loop.
-  server: { watch: { ignored: ["**/.taste/**", "**/*demo-store/**", "**/.index/**", "**/.taste.config.*.ts"] } },
+  server: { watch: { ignored: ["**/.tastebud/**", "**/*demo-store/**", "**/.index/**", "**/.tastebud.config.*.ts"] } },
   plugins: [
     stylexVitePlugin,
     tanstackStart({
@@ -55,7 +55,13 @@ export default defineConfig({
       importProtection: {
         behavior: "error",
         client: {
-          specifiers: ["bun:sqlite", /^node:/, "@taste/core/operations", "@taste/core/host", ...CORE_FEATURE_SUBPATHS],
+          specifiers: [
+            "bun:sqlite",
+            /^node:/,
+            "@tastebud/core/operations",
+            "@tastebud/core/host",
+            ...CORE_FEATURE_SUBPATHS,
+          ],
           files: ["**/*.server.*", "**/packages/core/src/features/**", "**/packages/core/src/infrastructure/**"],
         },
       },

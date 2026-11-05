@@ -1,8 +1,8 @@
-import type { CatalogView } from "@taste/core/kind-catalog";
-import type { TasteContext } from "@taste/core/places";
-import type { HookPayload, RecallExplainItem } from "@taste/core/recall";
+import type { CatalogView } from "@tastebud/core/kind-catalog";
+import type { TasteContext } from "@tastebud/core/places";
+import type { HookPayload, RecallExplainItem } from "@tastebud/core/recall";
 /** Recall's outcomes in plain words: why an item was left out, why the hook stayed silent, why it applies. */
-import type { ExcludedRecallHit, RecallExclusionReason, RecallResult } from "@taste/core/record-views";
+import type { ExcludedRecallHit, RecallExclusionReason, RecallResult } from "@tastebud/core/record-views";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { capitalize, findKindView } from "#review/shared/ui/kind-identity.tsx";

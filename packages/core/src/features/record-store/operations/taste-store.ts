@@ -17,7 +17,7 @@ import {
   uniqueShortId,
 } from "#core/domains/records/index.ts";
 import { normaliseTokens } from "#core/domains/repeat-detection/index.ts";
-import type { LoadedTasteConfig } from "#core/domains/store-config/index.ts";
+import type { LoadedTastebudConfig } from "#core/domains/store-config/index.ts";
 import { storeFilePath, writeFileExclusive } from "#core/infrastructure/record-files.ts";
 import {
   type IndexHandle,
@@ -38,7 +38,7 @@ import type { CorruptRecordFile } from "#core/shared/corrupt-record-file.ts";
 import { InvalidTasteInput } from "#core/shared/invalid-taste-input.ts";
 import { formatSchemaProblems } from "#core/shared/schema-problems.ts";
 
-import { loadTasteConfig } from "./load-taste-config.ts";
+import { loadTastebudConfig } from "./load-tastebud-config.ts";
 import { decodeRecordFileText, renderRecordFileText } from "./record-file-text.ts";
 
 export interface TasteSearchHit {
@@ -76,9 +76,9 @@ export class TasteStore extends Context.Service<
   {
     readonly root: string;
     /** The config as of this operation; `runTasteOperation` provides a fresh one for each run. */
-    readonly config: LoadedTasteConfig;
-    /** Reads `taste.config.ts` again; cheap when its mtime is unchanged. */
-    readonly loadConfig: Effect.Effect<LoadedTasteConfig, StoreNotInitialised | InvalidConfig>;
+    readonly config: LoadedTastebudConfig;
+    /** Reads `tastebud.config.ts` again; cheap when its mtime is unchanged. */
+    readonly loadConfig: Effect.Effect<LoadedTastebudConfig, StoreNotInitialised | InvalidConfig>;
     /** Every record with its file, in id order. */
     readonly records: Effect.Effect<ReadonlyArray<StoredRecord>, CorruptRecordFile>;
     /** Every record, with derivation statuses derived. Every read path starts here. */
@@ -95,14 +95,14 @@ export class TasteStore extends Context.Service<
     /** Deletes the sqlite files and rebuilds them from the record files. */
     readonly rebuild: Effect.Effect<IndexRefreshResult, CorruptRecordFile>;
   }
->()("@taste/TasteStore") {}
+>()("@tastebud/TasteStore") {}
 
 /**
  * Where the store is, whether or not it exists yet. The config operations run with only this, since
  * setup starts before there is a store to open; an open store provides it too.
  */
 export class TasteStoreRoot extends Context.Service<TasteStoreRoot, { readonly root: string }>()(
-  "@taste/TasteStoreRoot",
+  "@tastebud/TasteStoreRoot",
 ) {}
 
 const tasteStoreRootLayer = (root: string) => Layer.succeed(TasteStoreRoot, TasteStoreRoot.of({ root }));
@@ -112,7 +112,7 @@ const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInit
   Layer.effect(
     TasteStore,
     Effect.gen(function* () {
-      const config = yield* loadTasteConfig(root);
+      const config = yield* loadTastebudConfig(root);
       let index: IndexHandle = yield* Effect.acquireRelease(
         Effect.sync(() => openIndexHandle(root)),
         () => Effect.sync(() => index.current.close()),
@@ -142,7 +142,7 @@ const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInit
       return TasteStore.of({
         root,
         config,
-        loadConfig: loadTasteConfig(root),
+        loadConfig: loadTastebudConfig(root),
         records,
         snapshot: Effect.map(records, buildStoreSnapshot),
         search,
@@ -169,7 +169,7 @@ const makeTasteStoreLayer = (root: string): Layer.Layer<TasteStore, StoreNotInit
  * Runs `effect` against the store with its config re-read first, so a long-lived store (the review
  * server, MCP) sees config edits. The index connection is shared.
  */
-export const withFreshTasteConfig = Effect.fn("record-store.withFreshTasteConfig")(function* <A, E, R>(
+export const withFreshTastebudConfig = Effect.fn("record-store.withFreshTastebudConfig")(function* <A, E, R>(
   effect: Effect.Effect<A, E, R>,
 ): Effect.fn.Return<A, E | StoreNotInitialised | InvalidConfig, R | TasteStore> {
   const store = yield* TasteStore;

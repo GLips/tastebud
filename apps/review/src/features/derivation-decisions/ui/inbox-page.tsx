@@ -16,7 +16,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import type { DerivedKindView } from "@taste/core/kind-catalog";
+import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Schema } from "effect";
 import { ArrowDown, Keyboard, PartyPopper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -42,7 +42,7 @@ export const InboxSearch = Schema.Struct({
 
 const Route = getRouteApi("/");
 
-const LAST_KIND_KEY = "taste.inbox.kind";
+const LAST_KIND_KEY = "tastebud.inbox.kind";
 
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
@@ -249,7 +249,7 @@ export function InboxPage() {
       {queue.entries.length === 0 ? (
         <Center py={64}>
           <Stack align="center" gap="xxs">
-            <PartyPopper size={28} color="var(--mantine-color-taste-6)" />
+            <PartyPopper size={28} color="var(--mantine-color-tastebud-6)" />
             <Text fw={600}>No {kind.plural} waiting</Text>
             {othersWaiting.length > 0 ? (
               <Group gap="xxs" mt="2xs">
@@ -268,7 +268,7 @@ export function InboxPage() {
               </Group>
             ) : (
               <Text size="sm" c="dimmed">
-                Agents propose with <code>taste propose</code>.{" "}
+                Agents propose with <code>tastebud propose</code>.{" "}
                 <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
                   Browse {kind.plural}
                 </AnchorLink>

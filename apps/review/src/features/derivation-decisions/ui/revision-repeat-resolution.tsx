@@ -5,8 +5,8 @@
  */
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DerivationScope } from "@taste/core/places";
-import type { RepeatMatch } from "@taste/core/record-views";
+import type { DerivationScope } from "@tastebud/core/places";
+import type { RepeatMatch } from "@tastebud/core/record-views";
 import { useState } from "react";
 
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";

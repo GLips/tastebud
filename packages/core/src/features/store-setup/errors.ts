@@ -4,7 +4,7 @@ import { Data } from "effect";
  * `config-write` against a file other than the one the caller last read: someone edited it, or a
  * store exists where the caller expected none. `currentHash` is undefined when there is no file.
  */
-export class StaleTasteConfig extends Data.TaggedError("StaleTasteConfig")<{
+export class StaleTastebudConfig extends Data.TaggedError("StaleTastebudConfig")<{
   readonly path: string;
   readonly currentHash: string | undefined;
   readonly expectedNoFile: boolean;

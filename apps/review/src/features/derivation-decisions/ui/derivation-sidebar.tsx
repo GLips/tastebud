@@ -1,8 +1,8 @@
 /** The derivation page's sidebar: its decisions, its revision chain, and what points back at it. */
 import { Group, Paper, Stack, Text, Timeline } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DerivationSummary, DerivationView, ShowResult } from "@taste/core/record-views";
-import type { DecisionRecord } from "@taste/core/records";
+import type { DerivationSummary, DerivationView, ShowResult } from "@tastebud/core/record-views";
+import type { DecisionRecord } from "@tastebud/core/records";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { describeAuthor, formatReviewTime } from "#review/shared/format.ts";
@@ -15,7 +15,7 @@ const styles = stylex.create({
 });
 
 const DECISION_BULLET_COLORS: Record<DecisionRecord["outcome"], string> = {
-  accept: "taste",
+  accept: "tastebud",
   reject: "red",
   retract: "gray",
 };

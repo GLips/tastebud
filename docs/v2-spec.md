@@ -4,12 +4,12 @@ topic: taste-v2
 status: building
 ---
 
-# Taste v2 build spec
+# Tastebud v2 build spec
 
 v2 turns the v1 demo into the full shape:
 
 - **Places** replace free-form `applies_to`.
-- **`taste.config.ts`** replaces `taste.yaml`.
+- **`tastebud.config.ts`** replaces `taste.yaml`.
 - **Kinds** generalise memories and beliefs.
 - **One operation registry** drives the CLI, an MCP server and the review UI.
 
@@ -65,7 +65,7 @@ For all three, segments are split on `/` and empty segments are dropped. A key m
 - **Repo place:** the root is the repo id, and the segments are the subpath.
 - **Directory or named place:** the root is `~`, `/`, or "named", and the segments are the whole path.
 
-A repo place never covers a directory place, and vice versa. This is pure code in `packages/core/src/domains/places/` (`@taste/core/places`), so the UI can use it too.
+A repo place never covers a directory place, and vice versa. This is pure code in `packages/core/src/domains/places/` (`@tastebud/core/places`), so the UI can use it too.
 
 A derivation is **eligible** in a context when it is `global`, or when any of its effective scope places covers any context place. Descendants never count: a context of `~/Programming` does not make `~/Programming/x` eligible.
 
@@ -203,13 +203,13 @@ This keeps records append-only and makes scope part of what the human ratifies. 
 
 ### 4.1 Location
 
-`--store` wins, then `TASTE_STORE`, then `~/.taste`. One function, `resolveStoreRoot`, is used by the CLI, the hook, the MCP server and the review server. An empty string counts as unset.
+`--store` wins, then `TASTEBUD_STORE`, then `~/.tastebud`. One function, `resolveStoreRoot`, is used by the CLI, the hook, the MCP server and the review server. An empty string counts as unset.
 
 ### 4.2 Layout
 
 ```
-~/.taste/
-  taste.config.ts        # the one editable file
+~/.tastebud/
+  tastebud.config.ts        # the one editable file
   .gitignore             # .index/
   sources/YYYY/MM/<date>[-<slug>].<short-id>.md
   derivations/YYYY/MM/…
@@ -220,9 +220,9 @@ This keeps records append-only and makes scope part of what the human ratifies. 
 
 `type` (`Source`, `Derivation`, `Decision` or `ThreadEntry`) and `kind` live in frontmatter, not in paths.
 
-### 4.3 `taste.config.ts`
+### 4.3 `tastebud.config.ts`
 
-It is a default-exported plain object. It needs no imports, so it loads in any store. An agent writes it with the owner through the setup interview (§5.2); `taste init` writes the commented starter through the same `config-write`.
+It is a default-exported plain object. It needs no imports, so it loads in any store. An agent writes it with the owner through the setup interview (§5.2); `tastebud init` writes the commented starter through the same `config-write`.
 
 ```ts
 type PlaceKey = string;
@@ -238,7 +238,7 @@ type DerivedKind = Labels & Readonly<{
   recall: "inject" | "pull" | "never";
   acceptLabel: string;
 }>;
-type TasteConfig = Readonly<{
+type TastebudConfig = Readonly<{
   owner: `human:${string}`;
   place?: "git" | "directories" | ((ctx: PlaceContext) => readonly PlaceKey[] | Promise<readonly PlaceKey[]>);
   sourceKinds?: Readonly<Record<string, Labels>>;
@@ -254,17 +254,17 @@ type TasteConfig = Readonly<{
 
 ## 5. Operation registry
 
-All behaviour lives in `packages/core` (`@taste/core`). Each shell is a thin adapter:
+All behaviour lives in `packages/core` (`@tastebud/core`). Each shell is a thin adapter:
 
 - **CLI:** `packages/cli`, using effect/cli.
 - **MCP:** `packages/mcp`, using the `@modelcontextprotocol/sdk` low-level `Server` over stdio.
 - **Review server:** `apps/review/src/features/*/controllers`, as TanStack server functions.
-- **Hooks:** run as `taste hook prompt`.
+- **Hooks:** run as `tastebud hook prompt`.
 
 ```ts
 // packages/core/src/features/operation-registry/operations/taste-operation-declaration.ts
 declareTasteOperation({
-  name: "recall",                 // CLI `taste recall`; MCP tool `taste_recall`
+  name: "recall",                 // CLI `tastebud recall`; MCP tool `tastebud_recall`
   audience: "agent" | "human",    // human operations are never on agent surfaces
   kind: "query" | "command",
   description: "…",               // MCP description, CLI help
@@ -306,21 +306,21 @@ declareTasteOperation({
 | `reindex` | agent | Rebuild `.index/`. |
 | `config-show` | agent | The config's text, hash and loaded view. On a missing store, a result (`exists: false`, the root, a starter), not a failure. |
 | `config-check` | agent | Validate a whole candidate text exactly as loading does: every problem by field, the unified diff, and `probes` resolved under the candidate's `place`. Writes nothing. |
-| `config-write` | agent | The same validation, then an atomic replace; creates the store (config and `.gitignore`) when there is none. `expected_current` (the hash or text last read, `""` for a new store) must match, else `StaleTasteConfig` (conflict). |
+| `config-write` | agent | The same validation, then an atomic replace; creates the store (config and `.gitignore`) when there is none. `expected_current` (the hash or text last read, `""` for a new store) must match, else `StaleTastebudConfig` (conflict). |
 | `inbox` | human | Pending derivations grouped by kind, then scope, then subject. |
-| `decide` | human | Accept (with an optional scope amendment and acknowledgements), reject or retract. Reached only through the review UI's server functions. `taste decide <ref>` opens that record's review page and writes nothing. |
+| `decide` | human | Accept (with an optional scope amendment and acknowledgements), reject or retract. Reached only through the review UI's server functions. `tastebud decide <ref>` opens that record's review page and writes nothing. |
 | `thread-note` | human | A human's comment on a thread, from the review UI. |
 | `seed` | human | CLI only. Writes its config through `config-write`'s path, so it never overwrites a store. |
 
-The MCP server exposes every `agent` operation as `taste_<name>`, with `-` turned into `_`. `review listen` and `review` stay CLI process commands.
+The MCP server exposes every `agent` operation as `tastebud_<name>`, with `-` turned into `_`. `review listen` and `review` stay CLI process commands.
 
 ### 5.2 Setup
 
-Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTE_SETUP_INTERVIEW`, served as the MCP prompt `setup` (`/mcp__taste__setup` in Claude Code) and printed by `taste setup-guide`.
+Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, served as the MCP prompt `setup` (`/mcp__tastebud__setup` in Claude Code) and printed by `tastebud setup-guide`.
 
 The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 
-**Trust boundary.** Neither an actor string nor `audience: "human"` proves a human acted. Human operations are kept off the agent surfaces, CLI and MCP alike: the only writers of decisions and human thread notes are the review server and `taste seed`. The local filesystem remains the trust boundary. Taste does not claim protection against an agent that deliberately writes files.
+**Trust boundary.** Neither an actor string nor `audience: "human"` proves a human acted. Human operations are kept off the agent surfaces, CLI and MCP alike: the only writers of decisions and human thread notes are the review server and `tastebud seed`. The local filesystem remains the trust boundary. Tastebud does not claim protection against an agent that deliberately writes files.
 
 ## 6. Scope audit and repoint
 
@@ -336,13 +336,13 @@ A resolver can't prove that a place will never come back, so the audit only comp
 
 ## 7. Hooks
 
-- **`taste hook prompt`** is the UserPromptSubmit hook.
+- **`tastebud hook prompt`** is the UserPromptSubmit hook.
   - It reads `{prompt, cwd}` JSON on stdin and resolves context from `cwd`.
   - It builds the payload with only `inject` kinds, at most `hook.limit` items, and a deadline of `hook.budgetMs`.
   - It prints the Claude Code hook JSON (`hookSpecificOutput.additionalContext`).
   - It always exits 0.
-  - Install: `{"type":"command","command":"taste hook prompt"}`.
-- **`taste hook preview`** shows the prompt payload, through the same builder.
+  - Install: `{"type":"command","command":"tastebud hook prompt"}`.
+- **`tastebud hook preview`** shows the prompt payload, through the same builder.
 - **Deferred: file-touch recall** (PostToolUse on Read and Edit, from the touched file's directory). It needs a relevance query, de-duplication based on what was actually delivered, context-reset handling and budgets. Post-edit delivery also lands too late to guide that edit. The `in` input is the seam it will use.
 
 ## 8. Review UI
@@ -375,10 +375,10 @@ A resolver can't prove that a place will never come back, so the audit only comp
 
 ## 9. Tooling
 
-Adopted from tk2, scaled to Taste's size:
+Adopted from tk2, scaled to Tastebud's size:
 
 - `oxfmt` with sorted imports, as one formatting commit before v2 code lands.
-- `oxlint` with type-aware rules, plus a local `taste/no-long-comments` rule (60 words or 15 lines, doubled for a file header).
+- `oxlint` with type-aware rules, plus a local `tastebud/no-long-comments` rule (60 words or 15 lines, doubled for a file header).
 - `knip`.
 - `lefthook`: format first, then lint, typecheck and test in parallel.
 - `scripts/check.ts`, which runs all of the checks in parallel.
@@ -410,15 +410,15 @@ Integration tests run through operations, with temp stores and real git.
 6. **Carried over from v1:** reindex parity (v1 test 4) and the listener (v1 test 5).
 7. **MCP over stdio,** with the SDK `Client`:
    - `tools/list` holds exactly the agent operations.
-   - `taste_propose` then `taste_recall` work with an `in` argument.
+   - `tastebud_propose` then `tastebud_recall` work with an `in` argument.
    - Invalid input gives `isError`.
    - Setup from nothing: the `setup` prompt, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
-8. **CLI:** `taste capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `taste decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
-9. **`taste hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context.
+8. **CLI:** `tastebud capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `tastebud decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
+9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context.
 
 ## 11. Demo seed
 
-`taste seed` writes a store whose config declares:
+`tastebud seed` writes a store whose config declares:
 
 - **Source kinds:** `memory` and `call-quote`.
 - **Derived kinds:**

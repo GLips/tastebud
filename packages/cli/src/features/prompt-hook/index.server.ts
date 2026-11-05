@@ -1,1 +1,1 @@
-export { runTasteHookPrompt } from "./controllers/run-prompt-hook.ts";
+export { runTastebudHookPrompt } from "./controllers/run-prompt-hook.ts";

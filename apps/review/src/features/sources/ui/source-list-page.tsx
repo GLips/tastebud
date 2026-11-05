@@ -89,7 +89,7 @@ export function SourceListPage() {
               <Text c="dimmed">
                 {search.kind !== undefined || search.speaker !== undefined
                   ? "No sources match these filters."
-                  : "Nothing captured yet. Agents capture with taste capture."}
+                  : "Nothing captured yet. Agents capture with tastebud capture."}
               </Text>
             </Center>
           ) : (

@@ -6,8 +6,8 @@
 import { Alert, Button, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { InboxGroup } from "@taste/core/inbox";
-import type { DerivedKindView } from "@taste/core/kind-catalog";
+import type { InboxGroup } from "@tastebud/core/inbox";
+import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { CheckCheck } from "lucide-react";
 import { type ReactNode, useState, useSyncExternalStore } from "react";
 

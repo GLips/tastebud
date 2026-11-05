@@ -2,7 +2,7 @@
  * The store's config: `config-show`, `config-check` and `config-write`, plus `init` (the starter
  * text through the same write) and `setup-guide` (the interview an agent runs with the owner).
  */
-import { TASTE_SETUP_INTERVIEW, starterTasteConfigText } from "@taste/core/store-config";
+import { TASTEBUD_SETUP_INTERVIEW, starterTastebudConfigText } from "@tastebud/core/store-config";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/cli";
 
@@ -12,7 +12,7 @@ import { definedFields, jsonFlag, optionalTextFlag, repeatableTextFlag, storeFla
 import { describedAs, readTextOrStdin, runCliOperation } from "./run-cli-operation.ts";
 
 const configTextFlag = Flag.String("text").pipe(
-  Flag.withDescription("The complete taste.config.ts text, or - to read it from stdin"),
+  Flag.withDescription("The complete tastebud.config.ts text, or - to read it from stdin"),
 );
 
 export const configShowCommand = Command.make("config-show", { json: jsonFlag, store: storeFlag }, ({ json, store }) =>
@@ -35,7 +35,7 @@ export const configCheckCommand = Command.make(
 ).pipe(
   describedAs("config-check"),
   Command.withExamples([
-    { command: "taste config-check --text - --probe ~/code/web < draft.config.ts", description: "Check a draft" },
+    { command: "tastebud config-check --text - --probe ~/code/web < draft.config.ts", description: "Check a draft" },
   ]),
 );
 
@@ -65,13 +65,13 @@ export const initCommand = Command.make(
     store: storeFlag,
   },
   ({ owner, json, store }) => {
-    const text = starterTasteConfigText(Option.getOrElse(owner, () => `human:${currentUserName()}`));
+    const text = starterTastebudConfigText(Option.getOrElse(owner, () => `human:${currentUserName()}`));
     return runCliOperation("config-write", { text, expected_current: "" }, { store, json });
   },
 ).pipe(
-  Command.withDescription("Create a store with the commented starter taste.config.ts (an agent's setup does more)"),
+  Command.withDescription("Create a store with the commented starter tastebud.config.ts (an agent's setup does more)"),
 );
 
-export const setupGuideCommand = Command.make("setup-guide", {}, () => printLine(TASTE_SETUP_INTERVIEW)).pipe(
-  Command.withDescription("The setup interview an agent runs with the owner to write taste.config.ts"),
+export const setupGuideCommand = Command.make("setup-guide", {}, () => printLine(TASTEBUD_SETUP_INTERVIEW)).pipe(
+  Command.withDescription("The setup interview an agent runs with the owner to write tastebud.config.ts"),
 );

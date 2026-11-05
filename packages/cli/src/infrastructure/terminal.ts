@@ -19,5 +19,5 @@ export const isInteractiveStdout = () => process.stdout.isTTY;
 export const terminalColumns = () => process.stdout.columns ?? 100;
 export const terminalRows = () => process.stdout.rows ?? 24;
 
-/** The login name, for `taste init`'s default owner. */
+/** The login name, for `tastebud init`'s default owner. */
 export const currentUserName = () => userInfo().username;

@@ -1,6 +1,6 @@
 /**
- * `taste review` as a person runs it: the built review UI served from this process, from source or from the
- * compiled binary at TASTE_TEST_BINARY. Needs `bun run build:review` first; `bun run check` does that.
+ * `tastebud review` as a person runs it: the built review UI served from this process, from source or from the
+ * compiled binary at TASTEBUD_TEST_BINARY. Needs `bun run build:review` first; `bun run check` does that.
  */
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
@@ -15,9 +15,9 @@ import {
   makeTemporaryDirectory,
   makeTestStore,
   runOperation,
-  runTaste,
-  TASTE_COMMAND_LINE,
-  tasteProcessEnv,
+  runTastebud,
+  TASTEBUD_COMMAND_LINE,
+  tastebudProcessEnv,
 } from "./support.ts";
 
 const decodeReviewStarted = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Struct({ url: Schema.String })));
@@ -40,11 +40,11 @@ const findFreeReviewPort = () => {
   throw new Error("no free port in 4800-4899");
 };
 
-/** Starts `taste review` and resolves with its URL once it prints it. */
-const startTasteReview = async (store: string, port: number) => {
-  const server = Bun.spawn([...TASTE_COMMAND_LINE, "review", "--port", String(port), "--store", store, "--json"], {
+/** Starts `tastebud review` and resolves with its URL once it prints it. */
+const startTastebudReview = async (store: string, port: number) => {
+  const server = Bun.spawn([...TASTEBUD_COMMAND_LINE, "review", "--port", String(port), "--store", store, "--json"], {
     cwd: makeTemporaryDirectory("review-cwd"),
-    env: tasteProcessEnv({}),
+    env: tastebudProcessEnv({}),
     stdout: "pipe",
     stderr: "inherit",
   });
@@ -113,9 +113,9 @@ const postAccept = (url: string, ref: string, origin: string) =>
     body: acceptRequestBody(ref),
   });
 
-test("taste review serves the shell, typed assets and a decision that lands in the store, same origin only", async () => {
+test("tastebud review serves the shell, typed assets and a decision that lands in the store, same origin only", async () => {
   const { store, derivationId } = await storeWithPendingBelief();
-  const url = await startTasteReview(store, findFreeReviewPort());
+  const url = await startTastebudReview(store, findFreeReviewPort());
   expect(url).toStartWith("http://127.0.0.1:");
 
   const shell = await fetch(url);
@@ -143,11 +143,11 @@ test("taste review serves the shell, typed assets and a decision that lands in t
   expect(countDecisionFiles(store)).toBe(1);
 });
 
-test("a second taste review on a taken port exits 2 naming the port and how to pick another", async () => {
+test("a second tastebud review on a taken port exits 2 naming the port and how to pick another", async () => {
   const store = await makeTestStore();
   const port = findFreeReviewPort();
-  await startTasteReview(store, port);
-  const second = await runTaste(store, makeTemporaryDirectory("second"), ["review", "--port", String(port)]);
+  await startTastebudReview(store, port);
+  const second = await runTastebud(store, makeTemporaryDirectory("second"), ["review", "--port", String(port)]);
   expect(second.exitCode).toBe(2);
   expect(second.stderr).toContain(`Port ${String(port)} is already in use`);
   expect(second.stderr).toContain("--port");

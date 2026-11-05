@@ -1,4 +1,4 @@
-import { SAID_AT_PRECISIONS } from "@taste/core/taste-vocabulary";
+import { SAID_AT_PRECISIONS } from "@tastebud/core/taste-vocabulary";
 /** Commands that append records, each acting as `--by` where the operation records an agent. */
 import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -54,7 +54,7 @@ export const captureCommand = Command.make(
   Command.withExamples([
     {
       command:
-        'taste capture --said-by human:dana --label Dana --quote "No default exports, ever." --by claude-code/2.x',
+        'tastebud capture --said-by human:dana --label Dana --quote "No default exports, ever." --by claude-code/2.x',
       description: "Record what the owner just said",
     },
   ]),
@@ -70,7 +70,7 @@ const proposeScopeFlagOf = (global: boolean, places: ReadonlyArray<string>): "gl
 export const proposeCommand = Command.make(
   "propose",
   {
-    kind: Flag.String("kind").pipe(Flag.withDescription("Derived kind, e.g. belief (see `taste catalog`)")),
+    kind: Flag.String("kind").pipe(Flag.withDescription("Derived kind, e.g. belief (see `tastebud catalog`)")),
     statement: Flag.String("statement").pipe(Flag.withDescription("The derivation, one line")),
     supports: Flag.String("supports").pipe(
       Flag.atLeast(1),
@@ -116,11 +116,11 @@ export const proposeCommand = Command.make(
   Command.withExamples([
     {
       command:
-        'taste propose --kind belief --statement "Use named exports only" --supports 0f3a9c1e --reasoning "They said so twice" --by claude-code/2.x',
+        'tastebud propose --kind belief --statement "Use named exports only" --supports 0f3a9c1e --reasoning "They said so twice" --by claude-code/2.x',
       description: "Scope defaults to this repo's root",
     },
     {
-      command: 'taste propose … --despite 7b21e0aa --despite-case "They asked again after the rejection"',
+      command: 'tastebud propose … --despite 7b21e0aa --despite-case "They asked again after the rejection"',
       description: "Re-propose past a near repeat",
     },
   ]),

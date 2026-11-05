@@ -1,7 +1,7 @@
 /** Store-wide facts most screens need: the catalog, and labels for every place in use. */
 import { useQuery } from "@tanstack/react-query";
-import type { CatalogView } from "@taste/core/kind-catalog";
-import type { PlaceKey } from "@taste/core/places";
+import type { CatalogView } from "@tastebud/core/kind-catalog";
+import type { PlaceKey } from "@tastebud/core/places";
 import { useMemo } from "react";
 
 import { labelPlaces } from "#review/shared/known-place-labels.ts";

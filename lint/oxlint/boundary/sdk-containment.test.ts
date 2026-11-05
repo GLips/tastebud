@@ -1,6 +1,6 @@
-// The rows this exercises are Taste's own, in `lint/policy/package-owners.ts`.
+// The rows this exercises are Tastebud's own, in `lint/policy/package-owners.ts`.
 // What is proved here is the READER, so the cases follow the rows: pruning a row
-// prunes its cases. Taste has no zero-owner row, so the total-ban branch has no
+// prunes its cases. Tastebud has no zero-owner row, so the total-ban branch has no
 // subject here.
 
 import { describeRule } from "../lib/rule-spec.ts";
@@ -30,7 +30,7 @@ describeRule("boundary/sdk-containment", sdkContainmentRule, {
   adversarial: [
     {
       name: "a package subpath is the same package, spelled past the name",
-      filename: "/repo/packages/mcp/src/features/taste-tools/controllers/call-taste-tool.ts",
+      filename: "/repo/packages/mcp/src/features/tastebud-tools/controllers/call-tastebud-tool.ts",
       code: `import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";`,
       errors: [{ messageId: "rawSdkOutsideOwner" }],
     },
@@ -79,7 +79,7 @@ describeRule("boundary/sdk-containment", sdkContainmentRule, {
     {
       name: "an app entrypoint is not a category that inherits a pass — it owns the row or it does not",
       filename: "/repo/packages/cli/src/main.ts",
-      code: `import { serveTasteMcpOverStdio } from "@taste/mcp";`,
+      code: `import { serveTastebudMcpOverStdio } from "@tastebud/mcp";`,
       errors: [{ messageId: "rawSdkOutsideOwner" }],
     },
   ],
@@ -98,7 +98,7 @@ describeRule("boundary/sdk-containment", sdkContainmentRule, {
     {
       name: "the CLI's one MCP door owns the MCP package",
       filename: "/repo/packages/cli/src/infrastructure/mcp-server.ts",
-      code: `import { serveTasteMcpOverStdio } from "@taste/mcp";`,
+      code: `import { serveTastebudMcpOverStdio } from "@tastebud/mcp";`,
     },
     {
       name: "the configured adapter, which is what callers are meant to import",

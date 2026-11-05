@@ -807,8 +807,8 @@ describeSuite("the adapter contract: same-unit edges never reach the table", () 
 });
 
 describeSuite("the adapter contract: the one flag, and the loud defaults", () => {
-  // Taste adds `package` to DOMAIN_RUNTIME_AREAS (its domains are Effect Schema);
-  // `taste/domain-runtime-packages` is what narrows which packages.
+  // Tastebud adds `package` to DOMAIN_RUNTIME_AREAS (its domains are Effect Schema);
+  // `tastebud/domain-runtime-packages` is what narrows which packages.
   testCase("a domain's runtime package import is allowed, as is its type import", () => {
     assert.equal(verdict("domains/pricing/rate-card.ts", "effect").kind, "allow-crossing");
     assert.equal(verdict("domains/pricing/rate-card.ts", "effect", { typeOnly: true }).kind, "allow-crossing");

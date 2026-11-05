@@ -1,8 +1,8 @@
 /**
- * The demo store's `taste.config.ts`, as text. People copy it as the example of custom kinds, so
+ * The demo store's `tastebud.config.ts`, as text. People copy it as the example of custom kinds, so
  * each proposal prompt is a real one an agent can follow as written.
  */
-import { BELIEF_PROPOSAL_PROMPT } from "@taste/core/kind-catalog";
+import { BELIEF_PROPOSAL_PROMPT } from "@tastebud/core/kind-catalog";
 
 export const DEMO_OWNER = "human:dana";
 
@@ -13,7 +13,7 @@ When to propose
 - A new call contradicts an accepted insight. Propose a revision with --supersedes <insight-id> that cites the new quote.
 
 Before proposing
-- Recall first: taste recall "<topic>" --kind insight. If an accepted insight covers it, don't propose.
+- Recall first: tastebud recall "<topic>" --kind insight. If an accepted insight covers it, don't propose.
 - If a rejected insight matches, read its reason. The default is to drop it.
 
 The statement
@@ -32,7 +32,7 @@ Scope
 When refused as a near repeat
 - Usually the insight already exists or was turned down; stop. Re-propose only with --despite <id> for every match and --despite-case saying what changed.`;
 
-const IDEA_PROPOSAL_PROMPT = `Propose an idea when a customer call, or Dana's own words, point at something concrete to try on the website or in ads. An idea is a backlog item: accepting it means "worth doing", not "true". Ideas are never recalled into an agent's context; they live in taste list and the review UI.
+const IDEA_PROPOSAL_PROMPT = `Propose an idea when a customer call, or Dana's own words, point at something concrete to try on the website or in ads. An idea is a backlog item: accepting it means "worth doing", not "true". Ideas are never recalled into an agent's context; they live in tastebud list and the review UI.
 
 When to propose
 - A quote names a problem, and there is a specific change that would address it.
@@ -40,7 +40,7 @@ When to propose
 - An accepted insight implies a change. Cite the insight and the quotes under it.
 
 Before proposing
-- List what's there: taste list --kind idea --text "<topic>". Don't propose an idea that is already pending, accepted or rejected.
+- List what's there: tastebud list --kind idea --text "<topic>". Don't propose an idea that is already pending, accepted or rejected.
 
 The statement
 - Start with a verb and name the surface: "Add a 'Skip next delivery' link to the shipping confirmation email". One change per idea.

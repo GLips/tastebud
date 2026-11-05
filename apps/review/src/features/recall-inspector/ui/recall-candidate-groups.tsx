@@ -4,9 +4,9 @@
  */
 import { Box, Collapse, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { CatalogView } from "@taste/core/kind-catalog";
-import type { HookPayload } from "@taste/core/recall";
-import type { DerivationSummary, RecallResult } from "@taste/core/record-views";
+import type { CatalogView } from "@tastebud/core/kind-catalog";
+import type { HookPayload } from "@tastebud/core/recall";
+import type { DerivationSummary, RecallResult } from "@tastebud/core/record-views";
 import { ChevronRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
@@ -158,7 +158,7 @@ export function RecallCandidateGroups({
                     ? `Rejected, offered as not accepted · ${matchedPlaceWording(item.explanation.matchedPlace, known)}`
                     : matchedPlaceWording(item.explanation.matchedPlace, known)
                 }
-                reasonColor="taste.8"
+                reasonColor="tastebud.8"
                 details={[
                   ["Policy", item.explanation.policy],
                   ["Status", item.explanation.status],
@@ -175,7 +175,7 @@ export function RecallCandidateGroups({
         <GroupHeading
           title="Available through recall"
           count={available.length + recall.history.length + recall.sources.length}
-          hint="What an agent gets when it asks (taste recall) but the hook doesn't send on its own."
+          hint="What an agent gets when it asks (tastebud recall) but the hook doesn't send on its own."
         />
         {available.length + recall.history.length + recall.sources.length === 0 ? (
           <Text size="sm" c="dimmed">

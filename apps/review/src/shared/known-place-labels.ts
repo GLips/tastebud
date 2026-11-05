@@ -1,5 +1,5 @@
 /** Short, unambiguous labels for place keys, and the Places page's name for the global scope. */
-import { formatPlaceLabel, parsePlaceKey, type PlaceKey } from "@taste/core/places";
+import { formatPlaceLabel, parsePlaceKey, type PlaceKey } from "@tastebud/core/places";
 import { Result } from "effect";
 
 /** The `place` search value that selects the global scope on the Places page; not a place key. */

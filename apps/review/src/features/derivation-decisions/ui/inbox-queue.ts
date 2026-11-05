@@ -3,7 +3,7 @@
  * working through never reorder under them: new proposals wait behind a "N new" button, and a card
  * decided elsewhere stays in place, marked gone, until the reviewer moves past it.
  */
-import type { InboxCard, InboxGroup } from "@taste/core/inbox";
+import type { InboxCard, InboxGroup } from "@tastebud/core/inbox";
 import { useState } from "react";
 
 export interface InboxQueueEntry {

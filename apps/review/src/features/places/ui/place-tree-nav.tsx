@@ -1,7 +1,7 @@
 /** The Places page's left column: a searchable tree of every place a scope names, with counts. */
 import { Box, Paper, ScrollArea, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { AuditPlacesResult } from "@taste/core/places-audit";
+import type { AuditPlacesResult } from "@tastebud/core/places-audit";
 import { Globe, Search, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
@@ -25,7 +25,7 @@ const styles = stylex.create({
     color: "var(--mantine-color-gray-8)",
     ":hover": { backgroundColor: "var(--mantine-color-gray-1)" },
   },
-  nodeSelected: { backgroundColor: "var(--mantine-color-taste-0)", color: "var(--mantine-color-taste-9)" },
+  nodeSelected: { backgroundColor: "var(--mantine-color-tastebud-0)", color: "var(--mantine-color-tastebud-9)" },
   container: { color: "var(--mantine-color-gray-6)", cursor: "default", ":hover": { backgroundColor: "transparent" } },
   nodeLabel: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   count: { color: "var(--mantine-color-gray-6)", fontVariantNumeric: "tabular-nums" },

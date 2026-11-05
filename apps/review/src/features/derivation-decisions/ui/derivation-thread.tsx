@@ -1,8 +1,8 @@
 import { Box, ActionIcon, Alert, Badge, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ThreadEntryRecord } from "@taste/core/records";
-import type { ListenerHeartbeat } from "@taste/core/review-threads";
+import type { ThreadEntryRecord } from "@tastebud/core/records";
+import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 import { SendHorizontal } from "lucide-react";
 import { useState } from "react";
 
@@ -17,7 +17,7 @@ import { useReviewClockMs } from "./use-review-clock.ts";
 
 const styles = stylex.create({
   entry: { display: "flex", flexDirection: "column", gap: "4px" },
-  owner: { backgroundColor: "var(--mantine-color-taste-0)", borderColor: "var(--mantine-color-taste-1)" },
+  owner: { backgroundColor: "var(--mantine-color-tastebud-0)", borderColor: "var(--mantine-color-tastebud-1)" },
   text: { whiteSpace: "pre-wrap" },
   dot: { width: "8px", height: "8px", borderRadius: "50%", display: "inline-block" },
   dotLive: { backgroundColor: "var(--mantine-color-teal-5)" },
@@ -47,7 +47,7 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
   }
   return (
     <Tooltip
-      label="Run `taste review listen --as <name>` in an agent session so notes wake it"
+      label="Run `tastebud review listen --as <name>` in an agent session so notes wake it"
       withArrow
       multiline
       w={260}
@@ -99,7 +99,7 @@ export function DerivationThread({
         return (
           <Paper key={entry.id} px="sm" py="xs" {...stylex.props(styles.entry, isOwner && styles.owner)}>
             <Group gap="xs">
-              <Badge size="xs" variant={isOwner ? "filled" : "light"} color={isOwner ? "taste" : "gray"} tt="none">
+              <Badge size="xs" variant={isOwner ? "filled" : "light"} color={isOwner ? "tastebud" : "gray"} tt="none">
                 {describeAuthor(entry.author, owner)}
               </Badge>
               <Text size="xs" c="dimmed" title={formatReviewTime(entry.at)}>

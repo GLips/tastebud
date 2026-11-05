@@ -2,14 +2,14 @@
  * An operation's MCP `inputSchema`: JSON schema generated from its encoded input, with the field
  * descriptions agents read copied back on.
  */
-import type { TasteOperationListing } from "@taste/core/operations";
+import type { TasteOperationListing } from "@tastebud/core/operations";
 import { Schema, SchemaAST } from "effect";
 
 /** Agents read these on every tool that takes them, so they say what to pass, not how it works. */
 const CONTEXT_FIELD_DESCRIPTIONS: ReadonlyMap<string, string> = new Map([
   [
     "in",
-    "Your working directory, as an absolute path. Pass it on every call: Taste resolves it to the project you are in (repo and subdirectory). Without it, only global entries apply.",
+    "Your working directory, as an absolute path. Pass it on every call: Tastebud resolves it to the project you are in (repo and subdirectory). Without it, only global entries apply.",
   ],
   [
     "at",
@@ -18,7 +18,7 @@ const CONTEXT_FIELD_DESCRIPTIONS: ReadonlyMap<string, string> = new Map([
 ]);
 
 /** An MCP `inputSchema`: a JSON schema whose top level describes an object. */
-export type TasteToolInputJsonSchema = Schema.JsonObject & { readonly type: "object" };
+export type TastebudToolInputJsonSchema = Schema.JsonObject & { readonly type: "object" };
 
 /** Generated JSON schemas are JSON, so this only narrows what the generator's types leave open. */
 const isJsonSchemaNode = Schema.is(Schema.Record(Schema.String, Schema.Json));
@@ -52,7 +52,7 @@ const withoutNullAlternatives = (schema: Schema.JsonObject): Schema.JsonObject =
  * The MCP `inputSchema` for an operation. Field descriptions are annotated on the decoded side, so
  * the encoded schema loses them; they are copied back from each field's AST.
  */
-export const buildTasteToolInputSchema = (operation: TasteOperationListing): TasteToolInputJsonSchema => {
+export const buildTastebudToolInputSchema = (operation: TasteOperationListing): TastebudToolInputJsonSchema => {
   const fields = Object.entries(operation.input.fields);
   if (fields.length === 0) return { type: "object", properties: {}, additionalProperties: false };
   const document = Schema.toJsonSchemaDocument(operation.input, { onExcessProperty: "error" });

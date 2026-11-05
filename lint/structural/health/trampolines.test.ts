@@ -15,7 +15,7 @@ function forwardingNames(source: string): string[] {
 }
 
 void test("exported arrows that only forward to the repo are each found, on their own line", () => {
-  const service = `import type { TasteOperationInput } from "@taste/core/operations";
+  const service = `import type { TasteOperationInput } from "@tastebud/core/operations";
 
 import { readInboxGroups, writeDecision } from "../repo/derivation-decisions.server.ts";
 

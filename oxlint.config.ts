@@ -36,7 +36,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "oxlint";
 
 import archPlugin from "./lint/oxlint/plugin.ts";
-import tastePlugin from "./lint/oxlint/taste/plugin.ts";
+import tastebudPlugin from "./lint/oxlint/tastebud/plugin.ts";
 import { DECLARED_TREES } from "./lint/policy/declared-trees.ts";
 
 // ── the four derivations ────────────────────────────────────────────────────
@@ -59,10 +59,10 @@ function rulePrefixOf(plugin: { meta?: { name?: string } }): string {
   return name;
 }
 const ARCH = rulePrefixOf(archPlugin);
-const TASTE = rulePrefixOf(tastePlugin);
+const TASTEBUD = rulePrefixOf(tastebudPlugin);
 
 const ARCH_PLUGIN_PATH = fileURLToPath(new URL("./lint/oxlint/plugin.ts", import.meta.url));
-const TASTE_PLUGIN_PATH = fileURLToPath(new URL("./lint/oxlint/taste/plugin.ts", import.meta.url));
+const TASTEBUD_PLUGIN_PATH = fileURLToPath(new URL("./lint/oxlint/tastebud/plugin.ts", import.meta.url));
 
 /**
  * One `<root>/**` glob per declared tree, built from the roots themselves.
@@ -120,7 +120,7 @@ const GENERATED_GLOBS = DECLARED_TREES.map((tree) => `${tree.root}/${tree.vocabu
  * oxlint binary, and reading it means shelling out. It stays a hand-written array
  * next to the number it should produce.
  */
-// Taste: `import` serves `import/no-cycle` and `import/no-duplicates`; `promise` brings its
+// Tastebud: `import` serves `import/no-cycle` and `import/no-duplicates`; `promise` brings its
 // correctness and suspicious rules, which the categories below switch on.
 const BUILTIN_PLUGINS: NonNullable<Parameters<typeof defineConfig>[0]["plugins"]> = [
   "react",
@@ -311,12 +311,12 @@ const TREE_SCOPED: Record<Exclude<ArchRuleName, typeof GLOBAL_ARCH_RULE>, RuleSe
   "no-conditional-empty-object-spread": "warn",
 };
 
-// ── taste: the project plugin, `lint/oxlint/taste/` ─────────────────────────
+// ── tastebud: the project plugin, `lint/oxlint/tastebud/` ─────────────────────────
 
-type TasteRuleName = keyof typeof tastePlugin.rules;
+type TastebudRuleName = keyof typeof tastebudPlugin.rules;
 
-/** Runs OUTSIDE the trees (test/, scripts/, Taste's own lint code); `arch/no-long-comments` runs inside. */
-const OUTSIDE_TREES_TASTE_RULE = "no-long-comments" satisfies TasteRuleName;
+/** Runs OUTSIDE the trees (test/, scripts/, Tastebud's own lint code); `arch/no-long-comments` runs inside. */
+const OUTSIDE_TREES_TASTEBUD_RULE = "no-long-comments" satisfies TastebudRuleName;
 
 /**
  * Core's export map, handed to the two rules that tell a pure domain subpath from server code.
@@ -330,7 +330,7 @@ const CORE_EXPORTS_OPTION = {
   ).exports,
 };
 
-const TASTE_TREE_SCOPED: Record<Exclude<TasteRuleName, typeof OUTSIDE_TREES_TASTE_RULE>, RuleSeverity> = {
+const TASTEBUD_TREE_SCOPED: Record<Exclude<TastebudRuleName, typeof OUTSIDE_TREES_TASTEBUD_RULE>, RuleSeverity> = {
   "browser-runtime-packages": "error",
   "core-server-door": ["error", CORE_EXPORTS_OPTION],
   "domain-runtime-packages": ["error", CORE_EXPORTS_OPTION],
@@ -342,7 +342,7 @@ const TASTE_TREE_SCOPED: Record<Exclude<TasteRuleName, typeof OUTSIDE_TREES_TAST
 /** `{ "arch/db-isolation": "error", … }` — both tables, under each plugin's prefix. */
 const treeScopedRules = Object.fromEntries([
   ...Object.entries(TREE_SCOPED).map(([name, severity]) => [`${ARCH}/${name}`, severity]),
-  ...Object.entries(TASTE_TREE_SCOPED).map(([name, severity]) => [`${TASTE}/${name}`, severity]),
+  ...Object.entries(TASTEBUD_TREE_SCOPED).map(([name, severity]) => [`${TASTEBUD}/${name}`, severity]),
 ]);
 
 // ── the shipped rules this catalog does NOT enable ──────────────────────────
@@ -408,7 +408,7 @@ const treeScopedRules = Object.fromEntries([
 // `overrides` block below forbids. That is the whole trade: the fence becomes a
 // dozen globs an adopter widens, instead of one vocabulary table.
 //
-// Taste turns `no-restricted-imports` back on below for one cross-package path ban, which no
+// Tastebud turns `no-restricted-imports` back on below for one cross-package path ban, which no
 // position-aware rule here expresses.
 //
 // ── health, naming, testing ──
@@ -641,7 +641,7 @@ export default defineConfig({
   // same array rather than needing its own mechanism — `eslint-plugin-sonarjs`
   // registers under the `sonarjs/` prefix. `jsPlugins` is also an `overrides` key;
   // reach for that only to scope a plugin to a subtree.
-  jsPlugins: [ARCH_PLUGIN_PATH, TASTE_PLUGIN_PATH, "eslint-plugin-sonarjs"],
+  jsPlugins: [ARCH_PLUGIN_PATH, TASTEBUD_PLUGIN_PATH, "eslint-plugin-sonarjs"],
 
   plugins: BUILTIN_PLUGINS,
 
@@ -656,13 +656,13 @@ export default defineConfig({
     "demo/**",
     "apps/review/src/routeTree.gen.ts",
     // The catalog copied from the enforced-architecture skill, as tk2 does: its own specs
-    // (`check:rules`) and the oxlint tier program cover it. Taste's own rules stay linted.
+    // (`check:rules`) and the oxlint tier program cover it. Tastebud's own rules stay linted.
     "lint/**",
-    "!lint/oxlint/taste/**",
+    "!lint/oxlint/tastebud/**",
     "oxlint.config.ts",
   ],
 
-  // Taste: whole categories rather than only named rules, so a rule oxlint adds to one applies
+  // Tastebud: whole categories rather than only named rules, so a rule oxlint adds to one applies
   // here without anyone listing it.
   categories: { correctness: "error", suspicious: "error", perf: "error", pedantic: "off", style: "off" },
 
@@ -707,11 +707,11 @@ export default defineConfig({
     // ── testing: a test exercises the module it names ──
     // See `GLOBAL_ARCH_RULE` above for why this one rule is not tree-scoped.
     [`${ARCH}/${GLOBAL_ARCH_RULE}`]: "error",
-    [`${TASTE}/${OUTSIDE_TREES_TASTE_RULE}`]: "error",
+    [`${TASTEBUD}/${OUTSIDE_TREES_TASTEBUD_RULE}`]: "error",
 
-    // Taste additions. Nothing in the catalog reports a declared tree importing another tree's
+    // Tastebud additions. Nothing in the catalog reports a declared tree importing another tree's
     // files: the path ban catches a specifier naming `packages/*/src`, and
-    // `taste/relative-imports-stay-in-tree` the relative spelling it cannot see.
+    // `tastebud/relative-imports-stay-in-tree` the relative spelling it cannot see.
     "typescript/no-explicit-any": "error",
     "typescript/consistent-type-imports": "error",
     "import/no-cycle": "error",
@@ -722,7 +722,7 @@ export default defineConfig({
         patterns: [
           {
             group: ["**/packages/*/src/**", "**/apps/*/src/**"],
-            message: "Import another workspace package by name (@taste/core and its subpaths), never by path.",
+            message: "Import another workspace package by name (@tastebud/core and its subpaths), never by path.",
           },
         ],
       },
@@ -862,7 +862,7 @@ export default defineConfig({
     // `isArchitectureExemptSourcePath`, which both tiers read.
     {
       files: TREE_GLOBS,
-      rules: { ...treeScopedRules, [`${TASTE}/${OUTSIDE_TREES_TASTE_RULE}`]: "off" },
+      rules: { ...treeScopedRules, [`${TASTEBUD}/${OUTSIDE_TREES_TASTEBUD_RULE}`]: "off" },
     },
 
     // ── the architecture exemption, restated for four built-ins ─────────────
@@ -923,7 +923,7 @@ export default defineConfig({
 // arranged against; refusing to start is strictly better than linting with a gap.
 for (const [plugin, named] of [
   [archPlugin, new Set([...Object.keys(TREE_SCOPED), GLOBAL_ARCH_RULE])],
-  [tastePlugin, new Set([...Object.keys(TASTE_TREE_SCOPED), OUTSIDE_TREES_TASTE_RULE])],
+  [tastebudPlugin, new Set([...Object.keys(TASTEBUD_TREE_SCOPED), OUTSIDE_TREES_TASTEBUD_RULE])],
 ] as const) {
   const exported = Object.keys(plugin.rules);
   const unnamed = exported.filter((name) => !named.has(name));

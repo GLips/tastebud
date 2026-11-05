@@ -1,7 +1,7 @@
 import { ActionIcon, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { SourceView } from "@taste/core/record-views";
-import type { SourceRecord } from "@taste/core/records";
+import type { SourceView } from "@tastebud/core/record-views";
+import type { SourceRecord } from "@tastebud/core/records";
 import { ArrowUpRight, ExternalLink, GitCommitVertical, TextQuote } from "lucide-react";
 
 import { formatReviewTime } from "#review/shared/format.ts";
@@ -14,7 +14,7 @@ const styles = stylex.create({
     fontSize: "18px",
     lineHeight: 0,
     fontWeight: 700,
-    color: "var(--mantine-color-taste-4)",
+    color: "var(--mantine-color-tastebud-4)",
     flexShrink: 0,
     transform: "translateY(4px)",
   },

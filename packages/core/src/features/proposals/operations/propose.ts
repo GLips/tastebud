@@ -25,7 +25,7 @@ import {
 } from "#core/domains/record-views/index.ts";
 import { type DerivationRecord, SCHEMA_VERSION, type SourceRecord } from "#core/domains/records/index.ts";
 import { findRepeatMatches, supersessionLineageOf } from "#core/domains/repeat-detection/index.ts";
-import type { LoadedTasteConfig } from "#core/domains/store-config/index.ts";
+import type { LoadedTastebudConfig } from "#core/domains/store-config/index.ts";
 import { requireAgentActor, type TasteCaller } from "#core/domains/taste-caller/index.ts";
 import { OWNER_SUBJECT, type ScopeSource } from "#core/domains/taste-vocabulary/index.ts";
 import { resolveOperationContext } from "#core/features/place-context/index.server.ts";
@@ -56,7 +56,7 @@ export const ProposeDerivationInput = Schema.Struct({
 export type ProposeDerivationInput = typeof ProposeDerivationInput.Type;
 
 /** The scope a proposal gets when it names none: repo roots under git, the context's places otherwise. */
-const defaultScopeFromContext = (config: LoadedTasteConfig, context: TasteContext): DerivationScope | undefined => {
+const defaultScopeFromContext = (config: LoadedTastebudConfig, context: TasteContext): DerivationScope | undefined => {
   const places = config.resolver.name === "git" ? [...new Set(context.places.map(repoRootPlace))] : [...context.places];
   return places.length === 0 ? undefined : { scope: "places", places };
 };
@@ -64,7 +64,7 @@ const defaultScopeFromContext = (config: LoadedTasteConfig, context: TasteContex
 const chosenScope = (scope: DerivationScope, source: ScopeSource) => ({ scope, source });
 
 const chooseProposalScope = Effect.fn("proposals.chooseProposalScope")(function* (
-  config: LoadedTasteConfig,
+  config: LoadedTastebudConfig,
   input: ProposeDerivationInput,
   caller: TasteCaller,
 ) {
@@ -119,7 +119,7 @@ const checkSupersedes = (snapshot: StoreSnapshot, kind: DerivedKindDefinition, t
 
 /** The speaker warning: an owner belief none of whose cited sources the owner said. */
 const speakerWarnings = (
-  config: LoadedTasteConfig,
+  config: LoadedTastebudConfig,
   subject: string | undefined,
   supports: ReadonlyArray<SourceRecord | DerivationRecord>,
 ): Array<string> => {

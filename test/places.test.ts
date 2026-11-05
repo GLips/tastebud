@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { normalizeRemote, canonicalPlaceKey, placeCovers } from "@taste/core/places";
+import { normalizeRemote, canonicalPlaceKey, placeCovers } from "@tastebud/core/places";
 import { Result, Schema } from "effect";
 
 import {
@@ -14,7 +14,7 @@ import {
   makeTemporaryDirectory,
   makeTestStore,
   runOperation,
-  runTaste,
+  runTastebud,
 } from "./support.ts";
 
 const decodeCatalogContext = Schema.decodeUnknownSync(
@@ -111,17 +111,17 @@ describe("places", () => {
     // Two writes can land in one mtime tick; the reload keys on mtime, so make the change visible.
     utimesSync(helperPath, new Date(), new Date(Date.now() + 5000));
     expect(await placesIn()).toEqual(["proj/web"]);
-    // `taste` as a process too: the release smoke run makes this the compiled binary, bundling the import itself.
-    const catalog = await runTaste(root, project, ["catalog", "--json"]);
+    // `tastebud` as a process too: the release smoke run makes this the compiled binary, bundling the import itself.
+    const catalog = await runTastebud(root, project, ["catalog", "--json"]);
     expect(decodeCatalogContext(catalog.stdout).context.places).toEqual(["proj/web"]);
   });
 
   test("with no git installed, a git-resolver store places a checkout by its directory", async () => {
     const store = await makeTestStore();
     const repo = makeGitRepo("https://github.com/acme/web.git");
-    // A PATH holding nothing at all: `taste` runs from process.execPath or the binary, and finds no git.
+    // A PATH holding nothing at all: `tastebud` runs from process.execPath or the binary, and finds no git.
     const noGit = { PATH: makeTemporaryDirectory("no-git-path"), HOME: makeTemporaryDirectory("home") };
-    const catalog = await runTaste(store, repo, ["catalog", "--json"], noGit);
+    const catalog = await runTastebud(store, repo, ["catalog", "--json"], noGit);
     expect(catalog.stderr).toBe("");
     expect(decodeCatalogContext(catalog.stdout).context.places).toEqual([repo]);
   });

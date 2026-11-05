@@ -22,8 +22,8 @@ import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { InboxCard } from "@taste/core/inbox";
-import type { DerivedKindView } from "@taste/core/kind-catalog";
+import type { InboxCard } from "@tastebud/core/inbox";
+import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { MessageSquare, TriangleAlert, X } from "lucide-react";
 import { type Ref, useEffect, useState } from "react";
 
@@ -55,7 +55,7 @@ const styles = stylex.create({
     scrollMarginTop: "96px",
     scrollMarginBottom: "24px",
   },
-  selected: { borderColor: "var(--mantine-color-taste-4)" },
+  selected: { borderColor: "var(--mantine-color-tastebud-4)" },
   statement: { fontWeight: 600, lineHeight: 1.35, letterSpacing: "-0.005em" },
   scopeRow: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", minHeight: "22px" },
   quotes: { paddingTop: "2px" },
@@ -303,7 +303,7 @@ export function InboxProposalCard({
             ) : (
               view.scopeSource === "defaulted" && (
                 <Tooltip
-                  label="The proposer didn't choose a scope; Taste used the repo they were working in."
+                  label="The proposer didn't choose a scope; Tastebud used the repo they were working in."
                   withArrow
                   multiline
                   w={260}

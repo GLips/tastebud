@@ -1,9 +1,9 @@
 /**
  * What every review server function returns: the operation's output, or core's failure envelope
  * (sentence, category, tag and retry fields). Browser-safe types only; the server side builds these
- * in `infrastructure/taste-core.server.ts`.
+ * in `infrastructure/tastebud-core.server.ts`.
  */
-import type { TasteFailureEnvelope } from "@taste/core/operations";
+import type { TasteFailureEnvelope } from "@tastebud/core/operations";
 
 /**
  * Core's failure envelope, exactly as the CLI's `--json` and MCP serialise it. `Network` is the

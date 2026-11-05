@@ -8,7 +8,7 @@
         "@effect/tsgo": "0.48.0",
         "@modelcontextprotocol/client": "2.4.0",
         "@oxlint/plugins": "^1.89.0",
-        "@taste/core": "workspace:*",
+        "@tastebud/core": "workspace:*",
         "@types/bun": "1.3.13",
         "@types/node": "26.6.1",
         "effect": "4.0.5",
@@ -24,7 +24,7 @@
       },
     },
     "apps/review": {
-      "name": "@taste/review",
+      "name": "@tastebud/review",
       "dependencies": {
         "@mantine/core": "9.5.2",
         "@mantine/hooks": "9.5.2",
@@ -33,7 +33,7 @@
         "@tanstack/react-query": "5.103.1",
         "@tanstack/react-router": "1.170.31",
         "@tanstack/react-start": "1.168.48",
-        "@taste/core": "workspace:*",
+        "@tastebud/core": "workspace:*",
         "effect": "4.0.5",
         "lucide-react": "^1.59.0",
         "react": "19.3.0",
@@ -52,29 +52,29 @@
       },
     },
     "packages/cli": {
-      "name": "@taste/cli",
+      "name": "@tastebud/cli",
       "bin": {
-        "taste": "src/main.ts",
+        "tastebud": "src/main.ts",
       },
       "dependencies": {
-        "@taste/core": "workspace:*",
-        "@taste/mcp": "workspace:*",
-        "@taste/review": "workspace:*",
+        "@tastebud/core": "workspace:*",
+        "@tastebud/mcp": "workspace:*",
+        "@tastebud/review": "workspace:*",
         "effect": "4.0.5",
       },
     },
     "packages/core": {
-      "name": "@taste/core",
+      "name": "@tastebud/core",
       "dependencies": {
         "effect": "4.0.5",
         "yaml": "^2.9.1",
       },
     },
     "packages/mcp": {
-      "name": "@taste/mcp",
+      "name": "@tastebud/mcp",
       "dependencies": {
         "@modelcontextprotocol/server": "2.4.0",
-        "@taste/core": "workspace:*",
+        "@tastebud/core": "workspace:*",
         "effect": "4.0.5",
       },
     },
@@ -470,13 +470,13 @@
 
     "@tanstack/virtual-file-routes": ["@tanstack/virtual-file-routes@1.162.0", "", {}, "sha512-uhOeFyxLcU41HzvrxsGpiWdcMbScY1EDgbZ5K7DVRMYInbLYWAC0EA/kx9wXAoSM8q82bUG2hRl8+EAjE6XAbA=="],
 
-    "@taste/cli": ["@taste/cli@workspace:packages/cli"],
+    "@tastebud/cli": ["@tastebud/cli@workspace:packages/cli"],
 
-    "@taste/core": ["@taste/core@workspace:packages/core"],
+    "@tastebud/core": ["@tastebud/core@workspace:packages/core"],
 
-    "@taste/mcp": ["@taste/mcp@workspace:packages/mcp"],
+    "@tastebud/mcp": ["@tastebud/mcp@workspace:packages/mcp"],
 
-    "@taste/review": ["@taste/review@workspace:apps/review"],
+    "@tastebud/review": ["@tastebud/review@workspace:apps/review"],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.4", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A=="],
 

@@ -1,8 +1,9 @@
 {
-  "name": "taste",
+  "name": "tastebud",
   "private": true,
+  "license": "MIT",
   "bin": {
-    "taste": "packages/cli/src/main.ts"
+    "tastebud": "packages/cli/src/main.ts"
   },
   "workspaces": [
     "packages/*",
@@ -21,14 +22,14 @@
     "knip": "knip --no-progress",
     "dev:review": "bun run --cwd apps/review dev",
     "build:review": "bun run --cwd apps/review build",
-    "build:binary": "bun scripts/build-taste-binary.ts",
+    "build:binary": "bun scripts/build-tastebud-binary.ts",
     "prepare": "lefthook install"
   },
   "devDependencies": {
     "@effect/tsgo": "0.48.0",
     "@modelcontextprotocol/client": "2.4.0",
     "@oxlint/plugins": "^1.89.0",
-    "@taste/core": "workspace:*",
+    "@tastebud/core": "workspace:*",
     "@types/bun": "1.3.13",
     "@types/node": "26.6.1",
     "effect": "4.0.5",

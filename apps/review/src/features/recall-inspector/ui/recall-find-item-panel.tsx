@@ -2,8 +2,8 @@
 import { Button, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import type { HookPayload } from "@taste/core/recall";
-import type { RecallResult } from "@taste/core/record-views";
+import type { HookPayload } from "@tastebud/core/recall";
+import type { RecallResult } from "@tastebud/core/record-views";
 import { useState } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";

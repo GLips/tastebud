@@ -1,6 +1,6 @@
-# Builds the taste binary on each release platform, runs the gate and the compiled-binary smoke tests, and
-# uploads the archives. Release and npm publish run only when the repo variable TASTE_PUBLISH_ENABLED is
-# "true", which waits on the npm name (scripts/release/release-names.ts).
+# Builds the tastebud binary on each release platform, runs the gate and the compiled-binary smoke tests, and
+# uploads the archives. Release and npm publish run only when the repo variable TASTEBUD_PUBLISH_ENABLED is
+# "true", which waits on Graham's go.
 name: release
 
 on:
@@ -32,31 +32,31 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      - name: Tag matches TASTE_VERSION
+      - name: Tag matches TASTEBUD_VERSION
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          version="$(bun -e 'import { TASTE_VERSION } from "@taste/core/taste-vocabulary"; console.log(TASTE_VERSION)')"
+          version="$(bun -e 'import { TASTEBUD_VERSION } from "@tastebud/core/taste-vocabulary"; console.log(TASTEBUD_VERSION)')"
           test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} is not v${version}"; exit 1; }
       - run: bun run check
-      - run: bun scripts/build-taste-binary.ts --target bun-${{ matrix.platform }}
+      - run: bun scripts/build-tastebud-binary.ts --target bun-${{ matrix.platform }}
       # The binary alone, outside the checkout, so nothing it embeds can fall back on workspace files.
       - name: Smoke-test the compiled binary
         run: |
-          smoke="${RUNNER_TEMP}/taste-smoke"
+          smoke="${RUNNER_TEMP}/tastebud-smoke"
           mkdir -p "$smoke"
-          cp dist/bin/${{ matrix.platform }}/taste "$smoke/taste"
-          TASTE_TEST_BINARY="$smoke/taste" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts
+          cp dist/bin/${{ matrix.platform }}/tastebud "$smoke/tastebud"
+          TASTEBUD_TEST_BINARY="$smoke/tastebud" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts
       - name: Archive
-        run: tar -czf taste-${{ matrix.platform }}.tar.gz -C dist/bin/${{ matrix.platform }} taste
+        run: tar -czf tastebud-${{ matrix.platform }}.tar.gz -C dist/bin/${{ matrix.platform }} tastebud
       - uses: actions/upload-artifact@v4
         with:
-          name: taste-${{ matrix.platform }}
-          path: taste-${{ matrix.platform }}.tar.gz
+          name: tastebud-${{ matrix.platform }}
+          path: tastebud-${{ matrix.platform }}.tar.gz
           if-no-files-found: error
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') && vars.TASTE_PUBLISH_ENABLED == 'true'
+    if: startsWith(github.ref, 'refs/tags/') && vars.TASTEBUD_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -67,7 +67,7 @@ jobs:
           path: release
           merge-multiple: true
       - name: Checksums
-        run: cd release && sha256sum taste-*.tar.gz > SHA256SUMS
+        run: cd release && sha256sum tastebud-*.tar.gz > SHA256SUMS
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,7 +75,7 @@ jobs:
 
   publish-npm:
     needs: release
-    if: startsWith(github.ref, 'refs/tags/') && vars.TASTE_PUBLISH_ENABLED == 'true'
+    if: startsWith(github.ref, 'refs/tags/') && vars.TASTEBUD_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-24.04
     environment: npm
     permissions:
@@ -97,8 +97,8 @@ jobs:
           merge-multiple: true
       - name: Unpack the binaries
         run: |
-          for archive in release/taste-*.tar.gz; do
-            platform="$(basename "$archive" .tar.gz)"; platform="${platform#taste-}"
+          for archive in release/tastebud-*.tar.gz; do
+            platform="$(basename "$archive" .tar.gz)"; platform="${platform#tastebud-}"
             mkdir -p "dist/bin/$platform" && tar -xzf "$archive" -C "dist/bin/$platform"
           done
       - run: bun scripts/release/write-npm-packages.ts

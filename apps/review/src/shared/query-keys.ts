@@ -2,8 +2,8 @@
  * Every query key the screens use, in one place so a write can invalidate exactly what it changed. The
  * first element is the family a refresh targets; the rest narrow it.
  */
-import type { DerivationScope } from "@taste/core/places";
-import type { DerivationStatus } from "@taste/core/taste-vocabulary";
+import type { DerivationScope } from "@tastebud/core/places";
+import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 /** What Recall's explanation looks up: a derivation by ref, or by words from its statement. */
 export type RecallExplanationLookup = { readonly ref: string } | { readonly text: string };

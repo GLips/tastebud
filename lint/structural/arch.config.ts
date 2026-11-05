@@ -1,4 +1,4 @@
-// Taste's structural-tier knobs. Where the architecture lives is in
+// Tastebud's structural-tier knobs. Where the architecture lives is in
 // `lint/policy/declared-trees.ts`; this file holds only numbers, names and
 // manifests. Spread `defaultCheckConfigs`, then replace whole values, so an
 // override reads in the diff as the complete value it stands in for.
@@ -20,10 +20,10 @@ export const architectureConfig: ArchitectureConfig = {
 
     "api/barrel-purity": {
       ...defaultCheckConfigs["api/barrel-purity"],
-      // `@taste/core/<feature>` subpaths are not listed: entries match by package
-      // name, so naming `@taste/core` would also fence the domain barrels review may
-      // import. `taste/core-server-door` covers those subpaths instead.
-      serverOnlyPackages: ["bun:sqlite", "yaml", "@modelcontextprotocol/server", "@taste/mcp"],
+      // `@tastebud/core/<feature>` subpaths are not listed: entries match by package
+      // name, so naming `@tastebud/core` would also fence the domain barrels review may
+      // import. `tastebud/core-server-door` covers those subpaths instead.
+      serverOnlyPackages: ["bun:sqlite", "yaml", "@modelcontextprotocol/server", "@tastebud/mcp"],
       // A trace that hits the bound ends UNKNOWN rather than clean, so the
       // catalog's 6 fails on arithmetic. 16 is tk2's value; it bounds cost only.
       maxTraceDepth: 16,
@@ -43,7 +43,7 @@ export const architectureConfig: ArchitectureConfig = {
       // Every declared tree plus the undeclared code a human still maintains here.
       // The rest of lint/ is the vendored catalog: its file shapes follow upstream,
       // and splitting them here would turn every catalog sync into a merge.
-      roots: [...DECLARED_TREES.map((tree) => tree.root), "test", "scripts", "lint/oxlint/taste"],
+      roots: [...DECLARED_TREES.map((tree) => tree.root), "test", "scripts", "lint/oxlint/tastebud"],
     },
 
     // The default root-level `shadows.css` is rejected by `placement/topology`;

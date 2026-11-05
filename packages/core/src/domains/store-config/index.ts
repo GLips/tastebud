@@ -1,16 +1,16 @@
 export {
-  TASTE_CONFIG_FILE,
-  TasteConfigFileSchema,
-  loadedTasteConfigOf,
-  starterTasteConfigText,
+  TASTEBUD_CONFIG_FILE,
+  TastebudConfigFileSchema,
+  loadedTastebudConfigOf,
+  starterTastebudConfigText,
 } from "./config-schema.ts";
 export type {
-  LoadedTasteConfig,
+  LoadedTastebudConfig,
   PlaceContext,
   PlaceResolverFunction,
   PlaceResolverSetting,
-  TasteConfig,
-  TasteConfigFile,
+  TastebudConfig,
+  TastebudConfigFile,
 } from "./config-schema.ts";
 export { unifiedConfigTextDiff } from "./config-text-diff.ts";
-export { TASTE_SETUP_INTERVIEW } from "./setup-interview.ts";
+export { TASTEBUD_SETUP_INTERVIEW } from "./setup-interview.ts";

@@ -1,4 +1,4 @@
-/** `taste seed`: writes the fictional demo store into an empty store root. */
+/** `tastebud seed`: writes the fictional demo store into an empty store root. */
 import { Effect } from "effect";
 import { Command } from "effect/cli";
 

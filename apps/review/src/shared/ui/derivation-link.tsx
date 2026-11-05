@@ -1,7 +1,7 @@
 import { Group, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { CatalogView } from "@taste/core/kind-catalog";
-import type { DerivationSummary } from "@taste/core/record-views";
+import type { CatalogView } from "@tastebud/core/kind-catalog";
+import type { DerivationSummary } from "@tastebud/core/record-views";
 import { CornerDownRight, RotateCcw, TriangleAlert } from "lucide-react";
 
 import { formatReviewDate } from "#review/shared/format.ts";
@@ -59,7 +59,7 @@ export function SupersedesNotice({ replaces }: { replaces: DerivationSummary }) 
   return (
     <div {...stylex.props(styles.aside)}>
       <Tooltip label={`Accepting this replaces the accepted ${replaces.kindLabel}`} withArrow>
-        <RotateCcw size={14} color="var(--mantine-color-taste-7)" {...stylex.props(styles.icon)} />
+        <RotateCcw size={14} color="var(--mantine-color-tastebud-7)" {...stylex.props(styles.icon)} />
       </Tooltip>
       <Text size="sm" c="dimmed">
         Replaces{" "}

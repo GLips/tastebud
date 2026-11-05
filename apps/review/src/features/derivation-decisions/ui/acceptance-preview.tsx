@@ -7,8 +7,8 @@ import { Box, Alert, Button, Checkbox, Group, Kbd, Loader, Stack, Text } from "@
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import type { DerivationScope } from "@taste/core/places";
-import type { RepeatMatch } from "@taste/core/record-views";
+import type { DerivationScope } from "@tastebud/core/places";
+import type { RepeatMatch } from "@tastebud/core/record-views";
 import { TriangleAlert } from "lucide-react";
 
 import { formatReviewDate } from "#review/shared/format.ts";
@@ -23,8 +23,8 @@ const styles = stylex.create({
     borderRadius: "8px",
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "var(--mantine-color-taste-2)",
-    backgroundColor: "var(--mantine-color-taste-0)",
+    borderColor: "var(--mantine-color-tastebud-2)",
+    backgroundColor: "var(--mantine-color-tastebud-0)",
     padding: "12px",
   },
   statement: { fontWeight: 600, lineHeight: 1.4 },

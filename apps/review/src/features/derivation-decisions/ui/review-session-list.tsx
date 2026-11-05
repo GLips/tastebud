@@ -1,6 +1,6 @@
 import { Box, Badge, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DecisionOutcome } from "@taste/core/taste-vocabulary";
+import type { DecisionOutcome } from "@tastebud/core/taste-vocabulary";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatTimeAgo } from "#review/shared/format.ts";

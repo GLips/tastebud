@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { runReviewOperation, runReviewOperations } from "#review/infrastructure/taste-core.server.ts";
+import { runReviewOperation, runReviewOperations } from "#review/infrastructure/tastebud-core.server.ts";
 
 export const readCatalogAndCounts = () =>
   runReviewOperations((run) =>

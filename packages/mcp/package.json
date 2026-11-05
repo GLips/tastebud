@@ -1,6 +1,7 @@
 {
-  "name": "@taste/mcp",
+  "name": "@tastebud/mcp",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "imports": {
     "#mcp/*": "./src/*"
@@ -10,7 +11,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
-    "@taste/core": "workspace:*",
+    "@tastebud/core": "workspace:*",
     "effect": "4.0.5"
   }
 }

@@ -1,4 +1,4 @@
-/** Temp stores, real git checkouts, `taste` as a process, and a one-line way to run an operation as a caller would. */
+/** Temp stores, real git checkouts, `tastebud` as a process, and a one-line way to run an operation as a caller would. */
 import { afterEach } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,12 +11,12 @@ import {
   type TasteOperationOutput,
   type TasteOperationWireInput,
   type TasteServices,
-} from "@taste/core/operations";
-import { resolveTasteContext, type TasteContextRequest } from "@taste/core/place-context";
-import { provideTasteStore } from "@taste/core/record-store";
-import { starterTasteConfigText } from "@taste/core/store-config";
-import { writeTasteConfigText } from "@taste/core/store-setup";
-import type { TasteCaller } from "@taste/core/taste-caller";
+} from "@tastebud/core/operations";
+import { resolveTasteContext, type TasteContextRequest } from "@tastebud/core/place-context";
+import { provideTasteStore } from "@tastebud/core/record-store";
+import { starterTastebudConfigText } from "@tastebud/core/store-config";
+import { writeTastebudConfigText } from "@tastebud/core/store-setup";
+import type { TasteCaller } from "@tastebud/core/taste-caller";
 import { Effect } from "effect";
 
 const temporaryDirectories: Array<string> = [];
@@ -26,32 +26,32 @@ afterEach(() => {
 
 /** A fresh realpath'd temp directory, removed after the test. */
 export const makeTemporaryDirectory = (prefix: string) => {
-  const directory = realpathSync(mkdtempSync(join(tmpdir(), `taste-${prefix}-`)));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), `tastebud-${prefix}-`)));
   temporaryDirectories.push(directory);
   return directory;
 };
 
-const TASTE_MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
+const TASTEBUD_MAIN = join(import.meta.dir, "../packages/cli/src/main.ts");
 
 /**
- * How a test starts `taste`: from source, or the compiled binary at `TASTE_TEST_BINARY` (the release workflow's
- * smoke run). `process.execPath`, not `bun` on PATH, so a test may hand `taste` a PATH without Bun.
+ * How a test starts `tastebud`: from source, or the compiled binary at `TASTEBUD_TEST_BINARY` (the release workflow's
+ * smoke run). `process.execPath`, not `bun` on PATH, so a test may hand `tastebud` a PATH without Bun.
  */
-export const TASTE_COMMAND_LINE: ReadonlyArray<string> = process.env["TASTE_TEST_BINARY"]
-  ? [process.env["TASTE_TEST_BINARY"]]
-  : [process.execPath, TASTE_MAIN];
+export const TASTEBUD_COMMAND_LINE: ReadonlyArray<string> = process.env["TASTEBUD_TEST_BINARY"]
+  ? [process.env["TASTEBUD_TEST_BINARY"]]
+  : [process.execPath, TASTEBUD_MAIN];
 
 const isBunDirectory = (entry: string) => existsSync(join(entry, "bun")) || entry.includes("/bun-node-");
 
 /**
- * This process's environment, for a `taste` child; `overrides` win. Against the compiled binary, PATH loses
+ * This process's environment, for a `tastebud` child; `overrides` win. Against the compiled binary, PATH loses
  * every directory holding Bun (and the `node` shim Bun adds), so the smoke run proves it needs neither.
  */
-export const tasteProcessEnv = (overrides: Readonly<Record<string, string>>): Record<string, string> => {
+export const tastebudProcessEnv = (overrides: Readonly<Record<string, string>>): Record<string, string> => {
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
-  const path = process.env["TASTE_TEST_BINARY"]
+  const path = process.env["TASTEBUD_TEST_BINARY"]
     ? {
         PATH: (inherited["PATH"] ?? "")
           .split(":")
@@ -62,16 +62,16 @@ export const tasteProcessEnv = (overrides: Readonly<Record<string, string>>): Re
   return { ...inherited, ...path, ...overrides };
 };
 
-/** Runs `taste <args>` against `store` from `cwd` to completion. `env` replaces the inherited environment. */
-export const runTaste = async (
+/** Runs `tastebud <args>` against `store` from `cwd` to completion. `env` replaces the inherited environment. */
+export const runTastebud = async (
   store: string,
   cwd: string,
   args: ReadonlyArray<string>,
-  env: Readonly<Record<string, string>> = tasteProcessEnv({}),
+  env: Readonly<Record<string, string>> = tastebudProcessEnv({}),
 ) => {
-  const child = Bun.spawn([...TASTE_COMMAND_LINE, ...args], {
+  const child = Bun.spawn([...TASTEBUD_COMMAND_LINE, ...args], {
     cwd,
-    env: { ...env, TASTE_STORE: store },
+    env: { ...env, TASTEBUD_STORE: store },
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -87,11 +87,12 @@ export const runTaste = async (
 export const OWNER = "human:tester";
 export const AGENT = "claude-code/test";
 
-/** A store with the starter config, or with `configText` as its `taste.config.ts`. */
+/** A store with the starter config, or with `configText` as its `tastebud.config.ts`. */
 export const makeTestStore = async (configText?: string) => {
   const root = makeTemporaryDirectory("store");
-  if (configText === undefined) await Effect.runPromise(writeTasteConfigText(root, starterTasteConfigText(OWNER), ""));
-  else writeFileSync(join(root, "taste.config.ts"), configText);
+  if (configText === undefined)
+    await Effect.runPromise(writeTastebudConfigText(root, starterTastebudConfigText(OWNER), ""));
+  else writeFileSync(join(root, "tastebud.config.ts"), configText);
   return root;
 };
 

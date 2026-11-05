@@ -18,7 +18,7 @@ export const PlacesSearch = Schema.Struct({ place: Schema.optionalKey(Schema.Str
 const Route = getRouteApi("/places");
 
 /** The probes live in the browser: the audit is only ever "unmatched by these", never "broken". */
-const PROBES_STORAGE_KEY = "taste.places.probes";
+const PROBES_STORAGE_KEY = "tastebud.places.probes";
 
 const styles = stylex.create({
   location: {

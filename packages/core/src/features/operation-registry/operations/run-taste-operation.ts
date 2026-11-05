@@ -6,7 +6,7 @@ import {
   provideTasteStore,
   provideTasteStoreRoot,
   type TasteStoreRoot,
-  withFreshTasteConfig,
+  withFreshTastebudConfig,
 } from "#core/features/record-store/index.server.ts";
 
 import { OperationNotAllowed } from "../errors.ts";
@@ -84,7 +84,7 @@ export const runTasteOperation = Effect.fn("operation-registry.runTasteOperation
   yield* requireOperationAllowed(name, caller);
   const run = TASTE_OPERATION_RUNNERS[name].decodeAndRun(input, caller);
   // The config operations read the file themselves; an open store's config is only the last good load.
-  return yield* isStoreRootTasteOperation(name) ? run : withFreshTasteConfig(run);
+  return yield* isStoreRootTasteOperation(name) ? run : withFreshTastebudConfig(run);
 });
 
 /**

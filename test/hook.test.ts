@@ -1,8 +1,8 @@
-/** `taste hook prompt` as Claude Code runs it: event JSON on stdin, hook JSON (or nothing) on stdout. */
+/** `tastebud hook prompt` as Claude Code runs it: event JSON on stdin, hook JSON (or nothing) on stdout. */
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { TasteCaller } from "@taste/core/taste-caller";
+import type { TasteCaller } from "@tastebud/core/taste-caller";
 import { Schema } from "effect";
 
 import {
@@ -13,7 +13,7 @@ import {
   makeTemporaryDirectory,
   makeTestStore,
   runOperation,
-  TASTE_COMMAND_LINE,
+  TASTEBUD_COMMAND_LINE,
 } from "./support.ts";
 
 const decodeHookOutput = Schema.decodeUnknownSync(
@@ -26,8 +26,8 @@ const decodeHookOutput = Schema.decodeUnknownSync(
 const reviewer: TasteCaller = { via: "review", context: { places: [], origin: "unknown" } };
 
 const runHookPrompt = async (store: string, event: unknown) => {
-  const child = Bun.spawn([...TASTE_COMMAND_LINE, "hook", "prompt"], {
-    env: { ...process.env, TASTE_STORE: store },
+  const child = Bun.spawn([...TASTEBUD_COMMAND_LINE, "hook", "prompt"], {
+    env: { ...process.env, TASTEBUD_STORE: store },
     stdin: new TextEncoder().encode(JSON.stringify(event)),
     stdout: "pipe",
     stderr: "pipe",

@@ -2,9 +2,9 @@ import { Box, Alert, Center, Group, Loader, Paper, Stack } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { scopePlacesOf } from "@taste/core/places";
-import type { DerivationView, ShowResult } from "@taste/core/record-views";
-import type { ListenerHeartbeat } from "@taste/core/review-threads";
+import { scopePlacesOf } from "@tastebud/core/places";
+import type { DerivationView, ShowResult } from "@tastebud/core/record-views";
+import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { findKindView } from "#review/shared/ui/kind-identity.tsx";

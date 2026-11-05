@@ -50,7 +50,7 @@ export const writeFileExclusive = (path: string, content: string): Effect.Effect
     catch: (error) => new StoreWriteFailed({ path, problem: String(error) }),
   });
 
-/** For the store's mutable files: `taste.config.ts` and `.index/` sidecars. Rename keeps readers from seeing half a file. */
+/** For the store's mutable files: `tastebud.config.ts` and `.index/` sidecars. Rename keeps readers from seeing half a file. */
 export const writeFileAtomicSync = (path: string, content: string): void => {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.tmp`;

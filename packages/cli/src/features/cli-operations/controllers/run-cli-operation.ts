@@ -17,7 +17,7 @@ import {
   type TasteOperationOutput,
   type TasteOperationWireInput,
   type TasteStore,
-} from "#cli/infrastructure/taste-core.ts";
+} from "#cli/infrastructure/tastebud-core.ts";
 import { printLine, readStdinText } from "#cli/infrastructure/terminal.ts";
 
 /** A command's help line, taken from the operation it runs. */
@@ -26,7 +26,7 @@ export const describedAs = (name: TasteOperationName) => Command.withDescription
 export const resolveCliStoreRoot = (store: Option.Option<string>): string =>
   resolveTasteStoreRoot(Option.getOrUndefined(store));
 
-/** Runs `effect` against the store named by `--store` / `TASTE_STORE` / `~/.taste`. */
+/** Runs `effect` against the store named by `--store` / `TASTEBUD_STORE` / `~/.tastebud`. */
 export const inCliStore = Effect.fn("cli-operations.inCliStore")(function* <A, E>(
   store: Option.Option<string>,
   effect: Effect.Effect<A, E, TasteStore>,
