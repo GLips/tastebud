@@ -1,0 +1,18 @@
+{
+  "name": "tastebud",
+  "version": "0.1.0",
+  "description": "Human-ratified taste for agents: the Tastebud MCP server, skill, setup interview and prompt hook.",
+  "author": { "name": "Graham Lipsman" },
+  "homepage": "https://github.com/GLips/tastebud",
+  "repository": "https://github.com/GLips/tastebud",
+  "license": "MIT",
+  "keywords": ["memory", "preferences", "mcp"],
+  "userConfig": {
+    "prompt_hook": {
+      "type": "boolean",
+      "title": "Prompt hook",
+      "description": "Before each prompt, add up to three accepted or rejected derivations of the store's inject kinds that match it. Off adds nothing; recall still works.",
+      "default": true
+    }
+  }
+}

@@ -39,13 +39,14 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} is not v${version}"; exit 1; }
       - run: bun run check
       - run: bun scripts/build-tastebud-binary.ts --target bun-${{ matrix.platform }}
-      # The binary alone, outside the checkout, so nothing it embeds can fall back on workspace files.
+      # The binary alone, outside the checkout, so nothing it embeds can fall back on workspace files. The
+      # plugin test serves it as a local release, so bin/tastebud downloads it and drives the loop over MCP.
       - name: Smoke-test the compiled binary
         run: |
           smoke="${RUNNER_TEMP}/tastebud-smoke"
           mkdir -p "$smoke"
           cp dist/bin/${{ matrix.platform }}/tastebud "$smoke/tastebud"
-          TASTEBUD_TEST_BINARY="$smoke/tastebud" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts
+          TASTEBUD_TEST_BINARY="$smoke/tastebud" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts test/claude-code-plugin.test.ts
       - name: Archive
         run: tar -czf tastebud-${{ matrix.platform }}.tar.gz -C dist/bin/${{ matrix.platform }} tastebud
       - uses: actions/upload-artifact@v4
@@ -71,7 +72,7 @@ jobs:
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release/* scripts/release/install.sh --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" release/* plugins/tastebud/scripts/install.sh --generate-notes
 
   publish-npm:
     needs: release

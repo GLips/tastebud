@@ -1,0 +1,14 @@
+{
+  "name": "tastebud",
+  "owner": {
+    "name": "Graham Lipsman"
+  },
+  "description": "Tastebud's Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "tastebud",
+      "source": "./plugins/tastebud",
+      "description": "Human-ratified taste for agents: the Tastebud MCP server, skill, setup interview and prompt hook."
+    }
+  ]
+}

@@ -316,7 +316,7 @@ The MCP server exposes every `agent` operation as `tastebud_<name>`, with `-` tu
 
 ### 5.2 Setup
 
-Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, served as the MCP prompt `setup` (`/mcp__tastebud__setup` in Claude Code) and printed by `tastebud setup-guide`.
+Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, served as the MCP prompt `setup` and printed by `tastebud setup-guide`, which the Claude Code plugin's `/tastebud:setup` runs.
 
 The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 

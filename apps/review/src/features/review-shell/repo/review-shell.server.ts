@@ -5,8 +5,8 @@ import { runReviewOperation, runReviewOperations } from "#review/infrastructure/
 export const readCatalogAndCounts = () =>
   runReviewOperations((run) =>
     Effect.gen(function* () {
-      const { catalog, storeRoot, pendingByKind } = yield* run("catalog", {});
-      return { catalog, storeRoot, pendingByKind };
+      const { catalog, storeRoot, storeIsDefault, pendingByKind } = yield* run("catalog", {});
+      return { catalog, storeRoot, storeIsDefault, pendingByKind };
     }),
   );
 

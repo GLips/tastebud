@@ -1,0 +1,54 @@
+#!/bin/sh
+# The Claude Code plugin's tastebud: the MCP server, the hooks and the Bash tool (bin/ is on its PATH) all
+# run this. It execs the release binary of the plugin's version, downloading it once through install.sh;
+# after that it runs offline. SessionStart calls it first so the download rarely lands on MCP startup.
+set -eu
+plugin_root="$(cd "$(dirname "$0")/.." && pwd -P)"
+. "$plugin_root/scripts/binary-path.sh"
+
+# How long a start waits on another start's download before giving up; the next start tries again.
+lock_wait_limit=300
+
+fetch_tastebud_binary() {
+  lock="$tastebud_binary.lock"
+  mkdir -p "$(dirname "$tastebud_binary")"
+  waited=0
+  # SessionStart and the MCP server start together; one downloads while the other waits. The holder's pid
+  # in the lock tells a waiter whether the holder still runs, even after a SIGKILL skipped its traps.
+  until mkdir "$lock" 2>/dev/null; do
+    [ -d "$lock" ] || { echo "tastebud: cannot create $lock; is $(dirname "$lock") writable?" >&2; exit 1; }
+    holder="$(cat "$lock/pid" 2>/dev/null || true)"
+    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -rf "$lock"
+      continue
+    fi
+    # A holder that died between mkdir and writing its pid leaves a lock with no pid.
+    if [ -z "$holder" ] && [ "$waited" -ge 10 ]; then
+      rm -rf "$lock"
+      continue
+    fi
+    if [ "$waited" -ge "$lock_wait_limit" ]; then
+      echo "tastebud: another start (pid $holder) is still downloading v$plugin_version; the next start tries again" >&2
+      exit 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  echo "$$" >"$lock/pid"
+  trap 'rm -rf "$lock"' EXIT
+  trap 'rm -rf "$lock"; exit 129' HUP
+  trap 'rm -rf "$lock"; exit 130' INT
+  trap 'rm -rf "$lock"; exit 143' TERM
+  # stdout is the MCP stream, so the installer's messages go to stderr.
+  if [ ! -x "$tastebud_binary" ] &&
+    ! TASTEBUD_INSTALL_VERSION="$plugin_version" TASTEBUD_INSTALL_DIR="$(dirname "$tastebud_binary")" \
+      TASTEBUD_INSTALL_SKIP_PATH_HINT=1 sh "$plugin_root/scripts/install.sh" </dev/null >&2; then
+    echo "tastebud: the Claude Code plugin could not install tastebud v$plugin_version; it tries again on next start" >&2
+    exit 1
+  fi
+  rm -rf "$lock"
+  trap - EXIT HUP INT TERM
+}
+
+[ -x "$tastebud_binary" ] || fetch_tastebud_binary
+exec "$tastebud_binary" "$@"

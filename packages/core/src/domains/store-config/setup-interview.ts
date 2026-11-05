@@ -1,7 +1,13 @@
 /**
  * The setup interview an agent runs with the owner. It is the one copy: the MCP server serves it as
- * the `setup` prompt and `tastebud setup-guide` prints it, which is where the skill points.
+ * the `setup` prompt and `tastebud setup-guide` prints it, which is where the skill and the Claude Code
+ * plugin's `/tastebud:setup` point.
  */
+import { agentHostConnectLinesFor } from "#core/domains/agent-hosts/index.ts";
+
+const defaultLines = agentHostConnectLinesFor();
+const templateLines = agentHostConnectLinesFor("<root>");
+
 export const TASTEBUD_SETUP_INTERVIEW = `# Set up Tastebud with the owner
 
 You are setting up (or adjusting) a Tastebud store with its owner: the person whose judgment it holds. You interview them, draft the store's \`tastebud.config.ts\`, show them exactly what will be written, and write it once they say yes. Config is settings, not taste, so their yes in this chat is the ratification.
@@ -20,7 +26,7 @@ Which store you reach depends on how you reach Tastebud. The CLI takes it per co
 Call \`config-show\`.
 - **No store** (\`exists: false\`): it says where the store would go (\`root\`) and gives a commented \`starter\` text. Start from that. Confirm the location ("Your store will live at ~/.tastebud. OK, or somewhere else, like a synced folder?"). To use another one:
   - On the CLI, pass \`--store <dir>\` to every command from here on.
-  - Over MCP, the server has to be registered again with the new store (\`claude mcp remove tastebud\`, then \`claude mcp add tastebud -- tastebud mcp --store <dir>\`, or the host's equivalent) and the host restarted or the server reconnected. Ask before changing their agent settings. Then call \`config-show\` again and check \`root\` before going on.
+  - Over MCP, the server has to be started with the new store, then the host restarted or the server reconnected. With the Claude Code plugin that is \`${templateLines.claudeCodeStoreSettings}\` in \`~/.claude/settings.json\`; other hosts register the server again with their line from step 7. Ask before changing their agent settings. Then call \`config-show\` again and check \`root\` before going on.
 - **A store exists**: summarise what's there (owner, kinds, resolver, review port) and offer to adjust it rather than start over. Keep its \`hash\`: you pass it back when writing.
 - **Its file has problems**: list them, and offer to fix those first.
 
@@ -76,18 +82,18 @@ A config may import relative files and \`node:\` builtins only; no packages. Tas
 ## 7. Wire up their agents
 
 Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Tastebud reaches each one, because recall only works through what is installed:
-- **Claude Code**: \`inject\` kinds reach every prompt through the prompt hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the Tastebud skill and the MCP server's instructions tell it to do.
-- **Other hosts** have no prompt hook: nothing is injected, and the agent recalls only when it calls \`recall\` or \`context\`, prompted by the MCP server's instructions (and the skill, where the host loads skills).
-- A newly registered MCP server or skill needs the host restarted or the server reconnected; a new hook takes effect in a new session.
+- **Claude Code**: the Tastebud plugin brings the MCP server, the skill, \`/tastebud:setup\` and the prompt hook. \`inject\` kinds reach every prompt through the hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the skill and the MCP server's instructions tell it to do.
+- **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. Recall still works with it off.
+- **Other hosts** have no prompt hook: nothing is injected, and the agent recalls only when it calls \`recall\` or \`context\`, prompted by the MCP server's instructions (and the skill, where the host loads skills). Some hosts, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to every tool that reads where it is.
+- A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session.
 
-Suggest the lines for each host, and never edit their agent settings without a yes. If the store isn't \`~/.tastebud\`, every line carries \`--store <root>\` with the actual root from \`config-show\`:
-- Claude Code: \`claude mcp add tastebud -- tastebud mcp --store <root>\`.
-- Codex: \`codex mcp add tastebud -- tastebud mcp --store <root>\`.
-- Cursor: \`{ "mcpServers": { "tastebud": { "command": "tastebud", "args": ["mcp", "--store", "<root>"] } } }\` in \`~/.cursor/mcp.json\`.
-- If they have an \`inject\` kind and use Claude Code, the prompt hook in \`~/.claude/settings.json\`: \`{ "hooks": { "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "tastebud hook prompt --store <root>" }] }] } }\`.
-- The Tastebud skill teaches agents when to capture, propose and recall.
-- The review UI: \`tastebud review --store <root>\`.
-(Leave \`--store <root>\` off every line when the store is \`~/.tastebud\`.)
+Suggest the lines for each host, and never edit their agent settings or run an install without a yes. If the store isn't \`~/.tastebud\`, use the actual root from \`config-show\` for \`<root>\`:
+- Claude Code: \`${templateLines.claudeCodePlugin}\` in a shell, or \`/plugin install tastebud --marketplace GLips/tastebud\` inside Claude Code. For a store other than \`~/.tastebud\`, add \`${templateLines.claudeCodeStoreSettings}\` to \`~/.claude/settings.json\`.
+- Codex: \`${defaultLines.codex}\`, or \`${templateLines.codex}\` for another store.
+- Cursor: \`${defaultLines.mcpServersJson}\` in \`~/.cursor/mcp.json\`, with \`"--store", "<root>"\` after \`"mcp"\` for another store.
+- VS Code: \`${defaultLines.vscode}\`, with the same \`--store\` arguments for another store.
+- Any other MCP client takes the same JSON as Cursor. These lines run the npm package through \`npx\`, so they need Node.
+- The review UI: \`tastebud review --store <root>\` (without \`--store\` for \`~/.tastebud\`). With only the plugin installed, the agent can run it for them, since the plugin puts \`tastebud\` on its shell's PATH; otherwise the CLI comes from \`npm install -g tastebud\` or the install script in the README.
 
 ## 8. Prove the loop
 
@@ -96,5 +102,5 @@ Pick something the owner said during this interview that is a real preference of
 Once they say they've accepted it, show it coming back:
 - \`recall\` on its topic, from a place its scope covers. It should appear under accepted.
 - For an \`inject\` kind on Claude Code, \`hook-preview\` with a prompt on that topic shows exactly what the hook will add.
-If it doesn't come back, explain why from \`recall-explain\` (scope, kind policy, status). Finish by naming anything that is still not installed for their hosts (the MCP server, the skill, the hook) and what each would add.
+If it doesn't come back, explain why from \`recall-explain\` (scope, kind policy, status). Finish by naming anything that is still not installed for their hosts (the plugin, or the MCP server and skill elsewhere) and what each would add.
 `;

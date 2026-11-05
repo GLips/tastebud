@@ -1,6 +1,6 @@
 /**
  * MCP prompts: `setup`, the interview that writes a store's config. Claude Code lists a server's
- * prompts as slash commands (`/mcp__tastebud__setup`). The text is core's, shared with `tastebud setup-guide`.
+ * prompts as slash commands (`/mcp__plugin_tastebud_tastebud__setup` under the plugin). The text is core's, shared with `tastebud setup-guide`.
  */
 import { TASTEBUD_SETUP_INTERVIEW } from "@tastebud/core/store-config";
 

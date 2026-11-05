@@ -7,10 +7,13 @@ import type { ContextOverrideInput, TasteCaller } from "#core/domains/taste-call
 import { countPendingByKind } from "#core/features/inbox/index.server.ts";
 import { resolveOperationContext } from "#core/features/place-context/index.server.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
+import { resolveStoreRoot } from "#core/infrastructure/store-root.ts";
 
 export const StoreCatalogResultSchema = Schema.Struct({
   catalog: CatalogViewSchema,
   storeRoot: Schema.String,
+  /** The store is `~/.tastebud`, so connecting a host needs no store argument or setting. */
+  storeIsDefault: Schema.Boolean,
   context: TasteContextSchema,
   /** Pending derivations per live kind, awaiting the owner in the review UI. */
   pendingByKind: Schema.Record(Schema.String, Schema.Finite),
@@ -33,6 +36,7 @@ export const readStoreCatalog = Effect.fn("store-catalog.readStoreCatalog")(func
       hook: config.hook,
     }),
     storeRoot: store.root,
+    storeIsDefault: store.root === resolveStoreRoot({}),
     context: yield* resolveOperationContext(input, caller),
   };
 });

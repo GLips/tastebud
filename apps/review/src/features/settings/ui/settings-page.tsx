@@ -1,4 +1,5 @@
 import {
+  Anchor,
   Box,
   ActionIcon,
   Badge,
@@ -17,6 +18,7 @@ import {
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
+import { agentHostConnectLinesFor } from "@tastebud/core/agent-hosts";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Check, ChevronRight, Copy } from "lucide-react";
@@ -140,28 +142,53 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   );
 }
 
-/** Single-quoted for the shell the hook runs in, so `$`, backticks and spaces in a path stay literal. */
-const shellQuotedPath = (path: string) => `'${path.replaceAll("'", `'\\''`)}'`;
+/** The JSON lines from `agentHostConnectLinesFor`, laid out to read in a snippet. */
+const prettyJson = (json: string) => JSON.stringify(JSON.parse(json), null, 2);
 
-const hookSnippetFor = (storeRoot: string) =>
-  JSON.stringify(
-    {
-      hooks: {
-        UserPromptSubmit: [
-          { hooks: [{ type: "command", command: `tastebud hook prompt --store ${shellQuotedPath(storeRoot)}` }] },
-        ],
-      },
-    },
-    null,
-    2,
+function InstallSnippet({ title, code, label }: { title: string; code: string; label: string }) {
+  return (
+    <Stack gap="2xs">
+      <Text size="sm">{title}</Text>
+      <CopyableSnippet code={code} label={label} />
+    </Stack>
   );
+}
 
-const mcpSnippetFor = (storeRoot: string) =>
-  JSON.stringify(
-    { mcpServers: { tastebud: { command: "tastebud", args: ["mcp"], env: { TASTEBUD_STORE: storeRoot } } } },
-    null,
-    2,
+/** `storeRoot` is undefined for the default store, whose lines carry no store at all. */
+function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined }) {
+  const lines = agentHostConnectLinesFor(storeRoot);
+  return (
+    <Stack gap="sm">
+      <Text fw={600}>Connect an agent</Text>
+      <InstallSnippet
+        title="Claude Code: the plugin (MCP server, skill, /tastebud:setup and the prompt hook)"
+        code={lines.claudeCodePlugin}
+        label="Claude Code plugin install"
+      />
+      {lines.claudeCodeStoreSettings !== undefined && (
+        <InstallSnippet
+          title="…and, for this store, in ~/.claude/settings.json"
+          code={prettyJson(lines.claudeCodeStoreSettings)}
+          label="Claude Code store setting"
+        />
+      )}
+      <InstallSnippet title="Codex" code={lines.codex} label="Codex command" />
+      <Stack gap="2xs">
+        <Group gap="xs">
+          <Text size="sm">Cursor, in ~/.cursor/mcp.json, or</Text>
+          <Anchor href={lines.cursorInstallLink} target="_blank" rel="noreferrer" size="sm">
+            Add to Cursor
+          </Anchor>
+        </Group>
+        <CopyableSnippet code={prettyJson(lines.mcpServersJson)} label="MCP config" />
+        <Text size="xs" c="dimmed">
+          Any other MCP client takes the same JSON. It runs the npm package through npx, so it needs Node.
+        </Text>
+      </Stack>
+      <InstallSnippet title="VS Code" code={lines.vscode} label="VS Code command" />
+    </Stack>
   );
+}
 
 export function SettingsPage() {
   const shell = useQuery(reviewShellQuery);
@@ -172,7 +199,7 @@ export function SettingsPage() {
         <Loader size="sm" />
       </Center>
     );
-  const { catalog, storeRoot } = shell.data;
+  const { catalog, storeRoot, storeIsDefault } = shell.data;
   return (
     <Stack gap="lg" {...stylex.props(styles.screen)}>
       <Stack gap="3xs">
@@ -242,20 +269,7 @@ export function SettingsPage() {
         </Paper>
       </Stack>
 
-      <Stack gap="sm">
-        <Text fw={600}>Install</Text>
-        <Stack gap="2xs">
-          <Text size="sm">Prompt hook, in Claude Code's settings.json</Text>
-          <CopyableSnippet code={hookSnippetFor(storeRoot)} label="hook settings" />
-        </Stack>
-        <Stack gap="2xs">
-          <Text size="sm">MCP server, in your MCP client's config</Text>
-          <CopyableSnippet code={mcpSnippetFor(storeRoot)} label="MCP config" />
-          <Text size="xs" c="dimmed">
-            Or with Claude Code: <code>claude mcp add tastebud --env TASTEBUD_STORE={storeRoot} -- tastebud mcp</code>
-          </Text>
-        </Stack>
-      </Stack>
+      <AgentHostInstallLines storeRoot={storeIsDefault ? undefined : storeRoot} />
     </Stack>
   );
 }

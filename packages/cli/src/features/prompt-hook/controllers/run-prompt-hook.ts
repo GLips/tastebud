@@ -44,6 +44,8 @@ const buildHookOutput = (stdin: string, deadline: ReturnType<typeof makeHookDead
     const store = yield* TasteStore;
     // The default deadline was armed before the config could be read; the config's own budget wins.
     deadline.rearm(store.config.hook.budgetMs);
+    // The hook ships on, so a store with nothing to inject stops before resolving where the session is.
+    if (!store.config.catalog.derivedKinds.some((kind) => kind.recall === "inject")) return undefined;
     // An event without `cwd` resolves to unknown context, on which the payload builder stays silent.
     const context = yield* resolveTasteContext({ cwd: event.value.cwd });
     // Not via the registry's `hook-preview`: its fresh config read costs ~50 ms of the cold start.

@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "tastebud": { "command": "${CLAUDE_PLUGIN_ROOT}/bin/tastebud", "args": ["mcp"] }
+  }
+}
