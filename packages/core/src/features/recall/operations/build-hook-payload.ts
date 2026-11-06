@@ -183,8 +183,12 @@ export const buildHookPayload = Effect.fn("recall.buildHookPayload")(function* (
       excluded.every((item) => item.exclusion === "recently-emitted") ? "recently-emitted" : "output-budget",
       excluded,
     );
-  const { additionalContext } = selection;
-  const hookOutput = JSON.stringify({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext } });
+  const { additionalContext, ownerNotice } = selection;
+  // additionalContext reaches only the model; systemMessage is the owner's view of the same lines.
+  const hookOutput = JSON.stringify({
+    systemMessage: ownerNotice,
+    hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext },
+  });
   const payload: HookPayload = {
     ...widened,
     items: selection.sent.map(hookItemOf),

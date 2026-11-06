@@ -66,11 +66,20 @@ const renderHookBlock = (sent: ReadonlyArray<HookCandidate>) =>
     renderHookEmissionMarker(sent.map((candidate) => ({ id: candidate.hit.id, fingerprint: candidate.fingerprint }))),
   ].join("\n");
 
+/**
+ * What the owner sees in their session: the same item lines the agent gets, without the header and
+ * marker, which only address the model.
+ */
+const renderHookNotice = (sent: ReadonlyArray<HookCandidate>) =>
+  ["Tastebud:", ...sent.map((candidate) => renderHookItemLine(candidate.hit))].join("\n");
+
 export interface HookSelection {
   readonly sent: ReadonlyArray<HookCandidate>;
   readonly excluded: ReadonlyArray<HookExcludedCandidate>;
   /** Absent when nothing is sent. */
   readonly additionalContext?: string;
+  /** Absent when nothing is sent. */
+  readonly ownerNotice?: string;
 }
 
 /**
@@ -100,7 +109,9 @@ export const selectHookItems = (
     }
     sent.push(candidate);
   }
-  return sent.length === 0 ? { sent, excluded } : { sent, excluded, additionalContext: renderHookBlock(sent) };
+  return sent.length === 0
+    ? { sent, excluded }
+    : { sent, excluded, additionalContext: renderHookBlock(sent), ownerNotice: renderHookNotice(sent) };
 };
 
 /** Splits `camelCase` and `snake_case` identifiers, so code an edit wrote matches words in a statement. */

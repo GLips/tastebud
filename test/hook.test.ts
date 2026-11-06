@@ -33,6 +33,7 @@ import {
 const decodeHookOutput = Schema.decodeUnknownSync(
   Schema.fromJsonString(
     Schema.Struct({
+      systemMessage: Schema.String,
       hookSpecificOutput: Schema.Struct({ hookEventName: Schema.String, additionalContext: Schema.String }),
     }),
   ),
@@ -99,6 +100,9 @@ test("injects only inject kinds, at most hook.limit of them, as Claude Code hook
   const injected = beliefs.filter((id) => context.includes(id));
   expect(injected).toHaveLength(2);
   expect(context).not.toContain(insight);
+  // The owner sees the very lines the agent got.
+  const itemLines = context.split("\n").filter((line) => line.startsWith("- "));
+  expect(output.systemMessage.split("\n").slice(1)).toEqual(itemLines);
 });
 
 test("stays silent, exit 0, on unknown context, a missing store and malformed stdin", async () => {
