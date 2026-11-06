@@ -49,7 +49,9 @@ const acceptedDerivation = async (root: string, caller: TasteCaller, kind: strin
 };
 
 test("injects only inject kinds, at most hook.limit of them, as Claude Code hook JSON", async () => {
-  const store = await makeTestStore(demoConfigText(`"git"`, "{ limit: 2, budgetMs: 650 }"));
+  // The budget counts from process start, and this suite runs the CLI from source, which slow CI runners can't
+  // start inside 650 ms. Selection is under test here, not timing.
+  const store = await makeTestStore(demoConfigText(`"git"`, "{ limit: 2, budgetMs: 10000 }"));
   const repo = makeGitRepo("git@github.com:acme/web.git");
   const inRepo = await callerFor(store, { cwd: repo });
   const beliefs = [
