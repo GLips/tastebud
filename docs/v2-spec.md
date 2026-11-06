@@ -203,7 +203,7 @@ This keeps records append-only and makes scope part of what the human ratifies. 
 
 ### 4.1 Location
 
-`--store` wins, then `TASTEBUD_STORE`, then `~/.tastebud`. One function, `resolveStoreRoot`, is used by the CLI, the hook, the MCP server and the review server. An empty string counts as unset.
+`--store` wins, then `TASTEBUD_STORE`, then `~/.tastebud`. One function, `resolveStoreRoot`, is used by the CLI, the hook, the MCP server and the review server. An empty string counts as unset. The only other variable Tastebud reads is `CLAUDE_CONFIG_DIR`, for where Claude Code keeps its session transcripts (`<dir>/projects`, default `~/.claude/projects`), which `transcript-candidates` and capture by reference read.
 
 ### 4.2 Layout
 
@@ -291,8 +291,9 @@ declareTasteOperation({
 
 | Name | Audience | What it does |
 |---|---|---|
-| `catalog` | agent | Kinds, prompts, the resolved context and the store root. This is what an agent reads first. With `guide`, also the curator procedure (`TASTEBUD_CURATOR_GUIDE`): read saved sources, check related derivations including rejected ones, propose with citations and conservative scope, hand the owner the review link. |
-| `capture` | agent | Append a source. With no kind it uses the config's `conversationSourceKind`, or the store's only source kind when it has one; with several and none named it fails, asking the owner to set `conversationSourceKind`; `said_by: "owner"` is the configured owner, labelled `ownerName`. `captured_in` defaults to the context. |
+| `catalog` | agent | Kinds, prompts, the resolved context and the store root. This is what an agent reads first. With `guide`, also the curator procedure (`TASTEBUD_CURATOR_GUIDE`): read saved sources, check related derivations including rejected ones, propose with citations and conservative scope, hand the owner the review link. Its "mine recent sessions" section, used only on request, is the transcript procedure: consent to projects and dates, `transcript-candidates`, subagents budgeted by tokens and grouped by place that return references only, a merge that scopes each candidate to its evidence's places, the owner's pick, capture by reference, propose. |
+| `capture` | agent | Append a source. With no kind it uses the config's `conversationSourceKind`, or the store's only source kind when it has one; with several and none named it fails, asking the owner to set `conversationSourceKind`; `said_by: "owner"` is the configured owner, labelled `ownerName`. `captured_in` defaults to the context. Given `transcript` (`{session, message}` from `transcript-candidates`), the quote must be an exact run of one eligible part of that message; speaker, time, places and `address` (`claude-code-transcript:<session>/<message>`) come from the transcript, a contradicting caller value is refused, and a message captured before returns that capture (`already_captured`). |
+| `transcript-candidates` | agent | The owner's typed messages from recent Claude Code sessions under `CLAUDE_CONFIG_DIR/projects` (default `~/.claude/projects`), filtered by `days` (default 7) and `project` places before any text is kept. Each row: `reference`, `said_at`, `cwd`, `places`, `because`, and the exact `parts`. Counts of `excluded`, `unknown`, `unresolved` and `other_projects`, with `left_out` reasons, explain a short list. Mining's rule needs positive evidence of a typed human turn (`entrypoint: "cli"`, `turnOrigin`, `origin.kind` human, `promptSource` typed or queued); a known non-human value excludes a message and missing or unfamiliar metadata makes it unknown. Known wrappers are cut out and an unknown one makes the message unknown; a slash command counts only for its `<command-args>`. CLI only. |
 | `propose` | agent | Append a derivation of a given kind, with a scope (§2.4) and the repeat check. |
 | `recall` | agent | Eligible derivations of `inject` and `pull` kinds ranked by text, then rejections ("not accepted"), then matching sources. Takes `--kind` and `--history`. Each hit carries an explanation: policy, status, which place matched, and score. |
 | `list` | agent | Derivations filtered by kind, status, place, subject or text. Sources too, with `--sources`. |
@@ -315,7 +316,7 @@ The MCP server exposes only the operations in `MCP_EXPOSED_OPERATIONS` (packages
 
 ### 5.2 Setup
 
-Installing is only connecting an agent (the Claude Code plugin, the MCP server, or the CLI on PATH). The rest is an interview an agent with a shell leads through the CLI: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, returned by `config-show` with `guide` (`tastebud config-show --guide`). There is no setup command or MCP prompt: the agent calls it when there is no store or the owner asks. The interview sets `ownerName` and `conversationSourceKind`, checks capture and the prompt hook separately, and says plainly that hosts without a prompt hook only capture and that saved words are not active beliefs.
+Installing is only connecting an agent (the Claude Code plugin, the MCP server, or the CLI on PATH). The rest is an interview an agent with a shell leads through the CLI: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, returned by `config-show` with `guide` (`tastebud config-show --guide`). There is no setup command or MCP prompt: the agent calls it when there is no store or the owner asks. The interview sets `ownerName` and `conversationSourceKind`, checks capture and the prompt hook separately, and says plainly that hosts without a prompt hook only capture and that saved words are not active beliefs. It captures over MCP when the host has the server, since that proves the connection, and the CLI otherwise. A name it inferred (from git config, say) appears with its source in the config confirmation. When nothing in the chat is worth capturing, it offers a mining pass of at most three candidates from recent sessions, captures the owner's picks by reference and proposes the strongest; it may end with recall untested, never with an invented belief.
 
 The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 
@@ -340,7 +341,9 @@ A resolver can't prove that a place will never come back, so the audit only comp
   - From the last 256 KiB of the transcript, after the latest `compact_boundary`, it takes the previous turn: the
     assistant's visible prose (4 KiB), up to 12 files its Edit, Write, MultiEdit, NotebookEdit and Read calls touched
     (modified first), and the text its edits wrote (4 KiB). Tool output, reasoning, subagents and earlier injections are
-    left out. The decoder is Claude Code specific and lives in the CLI; core takes a host-independent reading.
+    left out. The decoder is Claude Code specific and pure, in core's `claude-code-transcript` domain, shared with
+    `transcript-candidates`, whose stricter mining rule sits beside the hook's prompt-turn rule. The hook keeps its own
+    tail reader in the CLI; transcript files for mining are read in core `infrastructure/`.
   - The prompt and the previous turn are searched apart and merged with the prompt's matches first. Directories of
     touched files widen the context (at most 4); a path only named in prose does not.
   - It sends only accepted derivations of `inject` kinds: at most `hook.limit` whole items in 4 KiB, within
@@ -428,6 +431,10 @@ Integration tests run through operations, with temp stores and real git.
 9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context. With
    transcript fixtures: a previous-turn edit recalls what the prompt alone misses, recent output isn't repeated, and a
    compact boundary resets both.
+10. **Transcript mining** against a scratch `CLAUDE_CONFIG_DIR` of synthetic sessions: which messages are eligible,
+    with exact left-out counts; project and date filtering; capture by reference, a repeat returning the first; and
+    refusals for an inexact quote, a conflicting speaker or time, an ineligible message, and paths or symlinks that
+    escape the transcript root.
 
 ## 11. Demo seed
 

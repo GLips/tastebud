@@ -55,7 +55,7 @@ npm install -g tastebud                                                         
 
 Or download `tastebud-<os>-<arch>.tar.gz` from the release page. Binaries run on macOS (arm64, x64) and Linux (x64, arm64). With the CLI on your PATH, any host can run `tastebud mcp` instead of the `npx` line. A config may import its own relative files and `node:` builtins, never packages.
 
-Then **ask your agent to set Tastebud up**. Setup runs from a shell, so ask an agent that has one (Claude Code with the plugin does). It runs `tastebud config-show --guide` and asks who you are, whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `tastebud.config.ts` and its diff, and writes it once you say yes. Then it checks capture and automatic recall separately: it captures something you said, proposes a belief from it for you to accept, and shows the hook bringing it back.
+Then **ask your agent to set Tastebud up**. Setup runs from a shell, so ask an agent that has one (Claude Code with the plugin does). It runs `tastebud config-show --guide` and asks who you are, whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `tastebud.config.ts` and its diff, and writes it once you say yes. Then it checks capture and automatic recall separately: it captures something you said, proposes a belief from it for you to accept, and shows the hook bringing it back. If nothing you said in the chat is worth keeping, it offers to look through what you typed in recent Claude Code sessions, with your OK on which projects and days, and shows you up to three things to pick from rather than asking you to invent a preference.
 
 The store is `--store`, else `$TASTEBUD_STORE`, else `~/.tastebud`. Without an agent, `tastebud init` writes a commented starter config.
 
@@ -66,6 +66,7 @@ In Claude Code with the plugin, three things happen, and only the last needs you
 - **Recall is automatic.** Before each message you send, the prompt hook reads it and the turn before it (what the agent said, the files it touched, the code it wrote) and adds up to three of your accepted beliefs that apply where you're working. The agent never has to decide to look anything up. A belief it was shown in the last three turns isn't repeated.
 - **The agent captures your words.** When you correct it or state a preference, it saves your exact words with `capture`. A saved source is evidence, not a belief: what agents are shown doesn't change yet.
 - **You review.** Now and then, ask your agent to review your saved words. It runs `tastebud catalog --guide`, checks what you already accepted and rejected, and proposes beliefs that cite your words. `/tastebud:review` opens the review UI, where you accept or reject each one, narrowing its scope if you like. Once you accept one, the hook brings it back wherever it applies.
+- **Or mine what you already said.** Ask your agent to look through your recent Claude Code sessions for things you told agents that nobody captured. It asks which projects and how many days first, since your messages enter its context, then lists them with `tastebud transcript-candidates`, shows you candidates, and captures only the ones you pick, quoting the transcript exactly.
 
 Tastebud currently installs automatic recall only for Claude Code. The MCP-only setup for Codex, Cursor, VS Code and other MCP clients provides capture only. Their agents save your words into the same store, and you review them from Claude Code or the CLI, but nothing you accept reaches those agents automatically.
 
@@ -85,7 +86,8 @@ tastebud review                            # review UI on http://127.0.0.1:4747
 | Command | What it does |
 |---|---|
 | `tastebud catalog` | The kinds in this store, each kind's proposal prompt, where you are. Agents read it first; `--guide` adds how to turn saved words into proposals. |
-| `tastebud capture` | Append a source: someone's exact words. |
+| `tastebud capture` | Append a source: someone's exact words. With `--transcript-session` and `--transcript-message`, words from a Claude Code session, whose speaker, time and place come from the transcript. |
+| `tastebud transcript-candidates` | What you typed in recent Claude Code sessions (`--days`, `--project`), each message with the reference `capture` takes, and counts of what was left out and why. |
 | `tastebud propose` | Propose a derivation that cites sources, with a scope and the near-repeat check. |
 | `tastebud recall "<query>"` | What applies here: accepted, then rejected, then raw sources, each with why it matched. |
 | `tastebud list` / `tastebud show <ref>` | Browse by kind, status, place, subject or text; one record with its evidence, decisions and thread. |
@@ -105,7 +107,7 @@ Only the owner decides, and only in the review UI. `tastebud open [ref]` prints 
 
 **MCP.** `tastebud mcp` serves one tool, `capture`, and instructions saying when to call it: when the owner states a durable preference, corrects the agent, or asks it to remember something. `said_by: "owner"` is the configured owner and the words land in the config's `conversationSourceKind`, so capture needs no lookup first. Everything else runs through the CLI: recall reaches Claude Code through the prompt hook, and an agent with a shell proposes, recalls and sets up with `tastebud`. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise `capture` takes `in` (a directory) or `at` (places).
 
-**Curating.** `tastebud catalog --guide` is the procedure an agent follows when you ask it to review your saved words: read the sources, check related derivations (rejected ones too), propose with citations and a conservative scope, and hand you the review link.
+**Curating.** `tastebud catalog --guide` is the procedure an agent follows when you ask it to review your saved words: read the sources, check related derivations (rejected ones too), propose with citations and a conservative scope, and hand you the review link. Its "mine recent sessions" section, followed only when you ask, reads your Claude Code transcripts the same way: your consent to the projects and days, subagents that return references rather than summaries, scope from where the words were said, your pick, then `capture` by reference.
 
 Registered by hand against an installed CLI (the [install section](#install) has the plugin and the `npx` lines):
 

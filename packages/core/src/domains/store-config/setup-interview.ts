@@ -34,6 +34,8 @@ This guide came from \`config-show\` with \`guide\`, so the rest of that result 
 
 Ask who they are as \`human:<id>\`, suggesting one from what you know (their login, their name: "human:dana?"). It's an id, not a display name; it never changes. Then ask how their captured words should be labelled ("Dana?") and set \`ownerName\` (default: the id after \`human:\`). Together these are who \`said_by: "owner"\` means, so an agent capturing the owner's words never has to look them up.
 
+When you can infer these instead (the name from \`git config user.name\`, the id from their login), you may skip the questions, but say each inferred value and where it came from in step 6's confirmation ("I'll call you Graham, from your git config"), so they can correct it before the write rather than learn of it after.
+
 ## 3. Whose words count: source kinds
 
 Sources are people's exact words, verbatim and attributed. Ask what they want remembered, and from whom:
@@ -73,7 +75,7 @@ Before writing, test it on their real paths: \`config-check\` with the full text
 
 ## 6. Show, confirm, write
 
-Run \`config-check\` with the complete file text. Fix every problem it reports and check again. Then show the owner the full file and the diff, and ask: "Write this?" Only after an explicit yes, call \`config-write\` with the same text and \`expected_current\`: the \`hash\` from \`config-show\`, or \`""\` for a new store. If it refuses because the file changed, run \`config-show\` again, redo the edit on the new text, and show the diff again.
+Run \`config-check\` with the complete file text. Fix every problem it reports and check again. Then show the owner the full file and the diff, name every value you inferred rather than heard with its source, and ask: "Write this?" Only after an explicit yes, call \`config-write\` with the same text and \`expected_current\`: the \`hash\` from \`config-show\`, or \`""\` for a new store. If it refuses because the file changed, run \`config-show\` again, redo the edit on the new text, and show the diff again.
 
 Keep the file readable: comments on why each kind exists are welcome, and the starter's comments are worth keeping.
 
@@ -99,7 +101,13 @@ Suggest the lines for each host, and never edit their agent settings or run an i
 
 Capturing and recalling are separate paths, so check each on its own: "capture works" says nothing about whether recall does.
 
-**Capture.** Pick something the owner said during this interview, or before it if a preference is what led here, that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, save it verbatim, said by the owner. If this host has Tastebud's MCP server, use its \`capture\` tool (\`said_by: "owner"\`): that also proves the server is connected. Otherwise \`tastebud capture --said-by owner --quote "<their words>" --by <you>\`. Then tell them plainly: saving words doesn't create an active belief. It is a source waiting in the store, and nothing reaches an agent until a derivation citing it is proposed and they accept it.
+**How to capture.** Capture through Tastebud's MCP server when this host has it (its \`capture\` tool), because a capture that lands proves the server is connected, which nothing else here checks. Use \`tastebud capture\` only when the host has no Tastebud MCP server.
+
+**Capture.** Pick something the owner said during this interview, or before it if a preference is what led here, that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, save it verbatim, said by the owner: over MCP, \`capture\` with \`said_by: "owner"\`; on the CLI, \`tastebud capture --said-by owner --quote "<their words>" --by <you>\`.
+
+If nothing in this chat qualifies, don't ask them to come up with a preference cold. Offer a small mining pass instead: "I could look through what you typed to Claude Code in <project> over the last week and show you up to 3 things worth keeping. Those messages would enter my context. Want me to?" With a yes, follow "Mine recent sessions" in \`tastebud catalog --guide\`, kept small: the projects and days they agreed to, at most 3 candidates shown, read by you rather than subagents unless the list is long. Capture the ones they pick by reference (MCP \`capture\` with \`transcript\` and \`quote\`, else \`tastebud capture --transcript-session <session> --transcript-message <message> --quote "<exact words>" --by <you>\`), and propose from the strongest. If they decline or nothing qualifies, say so and carry on: setup may end with recall untested, but never invent a belief, or capture your own words, to finish the demo.
+
+After a capture, tell them plainly: saving words doesn't create an active belief. It is a source waiting in the store, and nothing reaches an agent until a derivation citing it is proposed and they accept it.
 
 **Propose and accept.** \`propose\` the conclusion those words support, by that kind's prompt. Hand them the link from \`review-url\` and tell them to open the review UI with \`/tastebud:review\` in Claude Code, or \`tastebud review --open\` (with \`--store <root>\` if it isn't ~/.tastebud), and accept it there: only they can.
 

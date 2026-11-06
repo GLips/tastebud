@@ -149,6 +149,7 @@ test("every tastebud command the setup and curator guides tell an agent to run e
   const named = new Set([...commandsNamedIn(setup.stdout), ...commandsNamedIn(curator.stdout)]);
   expect(named).toContain("hook preview");
   expect(named).toContain("review-url");
+  expect(named).toContain("transcript-candidates");
   const helps = await Promise.all(
     [...named].map(async (command) => ({
       command,
