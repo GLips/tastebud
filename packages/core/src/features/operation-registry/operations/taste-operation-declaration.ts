@@ -6,7 +6,6 @@ import { Effect, Schema } from "effect";
 
 import type { TasteCaller } from "#core/domains/taste-caller/index.ts";
 import type { TasteStore, TasteStoreRoot } from "#core/features/record-store/index.server.ts";
-import { OptionalTrimmedText, OptionalTrimmedTextList } from "#core/shared/input-text.ts";
 import { InvalidTasteInput } from "#core/shared/invalid-taste-input.ts";
 import { formatSchemaProblems } from "#core/shared/schema-problems.ts";
 
@@ -82,9 +81,4 @@ export const declareTasteOperation = <
     ),
 });
 
-/** The `in` / `at` input every context-reading operation without its own fields takes. */
-export const ContextOverrideInputSchema = Schema.Struct({
-  in: OptionalTrimmedText.annotate({ description: "Resolve the context as if in this directory" }),
-  at: OptionalTrimmedTextList.annotate({ description: "Take these places as the context" }),
-});
 export const NoInput = Schema.Struct({});

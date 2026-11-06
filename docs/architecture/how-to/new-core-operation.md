@@ -15,8 +15,8 @@ through the registry.
    core `package.json` export only if a shell imports it directly.
 5. **Declare it.** Add a `declareTasteOperation({ name, audience, kind, description, input, output, run,
    renderText })` entry to `agent-operations.ts`, `store-root-operations.ts` or `human-operations.ts` in
-   `features/operation-registry/operations/`. If it needs to know where the caller is, include the context
-   fields from `ContextOverrideInputSchema` in its input; the registry resolves context only for inputs with `in`.
+   `features/operation-registry/operations/`. If it needs to know where the caller is, give its input `in`
+   (`OptionalTrimmedText`) and `at` (`OptionalTrimmedTextList`); the registry resolves context only for inputs with `in`.
 6. **CLI command (agent operations).** Add the command in the matching
    `packages/cli/src/features/cli-operations/controllers/*-commands.ts`, calling
    `runCliOperation("<name>", input, options)`. Flags come from `shared/cli-flags.ts`.

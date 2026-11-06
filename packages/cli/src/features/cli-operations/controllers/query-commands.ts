@@ -19,7 +19,15 @@ import { describedAs, runCliOperation } from "./run-cli-operation.ts";
 
 export const catalogCommand = Command.make(
   "catalog",
-  { ...contextFlags, json: jsonFlag, store: storeFlag },
+  {
+    guide: Flag.Boolean("guide").pipe(
+      Flag.withDescription("Also print how to turn the owner's saved words into proposals"),
+      Flag.withDefault(false),
+    ),
+    ...contextFlags,
+    json: jsonFlag,
+    store: storeFlag,
+  },
   ({ json, store, ...flags }) => runCliOperation("catalog", definedFields(flags), { store, json }),
 ).pipe(describedAs("catalog"));
 

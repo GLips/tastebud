@@ -166,7 +166,7 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
 ### 3.2 Recall policy
 
 - **`inject`:** eligible for the prompt hook and pull recall.
-- **`pull`:** pull recall, and `context --kind`. Never sent by the hook.
+- **`pull`:** pull recall (`tastebud recall`) only. Never sent by the hook.
 - **`never`:** never recalled. Only `list`, `show` and the review UI surface it. An ideas backlog is a list, not a recall.
 
 ### 3.3 Fixed semantics, the same for every kind
@@ -264,11 +264,11 @@ All behaviour lives in `packages/core` (`@tastebud/core`). Each shell is a thin 
 ```ts
 // packages/core/src/features/operation-registry/operations/taste-operation-declaration.ts
 declareTasteOperation({
-  name: "recall",                 // CLI `tastebud recall`; MCP tool `tastebud_recall`
+  name: "capture",                // CLI `tastebud capture`; MCP tool `capture` if listed in MCP_EXPOSED_OPERATIONS
   audience: "agent" | "human",    // human operations are never on agent surfaces
   kind: "query" | "command",
-  description: "…",               // MCP description, CLI help
-  input: Schema.Struct({...}),    // annotated; its encoded form becomes the MCP JSON schema
+  description: "…",               // CLI help, and the MCP description of an exposed tool
+  input: Schema.Struct({...}),    // annotated; its encoded form becomes an exposed tool's MCP JSON schema
   output: Schema.Struct({...}),
   run: (input, caller) => Effect<A, TasteError, TasteServices>,
   renderText: (a) => string,      // the text the CLI prints and MCP returns
@@ -281,7 +281,7 @@ declareTasteOperation({
 - **Caller:** `caller` is `{ via: "cli" | "mcp" | "review" | "hook", actor?: string, context: TasteContext }`. Adapters build it; it is never read from input.
 - **Shells share contracts, not construction:**
   - The effect/cli commands are written out explicitly. They map arguments, flags and stdin into the operation's input.
-  - MCP generates each tool's JSON schema from the operation's *encoded* input schema.
+  - MCP generates its tool's JSON schema from the operation's *encoded* input schema.
   - TanStack exports explicit server functions that delegate through server-only modules.
   - The browser-safe contracts (`packages/core/src/domains`, exported as subpaths) stay separate from the handlers.
 - **Errors:** every `TasteError` is a `Data.TaggedError` with a `message` getter. One function in core, `describeTasteFailure(error)`, gives the sentence, a category (`input`, `refused`, `conflict` or `broken`) and the exit code. The CLI, MCP and the server all use it, so there is one mapper, not three.
@@ -291,8 +291,8 @@ declareTasteOperation({
 
 | Name | Audience | What it does |
 |---|---|---|
-| `catalog` | agent | Kinds, prompts, the resolved context and the store root. This is what an agent reads first. |
-| `capture` | agent | Append a source of a given kind. `captured_in` defaults to the context. |
+| `catalog` | agent | Kinds, prompts, the resolved context and the store root. This is what an agent reads first. With `guide`, also the curator procedure (`TASTEBUD_CURATOR_GUIDE`): read saved sources, check related derivations including rejected ones, propose with citations and conservative scope, hand the owner the review link. |
+| `capture` | agent | Append a source. With no kind it uses the config's `conversationSourceKind`; `said_by: "owner"` is the configured owner, labelled `ownerName`. `captured_in` defaults to the context. |
 | `propose` | agent | Append a derivation of a given kind, with a scope (§2.4) and the repeat check. |
 | `recall` | agent | Eligible derivations of `inject` and `pull` kinds ranked by text, then rejections ("not accepted"), then matching sources. Takes `--kind` and `--history`. Each hit carries an explanation: policy, status, which place matched, and score. |
 | `list` | agent | Derivations filtered by kind, status, place, subject or text. Sources too, with `--sources`. |
@@ -311,11 +311,11 @@ declareTasteOperation({
 | `thread-note` | human | A human's comment on a thread, from the review UI. |
 | `seed` | human | CLI only. Writes its config through `config-write`'s path, so it never overwrites a store. |
 
-The MCP server exposes every `agent` operation as `tastebud_<name>`, with `-` turned into `_`. `review listen` and `review` stay CLI process commands.
+The MCP server exposes only the operations in `MCP_EXPOSED_OPERATIONS` (packages/mcp), under their operation names: today just `capture`. That list drives both `tools/list` and `tools/call`. Every agent operation stays on the CLI, which is how an agent with a shell recalls, proposes, curates and sets up. Recall reaches an agent automatically only through the prompt hook (§7), so a host without one is capture-only. `review listen` and `review` stay CLI process commands.
 
 ### 5.2 Setup
 
-Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, returned by `config-show` with `guide` (`tastebud_config_show`, `tastebud config-show --guide`). There is no setup command or MCP prompt: the agent calls it when there is no store or the owner asks.
+Installing is only connecting an agent (the Claude Code plugin, the MCP server, or the CLI on PATH). The rest is an interview an agent with a shell leads through the CLI: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, returned by `config-show` with `guide` (`tastebud config-show --guide`). There is no setup command or MCP prompt: the agent calls it when there is no store or the owner asks. The interview sets `ownerName` and `conversationSourceKind`, checks capture and the prompt hook separately, and says plainly that hosts without a prompt hook only capture and that saved words are not active beliefs.
 
 The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 
@@ -420,10 +420,10 @@ Integration tests run through operations, with temp stores and real git.
    - Widening at accept without an acknowledgement is refused.
 6. **Carried over from v1:** reindex parity (v1 test 4) and the listener (v1 test 5).
 7. **MCP over stdio,** with the SDK `Client`:
-   - `tools/list` holds exactly the agent operations.
-   - `tastebud_propose` then `tastebud_recall` work with an `in` argument.
-   - Invalid input gives `isError`.
-   - Setup from nothing: `config-show` with `guide`, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
+   - `tools/list` holds exactly `capture`, and any other name is refused.
+   - The owner's words land in the conversation source kind with the configured owner and label; another speaker
+     without a label is rejected.
+   - With no store, `capture` points at setup through the CLI.
 8. **CLI:** `tastebud capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `tastebud decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
 9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context. With
    transcript fixtures: a previous-turn edit recalls what the prompt alone misses, recent output isn't repeated, and a

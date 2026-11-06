@@ -61,10 +61,11 @@ import {
 import {
   readStoreCatalog,
   renderCatalogText,
+  StoreCatalogInput,
   StoreCatalogResultSchema,
 } from "#core/features/store-catalog/index.server.ts";
 
-import { ContextOverrideInputSchema, declareTasteOperation, NoInput } from "./taste-operation-declaration.ts";
+import { declareTasteOperation, NoInput } from "./taste-operation-declaration.ts";
 
 export const AGENT_TASTE_OPERATIONS = {
   catalog: declareTasteOperation({
@@ -72,8 +73,8 @@ export const AGENT_TASTE_OPERATIONS = {
     audience: "agent",
     kind: "query",
     description:
-      "Read first: the kinds this store holds, how to propose each (its prompt), where you are, and the store root.",
-    input: ContextOverrideInputSchema,
+      "Read first: the kinds this store holds, how to propose each (its prompt), where you are, and the store root. With guide, also how to turn the owner's saved words into proposals.",
+    input: StoreCatalogInput,
     output: StoreCatalogResultSchema,
     run: readStoreCatalog,
     renderText: renderCatalogText,

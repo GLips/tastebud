@@ -161,7 +161,7 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
     <Stack gap="sm">
       <Text fw={600}>Connect an agent</Text>
       <InstallSnippet
-        title="Claude Code: the plugin (MCP server, skill, /tastebud:review and the prompt hook)"
+        title="Claude Code: the plugin (the prompt hook, capture over MCP and /tastebud:review)"
         code={lines.claudeCodePlugin}
         label="Claude Code plugin install"
       />
@@ -173,7 +173,7 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
         />
       )}
       <InstallSnippet
-        title="Other hosts run the npm package through npx: run this once first, so the binary downloads here"
+        title="Other hosts get capture only, with no prompt hook. They run the npm package through npx: run this once first, so the binary downloads here"
         code={lines.npxPrefetch}
         label="npx prefetch command"
       />

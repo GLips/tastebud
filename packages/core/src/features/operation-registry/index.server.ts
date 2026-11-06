@@ -17,11 +17,7 @@ export {
   runTasteOperationAtStoreRoot,
 } from "./operations/run-taste-operation.ts";
 export type { TasteError } from "./operations/taste-error.ts";
-export {
-  ContextOverrideInputSchema,
-  NoInput,
-  declareTasteOperation,
-} from "./operations/taste-operation-declaration.ts";
+export { NoInput, declareTasteOperation } from "./operations/taste-operation-declaration.ts";
 export type {
   TasteOperationAudience,
   TasteOperationDeclaration,

@@ -61,7 +61,7 @@ The insight "Subscribers cancel when they only wanted to skip or pause a deliver
 tastebud hook preview "show the shipping price on the checkout page" --in /tmp/acme/web/apps/checkout
 ```
 
-This is exactly what `tastebud hook prompt` would add to that prompt in a Claude Code session in that directory: at most three `inject` items, labelled as evidence. Here, that's the checkout price belief.
+This is exactly what `tastebud hook prompt` would add to that prompt in a Claude Code session in that directory: at most three accepted `inject` items, under a header saying they are previously accepted preferences and the user's current request takes precedence. Here, that's the checkout price belief. In a real session the hook also reads the turn before the prompt from the session transcript; `--transcript <session.jsonl>` adds that here.
 
 ## 5. History: revisions, retractions, threads
 

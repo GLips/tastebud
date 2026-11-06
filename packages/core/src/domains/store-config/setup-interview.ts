@@ -1,6 +1,7 @@
 /**
  * The setup interview an agent runs with the owner. It is the one copy: `config-show` returns it with
- * `guide`, which is where the skill, the MCP instructions and the no-store failure point.
+ * `guide`, which is where the CLI's help and the no-store failure point. Every step is a CLI command,
+ * because the MCP server serves capture alone.
  */
 import { agentHostConnectLinesFor } from "#core/domains/agent-hosts/index.ts";
 
@@ -16,7 +17,7 @@ How to run it:
 - Use their words. When they describe what they care about, quote them back in the kind descriptions and prompts.
 - Never write without an explicit yes to the exact diff.
 
-Operations are spelled \`config-show\` here; on the CLI that's \`tastebud config-show\`. Setup runs only through the CLI. Pass a file's text with \`--text -\` and pipe it in.
+Setup runs from a shell, through the CLI. Operations are spelled \`config-show\` here; on the CLI that's \`tastebud config-show\`. Pass a file's text with \`--text -\` and pipe it in. The MCP server only captures, so an agent without a shell can't run setup: ask the owner to run it from an agent that has one (Claude Code with the plugin does).
 
 The CLI takes the store per command: \`--store <dir>\`, else \`TASTEBUD_STORE\`, else \`~/.tastebud\`. The MCP server's \`capture\` uses the one store the server was started with; no tool argument changes it.
 
@@ -31,7 +32,7 @@ This guide came from \`config-show\` with \`guide\`, so the rest of that result 
 
 ## 2. Who the owner is
 
-Ask who they are as \`human:<id>\`, suggesting one from what you know (their login, their name: "human:dana?"). It's an id, not a display name; it never changes. Ask how their captured words should be labelled and set \`ownerName\` (default: the id after \`human:\`).
+Ask who they are as \`human:<id>\`, suggesting one from what you know (their login, their name: "human:dana?"). It's an id, not a display name; it never changes. Then ask how their captured words should be labelled ("Dana?") and set \`ownerName\` (default: the id after \`human:\`). Together these are who \`said_by: "owner"\` means, so an agent capturing the owner's words never has to look them up.
 
 ## 3. Whose words count: source kinds
 
@@ -40,16 +41,16 @@ Sources are people's exact words, verbatim and attributed. Ask what they want re
 - customers on calls, users in support tickets or interviews;
 - teammates in code reviews or design docs.
 
-Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Recommend the default, just \`memory\`, unless they name another population. Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` of whose words and from where. \`conversationSourceKind\` names the kind for words an agent hears in conversation (recommend \`memory\`), so \`capture\` needs no kind.
+Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Recommend the default, just \`memory\`, unless they name another population. Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` of whose words and from where. Set \`conversationSourceKind\` to the kind for words an agent hears in conversation (recommend \`memory\`): it is what \`capture\` uses when given no kind, which is how agents capture over MCP.
 
 ## 4. What conclusions they want: derived kinds
 
-Derivations are one-line conclusions an agent proposes from sources and only the owner ratifies. Ask what they'd want agents to conclude from those words. The default is \`belief\` ("how I work"), fed by \`memory\` and injected into agents' context. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try).
+Derivations are one-line conclusions an agent proposes from sources and only the owner ratifies. Ask what they'd want agents to conclude from those words. The default is \`belief\` ("how I work"), fed by \`memory\` and recalled automatically by the prompt hook. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try).
 
 For each kind, settle, one at a time:
 - \`singular\`, \`plural\`, and a \`description\` in their words.
 - \`sources\`: which source kinds it may cite.
-- \`recall\`: \`inject\` (pushed into agents' context by the prompt hook and \`context\`), \`pull\` (agents get it when they recall), or \`never\` (a review-only backlog). Recommend \`inject\` only for things that should steer every session; most new kinds are \`pull\`.
+- \`recall\`: \`inject\` (the prompt hook adds matching accepted ones to the agent's context on each message), \`pull\` (an agent sees it only when it runs \`tastebud recall\`), or \`never\` (a review-only backlog). Recommend \`inject\` for things that should steer every session; \`pull\` kinds are seldom seen, since agents rarely recall unprompted.
 - \`acceptLabel\`: the button the owner presses to ratify ("Believe", "Accept", "Worth doing").
 - \`proposalPrompt\`: the instruction agents follow when proposing this kind. Ask the owner what makes a good one and a bad one, then draft it with these sections, in this order:
   - **When to propose**: what in the sources earns a proposal (stated outright, repeated, two speakers on different calls).
@@ -59,7 +60,7 @@ For each kind, settle, one at a time:
   - **Scope**: how narrowly to scope by default, and when \`--global\` is right.
   - **When refused as a near repeat**: stop, unless something genuinely changed; then \`--despite <id>\` for every match and \`--despite-case\` saying what changed.
   - **Never**: what an agent must not do with this kind.
-  Prompts spell inputs as CLI flags; MCP callers map them with the note in \`catalog\`. Keeping the default \`belief\` with its shipped prompt means leaving \`derivedKinds\` out, but giving \`derivedKinds\` at all replaces the defaults whole, so write \`belief\` out too if they want it alongside new kinds.
+  Prompts spell inputs as CLI flags, since proposing runs only through the CLI. Keeping the default \`belief\` with its shipped prompt means leaving \`derivedKinds\` out, but giving \`derivedKinds\` at all replaces the defaults whole, so write \`belief\` out too if they want it alongside new kinds.
 
 ## 5. Where work happens: place
 
@@ -80,14 +81,14 @@ A config may import relative files and \`node:\` builtins only; no packages. Tas
 
 ## 7. Wire up their agents
 
-Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Tastebud reaches each one, because recall only works through what is installed:
-- **Claude Code**: the Tastebud plugin brings the MCP server, the skill, \`/tastebud:review\` and the prompt hook. \`inject\` kinds reach every prompt through the hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the skill and the MCP server's instructions tell it to do.
-- **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. Recall still works with it off.
-- **Other hosts** have no prompt hook: nothing is injected, and the agent recalls only when it calls \`recall\` or \`context\`, prompted by the MCP server's instructions (and the skill, where the host loads skills). Some hosts, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to every tool that reads where it is.
+Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain what each one gets, because recall happens only where the prompt hook runs:
+- **Claude Code**: the Tastebud plugin brings the prompt hook, the MCP server (its one tool is \`capture\`) and \`/tastebud:review\`, and puts \`tastebud\` on the agent's shell PATH. The hook is the automatic recall: before each message it adds the accepted derivations of \`inject\` kinds that match the message and the turn before it, so the agent never has to look anything up.
+- **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. With it off, nothing they accepted reaches the agent on its own; capture still works.
+- **Hosts without a prompt hook** (Codex, Cursor, VS Code and other MCP clients) only capture. Their agents save the owner's words through \`capture\`, but nothing the owner accepted reaches them automatically. Say this plainly. Some of them, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to \`capture\`.
 - A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session.
 
 Suggest the lines for each host, and never edit their agent settings or run an install without a yes. If the store isn't \`~/.tastebud\`, use the actual root from \`config-show\` for \`<root>\`:
-- Claude Code: \`${templateLines.claudeCodePlugin}\` in a shell, or \`/plugin install tastebud --marketplace GLips/tastebud\` inside Claude Code. For a store other than \`~/.tastebud\`, add \`${templateLines.claudeCodeStoreSettings}\` to \`~/.claude/settings.json\`.
+- Claude Code: \`${templateLines.claudeCodePlugin}\` in a shell, or \`/plugin install tastebud --marketplace GLips/tastebud\` inside Claude Code. For a store other than \`~/.tastebud\`, add \`${templateLines.claudeCodeStoreSettings}\` to \`~/.claude/settings.json\`: the hook and the MCP server both read it.
 - Codex: \`${defaultLines.codex}\`, or \`${templateLines.codex}\` for another store.
 - Cursor: \`${defaultLines.mcpServersJson}\` in \`~/.cursor/mcp.json\`, with \`"--store", "<root>"\` after \`"mcp"\` for another store.
 - VS Code: \`${defaultLines.vscode}\`, with the same \`--store\` arguments for another store.
@@ -96,10 +97,16 @@ Suggest the lines for each host, and never edit their agent settings or run an i
 
 ## 8. Prove the loop
 
-Pick something the owner said during this interview, or before it if a preference is what led here, that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, \`capture\` it verbatim as a \`memory\` (or the right source kind), said by their \`human:\` id, and \`propose\` the conclusion it supports by that kind's prompt. Hand them the link from \`review-url\` and tell them to open the review UI with \`/tastebud:review\` in Claude Code, or \`tastebud review --open\` (with \`--store <root>\` if it isn't ~/.tastebud), and accept it there: only they can.
+Capturing and recalling are separate paths, so check each on its own: "capture works" says nothing about whether recall does.
 
-Once they say they've accepted it, show it coming back:
-- \`recall\` on its topic, from a place its scope covers. It should appear under accepted.
-- For an \`inject\` kind on Claude Code, \`hook-preview\` with a prompt on that topic shows exactly what the hook will add.
-If it doesn't come back, explain why from \`recall-explain\` (scope, kind policy, status). Finish by naming anything that is still not installed for their hosts (the plugin, or the MCP server and skill elsewhere) and what each would add.
+**Capture.** Pick something the owner said during this interview, or before it if a preference is what led here, that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, save it verbatim, said by the owner. If this host has Tastebud's MCP server, use its \`capture\` tool (\`said_by: "owner"\`): that also proves the server is connected. Otherwise \`tastebud capture --said-by owner --quote "<their words>" --by <you>\`. Then tell them plainly: saving words doesn't create an active belief. It is a source waiting in the store, and nothing reaches an agent until a derivation citing it is proposed and they accept it.
+
+**Propose and accept.** \`propose\` the conclusion those words support, by that kind's prompt. Hand them the link from \`review-url\` and tell them to open the review UI with \`/tastebud:review\` in Claude Code, or \`tastebud review --open\` (with \`--store <root>\` if it isn't ~/.tastebud), and accept it there: only they can.
+
+**Automatic recall.** Once they say they've accepted it, show it coming back:
+- \`tastebud hook preview "<a prompt on that topic>"\`, from a place its scope covers, shows exactly what the hook would add. An \`inject\` kind should appear; a \`pull\` kind won't, and \`tastebud recall "<topic>"\` shows it instead.
+- Then the hook itself, in Claude Code: in a new session there, a message on that topic should arrive with a block that starts "These are previously accepted preferences". Ask them to try it, or try it yourself if you are in a new session. If the preview shows it and the session doesn't, the hook isn't running: the plugin isn't installed, the prompt hook is off, or the store isn't \`~/.tastebud\` and \`TASTEBUD_STORE\` isn't in \`~/.claude/settings.json\`.
+If the preview doesn't show it, explain why from \`recall-explain\` (scope, kind policy, status).
+
+Finish by naming anything still not installed for their hosts and what it would add, and tell them what happens next: agents capture their words as they work, and when they want those turned into proposals, they can ask an agent with a shell to review their saved words (it runs \`tastebud catalog --guide\`), then accept or reject in the review UI.
 `;

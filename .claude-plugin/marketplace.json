@@ -8,7 +8,7 @@
     {
       "name": "tastebud",
       "source": "./plugins/tastebud",
-      "description": "Human-ratified taste for agents: the Tastebud MCP server, skill, setup interview and prompt hook."
+      "description": "Human-ratified taste for agents: the prompt hook that recalls what you accepted, capture over MCP, and the review UI."
     }
   ]
 }

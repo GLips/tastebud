@@ -1,7 +1,7 @@
 {
   "name": "tastebud",
   "version": "0.1.1",
-  "description": "Human-ratified taste for agents: the Tastebud MCP server, skill, setup interview and prompt hook.",
+  "description": "Human-ratified taste for agents: the prompt hook that recalls what you accepted, capture over MCP, and the review UI.",
   "author": { "name": "Graham Lipsman" },
   "homepage": "https://github.com/GLips/tastebud",
   "repository": "https://github.com/GLips/tastebud",
@@ -11,7 +11,7 @@
     "prompt_hook": {
       "type": "boolean",
       "title": "Prompt hook",
-      "description": "Before each prompt, add up to three accepted or rejected derivations of the store's inject kinds that match it. Off adds nothing; recall still works.",
+      "description": "Before each prompt, add up to three accepted derivations of the store's inject kinds that match it or the turn before. Off, nothing reaches the agent on its own; capture still works.",
       "default": true
     }
   }

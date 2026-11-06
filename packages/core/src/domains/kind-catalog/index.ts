@@ -14,6 +14,7 @@ export {
 } from "./kind-catalog.ts";
 export type { DerivedKindDefinition, SourceKindDefinition, TasteCatalog } from "./kind-catalog.ts";
 export { BELIEF_PROPOSAL_PROMPT } from "./kind-prompts.ts";
+export { TASTEBUD_CURATOR_GUIDE } from "./curator-guide.ts";
 export { CatalogViewSchema } from "./catalog-view.ts";
 export type { CatalogView, DerivedKindView, HookSettings, SourceKindView } from "./catalog-view.ts";
 export { KindNotRecallable, RetiredKind, UnknownKind } from "./errors.ts";

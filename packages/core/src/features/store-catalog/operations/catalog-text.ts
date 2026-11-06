@@ -1,15 +1,17 @@
-/** The text `catalog` prints: the store, the caller's context and how to propose each kind. */
+/** The text `catalog` prints: the curator guide when asked for, the store, the caller's context and how to propose each kind. */
 import type { CatalogView } from "#core/domains/kind-catalog/index.ts";
 import type { TasteContext } from "#core/domains/places/index.ts";
 import { formatContextLine, section } from "#core/domains/record-text/index.ts";
 
 export const renderCatalogText = (result: {
+  readonly guide?: string;
   readonly catalog: CatalogView;
   readonly storeRoot: string;
   readonly context: TasteContext;
   readonly pendingByKind: Readonly<Record<string, number>>;
 }) =>
   [
+    ...(result.guide === undefined ? [] : [result.guide]),
     `Store ${result.storeRoot} · owner ${result.catalog.owner} · resolver ${result.catalog.resolver}`,
     formatContextLine(result.context),
     section(

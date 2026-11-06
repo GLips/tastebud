@@ -121,3 +121,42 @@ test("config-write creates a store from nothing for catalog to read, and refuses
   expect([stale.exitCode, decodeFailureJson(stale.stdout).error.tag]).toEqual([4, "StaleTastebudConfig"]);
   expect(readFileSync(join(store, "tastebud.config.ts"), "utf8")).toBe(text);
 });
+
+test("catalog --guide leads with the curator procedure, then this store's own kinds and prompts", async () => {
+  const store = await makeTestStore(demoConfigText(`"directories"`));
+  const cwd = makeTemporaryDirectory("curate");
+  const guided = await runTastebud(store, cwd, ["catalog", "--guide"]);
+  expect(guided.exitCode).toBe(0);
+  const plain = await runTastebud(store, cwd, ["catalog"]);
+  expect(guided.stdout.startsWith("# Review the owner's saved words")).toBe(true);
+  expect(guided.stdout).toEndWith(plain.stdout);
+  expect(plain.stdout).not.toContain("Review the owner's saved words");
+});
+
+/** `tastebud <command>` and `tastebud <group> <sub>` spellings in a guide's code spans and blocks. */
+const commandsNamedIn = (guide: string) =>
+  new Set(
+    [...guide.matchAll(/tastebud ([a-z][a-z-]+)(?: (prompt|preview|listen)\b)?/g)].map((m) =>
+      m.slice(1, 3).filter(Boolean).join(" "),
+    ),
+  );
+
+test("every tastebud command the setup and curator guides tell an agent to run exists", async () => {
+  const store = await makeTestStore(demoConfigText(`"directories"`));
+  const cwd = makeTemporaryDirectory("guides");
+  const setup = await runTastebud(store, cwd, ["config-show", "--guide"]);
+  const curator = await runTastebud(store, cwd, ["catalog", "--guide"]);
+  const named = new Set([...commandsNamedIn(setup.stdout), ...commandsNamedIn(curator.stdout)]);
+  expect(named).toContain("hook preview");
+  expect(named).toContain("review-url");
+  const helps = await Promise.all(
+    [...named].map(async (command) => ({
+      command,
+      help: await runTastebud(store, cwd, [...command.split(" "), "--help"]),
+    })),
+  );
+  const missing = helps.filter(
+    ({ command, help }) => help.exitCode !== 0 || !help.stdout.includes(`tastebud ${command}`),
+  );
+  expect(missing.map(({ command }) => command)).toEqual([]);
+});

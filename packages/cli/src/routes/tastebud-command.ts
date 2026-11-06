@@ -33,7 +33,7 @@ import { readProcessArguments } from "#cli/infrastructure/process-arguments.ts";
 
 const tastebudCommand = Command.make("tastebud").pipe(
   Command.withDescription(
-    "Human-ratified taste for agents: capture the owner's exact words, propose what follows from them, recall what they accepted and rejected. Start with `tastebud catalog`; with no store yet, `tastebud config-show --guide`.",
+    "Human-ratified taste for agents: capture the owner's exact words, propose what follows from them, recall what they accepted and rejected. Start with `tastebud catalog`; to turn saved words into proposals, `tastebud catalog --guide`; with no store yet, `tastebud config-show --guide`.",
   ),
   Command.withSubcommands([
     catalogCommand,
