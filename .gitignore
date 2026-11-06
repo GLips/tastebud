@@ -7,3 +7,7 @@ dist/
 demo-store/
 *.demo-store/
 *.bun-build
+
+# Impeccable: its launcher downloads this binary, and .impeccable/ is per-machine session state.
+.claude/skills/impeccable/scripts/bin/
+.impeccable/
