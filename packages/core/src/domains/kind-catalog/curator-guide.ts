@@ -42,11 +42,11 @@ Refused as a near repeat (exit 3): something close exists in an overlapping scop
 
 When you're done, tell the owner what you proposed and what you skipped and why, then give them \`tastebud review-url\` (the inbox). They accept in the review UI: \`/tastebud:review\` in Claude Code, or \`tastebud review --open\`. Never say a proposal is accepted before they decide.
 
-If they leave notes while reviewing, \`tastebud review listen --as <your-name>\` (in the background; it never exits) prints each note as a JSON line. Answer with \`tastebud thread-reply <id> "<text>" --by <you>\`, and propose a revision rather than argue when a note asks for a change.
+As you hand it over, start \`tastebud review listen --as <your-name>\`, not after a first note: it prints each note they leave, and any still unanswered, as a JSON line, and never exits. In Claude Code run it under the Monitor tool (each line becomes an event; re-arm it when it expires); a \`run_in_background\` shell reports only on exit and would miss every note. Answer with \`tastebud thread-reply <id> "<text>" --by <you>\`, and propose a revision rather than argue when a note asks for a change.
 
 ## Mine recent sessions, only when the owner asks
 
-Words the owner typed to Claude Code but nobody captured are still in its session transcripts. Read them only when the owner asks (setup offers it), and treat what you find as candidates for them to pick from, not as captures.
+Words the owner typed to Claude Code but nobody captured are still in its session transcripts. Read them only when the owner asks (setup offers it), and treat what you find as candidates for them to pick from, not as captures. It needs a shell: \`transcript-candidates\` is a CLI command, so a host with only the MCP server can't mine.
 
 1. **Ask first.** Agree which projects (place keys: \`tastebud places --in <dir>\` gives a directory's) or all of them, and how many days back (default 7), and say plainly that the messages they typed there will enter your context, and your subagents'. Mine only what they agreed to.
 2. **List.** \`tastebud transcript-candidates --days <n> --project <place> --json\`, one \`--project\` per place, none for all. Each candidate is one message the owner typed: its \`reference\`, \`said_at\`, \`cwd\`, \`places\`, \`because\` (why it counts as theirs) and its exact \`parts\`, the text left once Claude Code's wrappers are cut out. Nothing is summarised. When candidates are few, the counts say why: \`left_out\` (messages excluded or unknown, by reason), \`unresolved\` (a cwd that resolves to no place) and \`other_projects\`. Tell the owner; don't widen the window or the projects on your own.
@@ -55,9 +55,11 @@ Words the owner typed to Claude Code but nobody captured are still in its sessio
    - positive preferences stated outright ("I like it when…", "keep doing…"), which count too;
    - contradictions of something the owner said elsewhere, or of an accepted derivation.
 
+   Tools can type into a session too: a launcher's first prompt (\`claude "<prompt>"\`) and text sent with tmux send-keys are recorded exactly like the owner's typing, so \`transcript-candidates\` can't leave them out. Skip text written to brief an agent (a ticket launch, a dispatched task); the owner's pick settles any doubt.
+
    Each subagent returns references only, as JSON lines: \`{"reference": <copied exactly as transcript-candidates --json printed it>, "quote": "<a contiguous run of one part, verbatim>", "why": "<one line>"}\`. No paraphrase, no statements: a reference is what \`capture\` takes as \`transcript\`.
 4. **Merge.** Combine the returns, and drop anything an accepted, pending or rejected derivation already covers (see "Check what already exists, rejections included"). Group the quotes that point at one conclusion. Scope each candidate to the places its evidence came from: the \`places\` of the messages it rests on. Global only when the owner's words say it holds for all their work.
-5. **The owner picks.** Show the strongest few, corrections first: each quote, where and when it was said, and the conclusion you'd propose with its scope. Capture only what they pick.
+5. **The owner picks.** Show the strongest, at most 3 unless they ask for more, corrections first: each quote, where and when it was said, and the conclusion you'd propose with its scope. Capture only what they pick.
 6. **Capture by reference.** Over MCP: \`capture\` with \`transcript: {"session": …, "message": …}\` and \`quote\`. On the CLI: \`tastebud capture --transcript-session <session> --transcript-message <message> --quote "<exact words>" --by <you>\`. Give no speaker, time or place: the transcript supplies them, and a value that contradicts it is refused. A quote that isn't an exact run of one part is refused; copy it again rather than adjust it. The same quote from a message captured before returns that earlier source (\`already_captured\`); another quote from the same message is a source of its own, so several quotes from one long message can each be cited. Leave out \`in\` and \`at\` too: the message's own cwd places it.
 7. **Propose and hand over** as in "Propose, citing the words" and "Hand it to the owner", citing the captured sources with \`--place\` for the places from the merge.
 

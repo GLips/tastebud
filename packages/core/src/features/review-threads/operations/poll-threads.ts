@@ -2,6 +2,7 @@
 import { Effect } from "effect";
 
 import { derivationById } from "#core/domains/record-snapshot/index.ts";
+import type { ThreadEntryRecord } from "#core/domains/records/index.ts";
 import { isHumanAccount } from "#core/domains/taste-vocabulary/index.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
 import { readListenerCursor, updateListenerCursor } from "#core/infrastructure/listener-heartbeats.ts";
@@ -31,10 +32,17 @@ export const validateListenerName = Effect.fn("review-threads.validateListenerNa
   return name;
 });
 
+/** Whether no agent has replied in `entry`'s thread since it was written. */
+const isUnansweredNote = (entry: ThreadEntryRecord, entries: ReadonlyArray<ThreadEntryRecord>) =>
+  !entries.some(
+    (other) =>
+      other.thread === entry.thread && !isHumanAccount(other.author) && compareIsoTimes(other.at, entry.at) > 0,
+  );
+
 /**
- * One poll of `tastebud review listen --as <name>`: returns human thread entries not yet printed by
- * this listener and records them in its cursor, so a restarted listener never repeats one. The
- * first poll ever only creates the cursor.
+ * One poll of `tastebud review listen --as <name>`: human thread entries this listener has not printed,
+ * recorded in its cursor so a restart never repeats one. A note from before it first started counts
+ * only while unanswered, so a note left while no agent listened waits for the next one.
  */
 export const pollListenerEvents = Effect.fn("review-threads.pollListenerEvents")(function* (
   name: string,
@@ -42,15 +50,15 @@ export const pollListenerEvents = Effect.fn("review-threads.pollListenerEvents")
   yield* validateListenerName(name);
   const store = yield* TasteStore;
   const cursor = readListenerCursor(store.root, name);
-  if (cursor === undefined) {
+  if (cursor === undefined)
     yield* updateListenerCursor(store.root, name, (created) => ({ ...created, heartbeat_at: created.started_at }));
-    return [];
-  }
   const snapshot = yield* store.snapshot;
-  const seen = new Set(cursor.seen);
+  const seen = new Set(cursor?.seen);
+  const isNews = (entry: ThreadEntryRecord) =>
+    (cursor !== undefined && compareIsoTimes(entry.at, cursor.started_at) >= 0) ||
+    isUnansweredNote(entry, snapshot.threadEntries);
   const fresh = snapshot.threadEntries
-    .filter((entry) => isHumanAccount(entry.author) && !seen.has(entry.id))
-    .filter((entry) => compareIsoTimes(entry.at, cursor.started_at) >= 0)
+    .filter((entry) => isHumanAccount(entry.author) && !seen.has(entry.id) && isNews(entry))
     .sort((left, right) => compareIsoTimes(left.at, right.at) || left.id.localeCompare(right.id));
   if (fresh.length === 0) return [];
   yield* updateListenerCursor(store.root, name, (latest) => ({

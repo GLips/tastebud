@@ -102,12 +102,19 @@ export const runTastebud = async (
 export const OWNER = "human:tester";
 export const AGENT = "claude-code/test";
 
+/**
+ * The review port test stores link to. Never the default 4747, where the owner's own review server may be up:
+ * `review-url` probes the port it links to. Outside the 4800-4899 range review tests serve on.
+ */
+export const TEST_REVIEW_PORT = 4799;
+
 /** A store with the starter config, or with `configText` as its `tastebud.config.ts`. */
 export const makeTestStore = async (configText?: string) => {
   const root = makeTemporaryDirectory("store");
-  if (configText === undefined)
-    await Effect.runPromise(writeTastebudConfigText(root, starterTastebudConfigText(OWNER), ""));
-  else writeFileSync(join(root, "tastebud.config.ts"), configText);
+  if (configText === undefined) {
+    const starter = starterTastebudConfigText(OWNER).replace("port: 4747", `port: ${TEST_REVIEW_PORT}`);
+    await Effect.runPromise(writeTastebudConfigText(root, starter, ""));
+  } else writeFileSync(join(root, "tastebud.config.ts"), configText);
   return root;
 };
 
@@ -191,9 +198,9 @@ const DEMO_KINDS = `
     idea: { singular: "idea", plural: "ideas", sources: ["call-quote", "memory"], recall: "never", acceptLabel: "Worth doing", proposalPrompt: "Propose ideas." },
   },`;
 
-/** The demo's kinds (belief inject, insight pull, idea never) with `place` and `hook` as given. */
-export const demoConfigText = (place: string, hook = "{ limit: 3, budgetMs: 650 }") =>
-  `export default {\n  owner: "${OWNER}",\n  place: ${place},${DEMO_KINDS}\n  hook: ${hook},\n};\n`;
+/** The demo's kinds (belief inject, insight pull, idea never) with `place`, `hook` and the review port as given. */
+export const demoConfigText = (place: string, hook = "{ limit: 3, budgetMs: 650 }", reviewPort = TEST_REVIEW_PORT) =>
+  `export default {\n  owner: "${OWNER}",\n  place: ${place},${DEMO_KINDS}\n  hook: ${hook},\n  review: { port: ${reviewPort} },\n};\n`;
 
 /**
  * A shell script standing in for the release binary: `--version` answers as this release does, because

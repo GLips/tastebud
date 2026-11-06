@@ -15,7 +15,7 @@ import { StoreWriteFailed } from "./store-errors.ts";
 
 const ListenerCursorSchema = Schema.Struct({
   name: Schema.String,
-  /** Entries from before the listener first started are history, not news. */
+  /** Answered entries from before the listener first started are history, not news. */
   started_at: Schema.String,
   /** Human entries already printed. Bounded by human thread activity since `started_at`. */
   seen: Schema.Array(Schema.String),

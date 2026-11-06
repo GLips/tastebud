@@ -24,7 +24,10 @@ const styles = stylex.create({
   dotIdle: { backgroundColor: "var(--mantine-color-gray-4)" },
 });
 
-/** Whether a note posted now would wake an agent: any listener with a fresh heartbeat. */
+/**
+ * Whether a note posted now would wake an agent: any listener with a fresh heartbeat. Notes are saved
+ * either way; an unanswered one reaches the next agent that starts listening.
+ */
 function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
   const nowMs = useReviewClockMs();
   const live = listeners.filter((listener) => listener.listening);
@@ -47,7 +50,7 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
   }
   return (
     <Tooltip
-      label="Run `tastebud review listen --as <name>` in an agent session so notes wake it"
+      label="Your notes are saved. Ask an agent to run `tastebud review listen --as <name>` and it gets every unanswered one"
       withArrow
       multiline
       w={260}
@@ -55,7 +58,7 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
       <Group gap="xs">
         <Box component="span" {...stylex.props(styles.dot, styles.dotIdle)} />
         <Text size="xs" c="dimmed">
-          No agent listening
+          No agent listening now · notes wait here
         </Text>
       </Group>
     </Tooltip>
@@ -136,7 +139,7 @@ export function DerivationThread({
         }
       />
       {post.error && (
-        <Alert color="red" variant="light">
+        <Alert color="red" variant="light" title="Note not saved">
           {post.error.message}
         </Alert>
       )}

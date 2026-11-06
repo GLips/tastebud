@@ -90,6 +90,7 @@ test("capture, propose and recall --json from a repo; a repeat exits 3 and open 
   const opened = await runTastebud(store, repo, ["open", derivation.id]);
   expect(opened.exitCode).toBe(0);
   expect(opened.stdout.trim()).toEndWith(`/derivations/${derivation.id}`);
+  expect(opened.stderr).toContain("No review server is running for this store");
   expect(countRecordFiles(store)).toBe(before);
 });
 

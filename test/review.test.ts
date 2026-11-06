@@ -56,8 +56,8 @@ const startTastebudReview = async (store: string, port: number) => {
 };
 
 /** A pending belief in a fresh store, proposed as an agent would. */
-const storeWithPendingBelief = async () => {
-  const store = await makeTestStore(demoConfigText(`"directories"`));
+const storeWithPendingBelief = async (reviewPort?: number) => {
+  const store = await makeTestStore(demoConfigText(`"directories"`, undefined, reviewPort));
   const caller = await callerFor(store, { cwd: makeTemporaryDirectory("work") });
   const source = await captureOwnerWords(store, caller, "Name every export after its domain.");
   const { derivation } = await runOperation(
@@ -69,16 +69,16 @@ const storeWithPendingBelief = async () => {
   return { store, derivationId: derivation.id };
 };
 
-const countDecisionFiles = (store: string) =>
-  existsSync(join(store, "decisions"))
-    ? readdirSync(join(store, "decisions"), { recursive: true }).filter((path) => String(path).endsWith(".md")).length
+const countRecordFiles = (store: string, directory: "decisions" | "threads") =>
+  existsSync(join(store, directory))
+    ? readdirSync(join(store, directory), { recursive: true }).filter((path) => String(path).endsWith(".md")).length
     : 0;
 
 /**
- * The body the built client posts for `decideReviewDerivation({ data: { ref, outcome: "accept" } })`: seroval's
- * JSON for `{ data }`. Copied from the browser's request; the real-browser click is the release check.
+ * The body the built client posts for a server function called with `{ data: fields }`: seroval's JSON.
+ * Copied from the browser's request; the real-browser click is the release check.
  */
-const acceptRequestBody = (ref: string) =>
+const serverFnRequestBody = (fields: Readonly<Record<string, string>>) =>
   JSON.stringify({
     t: {
       t: 10,
@@ -89,13 +89,7 @@ const acceptRequestBody = (ref: string) =>
           {
             t: 10,
             i: 1,
-            p: {
-              k: ["ref", "outcome"],
-              v: [
-                { t: 1, s: ref },
-                { t: 1, s: "accept" },
-              ],
-            },
+            p: { k: Object.keys(fields), v: Object.values(fields).map((value) => ({ t: 1, s: value })) },
             o: 0,
           },
         ],
@@ -106,12 +100,15 @@ const acceptRequestBody = (ref: string) =>
     m: [],
   });
 
-const postAccept = (url: string, ref: string, origin: string) =>
-  fetch(new URL("/_serverFn/derivation-decisions.decideReviewDerivation", url), {
+const postServerFn = (url: string, id: string, fields: Readonly<Record<string, string>>, origin: string) =>
+  fetch(new URL(`/_serverFn/${id}`, url), {
     method: "POST",
     headers: { "content-type": "application/json", "x-tsr-serverFn": "true", origin },
-    body: acceptRequestBody(ref),
+    body: serverFnRequestBody(fields),
   });
+
+const postAccept = (url: string, ref: string, origin: string) =>
+  postServerFn(url, "derivation-decisions.decideReviewDerivation", { ref, outcome: "accept" }, origin);
 
 test("tastebud review serves the shell, typed assets and a decision that lands in the store, same origin only", async () => {
   const { store, derivationId } = await storeWithPendingBelief();
@@ -137,10 +134,10 @@ test("tastebud review serves the shell, typed assets and a decision that lands i
 
   const foreign = await postAccept(url, derivationId, "https://elsewhere.example");
   expect(foreign.status).toBe(403);
-  expect(countDecisionFiles(store)).toBe(0);
+  expect(countRecordFiles(store, "decisions")).toBe(0);
   const accepted = await postAccept(url, derivationId, new URL(url).origin);
   expect(accepted.status).toBe(200);
-  expect(countDecisionFiles(store)).toBe(1);
+  expect(countRecordFiles(store, "decisions")).toBe(1);
 });
 
 test("a second tastebud review on a taken port exits 2 naming the port and how to pick another", async () => {
@@ -151,4 +148,20 @@ test("a second tastebud review on a taken port exits 2 naming the port and how t
   expect(second.exitCode).toBe(2);
   expect(second.stderr).toContain(`Port ${String(port)} is already in use`);
   expect(second.stderr).toContain("--port");
+});
+
+test("a note left in the review UI lands in the store with no agent listening, and review-url finds the server", async () => {
+  const port = findFreeReviewPort();
+  const { store, derivationId } = await storeWithPendingBelief(port);
+  const url = await startTastebudReview(store, port);
+  const linked = await runTastebud(store, makeTemporaryDirectory("agent"), ["review-url", derivationId]);
+  expect([linked.stdout.trim(), linked.stderr]).toEqual([`${url}derivations/${derivationId}`, ""]);
+  const posted = await postServerFn(
+    url,
+    "derivation-decisions.postOwnerThreadNote",
+    { ref: derivationId, text: "Which exports?" },
+    new URL(url).origin,
+  );
+  expect(posted.status).toBe(200);
+  expect(countRecordFiles(store, "threads")).toBe(1);
 });

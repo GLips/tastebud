@@ -1,10 +1,11 @@
 import { DERIVATION_STATUSES } from "@tastebud/core/taste-vocabulary";
 /** Commands that read: one per query operation, plus `open`. */
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 
 import { openInBrowser } from "#cli/infrastructure/browser-opener.ts";
-import { isInteractiveStdout } from "#cli/infrastructure/terminal.ts";
+import { probeReviewServerStore } from "#cli/infrastructure/review-app-server.ts";
+import { isInteractiveStdout, printErrorLine } from "#cli/infrastructure/terminal.ts";
 import {
   contextFlags,
   definedFields,
@@ -15,7 +16,7 @@ import {
   storeFlag,
 } from "#cli/shared/cli-flags.ts";
 
-import { describedAs, runCliOperation } from "./run-cli-operation.ts";
+import { describedAs, resolveCliStoreRoot, runCliOperation } from "./run-cli-operation.ts";
 
 export const catalogCommand = Command.make(
   "catalog",
@@ -128,6 +129,22 @@ export const placesCommand = Command.make(
     runCliOperation("places", definedFields({ ...flags, probes: probe, probe_places: probePlace }), { store, json }),
 ).pipe(describedAs("places"));
 
+/**
+ * A review link with no server behind it is a dead end for the owner, so the CLI checks the link's port and says
+ * so on stderr; stdout stays the bare URL (or JSON) an agent hands on. The core operation stays pure.
+ */
+const warnWhenNoReviewServer = Effect.fn("cli-operations.warnWhenNoReviewServer")(function* (
+  url: string,
+  store: Option.Option<string>,
+) {
+  const port = Number(new URL(url).port);
+  const servedStore = yield* probeReviewServerStore(port);
+  if (Option.contains(servedStore, resolveCliStoreRoot(store))) return;
+  yield* printErrorLine(
+    `No review server is running for this store on port ${port}: run \`tastebud review --open\` before handing over this link.`,
+  );
+});
+
 export const reviewUrlCommand = Command.make(
   "review-url",
   {
@@ -138,7 +155,11 @@ export const reviewUrlCommand = Command.make(
     json: jsonFlag,
     store: storeFlag,
   },
-  ({ ref, json, store }) => runCliOperation("review-url", definedFields({ ref }), { store, json }),
+  ({ ref, json, store }) =>
+    Effect.gen(function* () {
+      const { url } = yield* runCliOperation("review-url", definedFields({ ref }), { store, json });
+      yield* warnWhenNoReviewServer(url, store);
+    }),
 ).pipe(describedAs("review-url"));
 
 export const openCommand = Command.make(
@@ -154,6 +175,7 @@ export const openCommand = Command.make(
   ({ ref, json, store }) =>
     Effect.gen(function* () {
       const { url } = yield* runCliOperation("review-url", definedFields({ ref }), { store, json });
+      yield* warnWhenNoReviewServer(url, store);
       // Only a person at a terminal wants a browser tab; an agent's shell gets the URL to hand on.
       if (isInteractiveStdout()) yield* openInBrowser(url);
     }),

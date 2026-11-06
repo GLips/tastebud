@@ -404,4 +404,17 @@ describe("lifecycle", () => {
     expect(events[0]?.reply).toBe(threadReplyInstruction(belief.id, listener));
     expect(await inStore(root, pollListenerEvents(listener))).toEqual([]);
   });
+
+  test("listen: a note left while no agent listened reaches the first listener; answered ones stay history", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Keep PRs small.");
+    const belief = await propose(root, inWeb, { statement: "Keep pull requests small", supports: [memory] });
+    await runOperation(root, "thread-note", { ref: belief.id, text: "How small?" }, reviewer);
+    await runOperation(root, "thread-reply", { ref: belief.id, text: "Under 400 lines." }, inWeb);
+    await runOperation(root, "thread-note", { ref: belief.id, text: "And tests?" }, reviewer);
+
+    const events = await inStore(root, pollListenerEvents("late-agent"));
+    expect(events.map((event) => event.note)).toEqual(["And tests?"]);
+    expect(await inStore(root, pollListenerEvents("late-agent"))).toEqual([]);
+  });
 });
