@@ -1,6 +1,5 @@
 # Builds the tastebud binary on each release platform, runs the gate and the compiled-binary smoke tests, and
-# uploads the archives. Release and npm publish run only when the repo variable TASTEBUD_PUBLISH_ENABLED is
-# "true", which waits on Graham's go.
+# uploads the archives. A tag then gets the GitHub release and the npm publish; `bun run release` pushes it.
 name: release
 
 on:
@@ -57,7 +56,7 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') && vars.TASTEBUD_PUBLISH_ENABLED == 'true'
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -79,7 +78,7 @@ jobs:
 
   publish-npm:
     needs: release
-    if: startsWith(github.ref, 'refs/tags/') && vars.TASTEBUD_PUBLISH_ENABLED == 'true'
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     environment: npm
     permissions:

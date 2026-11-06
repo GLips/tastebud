@@ -172,6 +172,11 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
           label="Claude Code store setting"
         />
       )}
+      <InstallSnippet
+        title="Other hosts run the npm package through npx: run this once first, so the binary downloads here"
+        code={lines.npxPrefetch}
+        label="npx prefetch command"
+      />
       <InstallSnippet title="Codex" code={lines.codex} label="Codex command" />
       <Stack gap="2xs">
         <Group gap="xs">

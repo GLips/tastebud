@@ -1,7 +1,10 @@
 /**
  * `bun run release <version> --notes <file>`: bumps every place the version is written, runs the gate,
- * commits, and pushes main with an annotated `v<version>` tag whose message is the release notes. The tag
- * starts release.yml, which builds, publishes the GitHub release with those notes, then publishes npm.
+ * commits, and pushes only an annotated `v<version>` tag whose message is the release notes. The tag starts
+ * release.yml, which builds, publishes the GitHub release with those notes, then publishes npm.
+ *
+ * main is pushed afterwards, once the release is published: the marketplace serves the plugin from main, so
+ * a bumped plugin.json there before its binary exists sends new installs to a download that 404s.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -91,5 +94,7 @@ rewrite(README, (text) => {
 run(["bun", "scripts/check.ts"]);
 run(["git", "commit", "--quiet", "-m", `Release v${version}`, "--", VERSION_MODULE, PLUGIN_MANIFEST, README]);
 run(["git", "tag", "-a", "--cleanup=verbatim", `v${version}`, "-m", notes]);
-run(["git", "push", "--atomic", "origin", "main", `v${version}`]);
-process.stdout.write(`release: pushed v${version}; release.yml is building it\n`);
+run(["git", "push", "origin", `v${version}`]);
+process.stdout.write(
+  `release: pushed the v${version} tag; release.yml is building it. Once it is published, run: git push origin main\n`,
+);

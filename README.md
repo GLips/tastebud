@@ -24,7 +24,7 @@ Everything else follows from that. The store is append-only markdown with YAML f
 
 Install is only getting an agent connected. Setup is a conversation the agent leads.
 
-> Releases aren't published yet, so none of these lines works until the first one is. Until then, build it from a checkout (see [Developing](#developing)).
+Tastebud runs on macOS (arm64, x64) and Linux (x64, arm64); there is no Windows build. Each install downloads one 28–41 MB binary on first use, with `curl` and `tar`. The lines below pin this release; to upgrade, change the version in them (or reinstall the plugin).
 
 **Claude Code: the plugin.** One line brings the MCP server, the skill, `/tastebud:setup` and the prompt hook. The plugin downloads the Tastebud binary for its own version on first start, so there is nothing else to install.
 
@@ -32,9 +32,15 @@ Install is only getting an agent connected. Setup is a conversation the agent le
 claude plugin install tastebud --marketplace GLips/tastebud --config prompt_hook=true
 ```
 
-Inside Claude Code that is `/plugin install tastebud --marketplace GLips/tastebud`, or on releases before 2.1.275, `/plugin marketplace add GLips/tastebud` then `/plugin install tastebud@tastebud`; those may note that `prompt_hook` is not yet set, and unset means on. The prompt hook is on: before each prompt it adds up to three ratified derivations of the `inject` kinds that match, and nothing without a store; `/config` (the plugin's "Prompt hook" row) turns it off, as does `echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin`. To use a store other than `~/.tastebud`, add `{"env":{"TASTEBUD_STORE":"<root>"}}` to `~/.claude/settings.json`.
+Inside Claude Code that is `/plugin install tastebud --marketplace GLips/tastebud`, or on releases before 2.1.275, `/plugin marketplace add GLips/tastebud` then `/plugin install tastebud@tastebud`; those may note that `prompt_hook` is not yet set, and unset means on. The prompt hook is on: before each prompt it adds up to three ratified derivations of the `inject` kinds that match, and nothing without a store; `/config` (the plugin's "Prompt hook" row) turns it off, as does `echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin`. To use a store other than `~/.tastebud`, add `{"env":{"TASTEBUD_STORE":"<root>"}}` to `~/.claude/settings.json`. The first session downloads the binary while the MCP server starts, inside Claude Code's 30-second MCP timeout; on a slow connection, reconnect with `/mcp` once it finishes, or raise `MCP_TIMEOUT` (milliseconds) in that `env`.
 
-**Other hosts** run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`; later runs are offline. Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
+**Other hosts** run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`, and later runs download nothing more. Run this once before registering, so the download happens here, where a failure shows, not during the host's first connection:
+
+```bash
+npx -y tastebud@0.1.0 --version
+```
+
+Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
 
 - Codex: `codex mcp add tastebud -- npx -y tastebud@0.1.0 mcp`. The first start fetches the package and the binary; if Codex gives up on it, raise `startup_timeout_sec` under `[mcp_servers.tastebud]` in `~/.codex/config.toml`.
 - Cursor: [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=tastebud&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRhc3RlYnVkQDAuMS4wIiwibWNwIl19), or `{"mcpServers":{"tastebud":{"command":"npx","args":["-y","tastebud@0.1.0","mcp"]}}}` in `~/.cursor/mcp.json`. Any other MCP client (Claude Desktop, Windsurf, …) takes the same JSON.
@@ -181,7 +187,7 @@ bun run dev:link       # `tastebud` on your PATH (~/.bun/bin) runs this checkout
 
 Then point your agent at it:
 
-- **Claude Code, keeping the plugin:** add `{"env":{"TASTEBUD_BIN":"~/.bun/bin/tastebud"}}` to `~/.claude/settings.json`. The plugin's MCP server, hook and skill then run your checkout instead of downloading its release. To also edit the plugin's own files (skill, hooks), start sessions with `claude --plugin-dir "$PWD/plugins/tastebud"`.
+- **Claude Code, keeping the plugin:** add `{"env":{"TASTEBUD_BIN":"~/.bun/bin/tastebud"}}` to `~/.claude/settings.json`. The plugin's MCP server and hook then run your checkout instead of downloading its release, in every session, so a broken checkout breaks Tastebud everywhere until you fix it or remove the variable. For the plugin's own files (skill, hooks, `/tastebud:setup`), install it from the checkout: `claude plugin marketplace add "$PWD"`, then `claude plugin install tastebud@tastebud --config prompt_hook=true`. A local marketplace loads the plugin in place, so edits arrive with the next session or `/reload-plugins`.
 - **Any host, without the plugin:** register the linked command, e.g. `claude mcp add tastebud -- tastebud mcp` or `codex mcp add tastebud -- tastebud mcp`.
 
 The MCP server is a long-running process: after changing code, reconnect it (`/mcp` in Claude Code) or start a new session. `bun run dev:unlink` removes the link.

@@ -92,7 +92,7 @@ Suggest the lines for each host, and never edit their agent settings or run an i
 - Codex: \`${defaultLines.codex}\`, or \`${templateLines.codex}\` for another store.
 - Cursor: \`${defaultLines.mcpServersJson}\` in \`~/.cursor/mcp.json\`, with \`"--store", "<root>"\` after \`"mcp"\` for another store.
 - VS Code: \`${defaultLines.vscode}\`, with the same \`--store\` arguments for another store.
-- Any other MCP client takes the same JSON as Cursor. These lines run the npm package through \`npx\`, so they need Node.
+- Any other MCP client takes the same JSON as Cursor. These lines run the npm package through \`npx\`, so they need Node. Have the owner run \`${defaultLines.npxPrefetch}\` once first: it downloads the binary where a failure shows, rather than during the host's first connection.
 - The review UI: \`tastebud review --store <root>\` (without \`--store\` for \`~/.tastebud\`). With only the plugin installed, the agent can run it for them, since the plugin puts \`tastebud\` on its shell's PATH; otherwise the CLI comes from \`npm install -g tastebud\` or the install script in the README.
 
 ## 8. Prove the loop

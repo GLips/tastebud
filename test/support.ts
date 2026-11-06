@@ -26,6 +26,7 @@ import { provideTasteStore } from "@tastebud/core/record-store";
 import { starterTastebudConfigText } from "@tastebud/core/store-config";
 import { writeTastebudConfigText } from "@tastebud/core/store-setup";
 import type { TasteCaller } from "@tastebud/core/taste-caller";
+import { TASTEBUD_VERSION } from "@tastebud/core/taste-vocabulary";
 import { Effect } from "effect";
 
 const temporaryDirectories: Array<string> = [];
@@ -57,8 +58,13 @@ const isBunDirectory = (entry: string) => existsSync(join(entry, "bun")) || entr
  * every directory holding Bun (and the `node` shim Bun adds), so the smoke run proves it needs neither.
  */
 export const tastebudProcessEnv = (overrides: Readonly<Record<string, string>>): Record<string, string> => {
+  // The developer's own TASTEBUD_BIN or TASTEBUD_STORE (Claude Code passes its settings `env` to every
+  // command) would point a test at their checkout or store; only the test's own overrides set those.
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && (!entry[0].startsWith("TASTEBUD_") || entry[0] === "TASTEBUD_TEST_BINARY"),
+    ),
   );
   const path = process.env["TASTEBUD_TEST_BINARY"]
     ? {
@@ -188,6 +194,13 @@ const DEMO_KINDS = `
 /** The demo's kinds (belief inject, insight pull, idea never) with `place` and `hook` as given. */
 export const demoConfigText = (place: string, hook = "{ limit: 3, budgetMs: 650 }") =>
   `export default {\n  owner: "${OWNER}",\n  place: ${place},${DEMO_KINDS}\n  hook: ${hook},\n};\n`;
+
+/**
+ * A shell script standing in for the release binary: `--version` answers as this release does, because
+ * install.sh refuses to cache a binary that doesn't, and every other run does `body`.
+ */
+export const fakeTastebudBinary = (body: string) =>
+  `#!/bin/sh\nif [ "$1" = --version ]; then echo "tastebud v${TASTEBUD_VERSION}"; exit 0; fi\n${body}\n`;
 
 /**
  * A GitHub release for install.sh to reach through TASTEBUD_INSTALL_BASE_URL: a server in 4900-4999 with

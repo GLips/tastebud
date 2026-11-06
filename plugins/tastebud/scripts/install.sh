@@ -34,7 +34,8 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 download_release_file() {
-  curl -fsSL "$base_url/$1" -o "$work/$1" || {
+  # Bounded, so a stalled network fails here instead of holding the plugin's download lock forever.
+  curl -fsSL --connect-timeout 15 --max-time 600 --retry 3 --retry-all-errors "$base_url/$1" -o "$work/$1" || {
     echo "tastebud: could not download $release_name from $base_url/$1" >&2
     exit 1
   }
@@ -55,10 +56,21 @@ fi
 tar -xzf "$work/$archive" -C "$work"
 mkdir -p "$install_dir"
 chmod 755 "$work/tastebud"
+# Run before it replaces anything: a binary that can't start here must not be cached, because later runs
+# only check that the file is executable.
+# </dev/null: under the plugin's MCP start, stdin is the protocol stream, which this check must not read.
+reported="$("$work/tastebud" --version </dev/null)" || {
+  echo "tastebud: the downloaded $archive does not run on this machine; not installing" >&2
+  exit 1
+}
+if [ -n "${TASTEBUD_INSTALL_VERSION:-}" ] && [ "$reported" != "tastebud v$TASTEBUD_INSTALL_VERSION" ]; then
+  echo "tastebud: $release_name reports \"$reported\"; not installing" >&2
+  exit 1
+fi
 # Copied beside the target, then renamed: the rename is atomic, so nothing ever runs a half-written binary.
 cp "$work/tastebud" "$install_dir/.tastebud.$$"
 mv -f "$install_dir/.tastebud.$$" "$install_dir/tastebud"
-echo "Installed $("$install_dir/tastebud" --version) to $install_dir/tastebud"
+echo "Installed $reported to $install_dir/tastebud"
 if [ "${TASTEBUD_INSTALL_SKIP_PATH_HINT:-}" != 1 ]; then
   case ":$PATH:" in
     *":$install_dir:"*) ;;

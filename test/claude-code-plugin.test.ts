@@ -21,6 +21,7 @@ import {
   OWNER,
   runOperation,
   serveFakeRelease,
+  fakeTastebudBinary,
   TASTEBUD_COMMAND_LINE,
   tastebudProcessEnv,
 } from "./support.ts";
@@ -71,7 +72,7 @@ afterEach(async () => {
   await Promise.all(openClients.splice(0).map((client) => client.close()));
 });
 
-const FAKE_BINARY = '#!/bin/sh\necho "ran $* <$(cat)>"\n';
+const FAKE_BINARY = fakeTastebudBinary('echo "ran $* <$(cat)>"');
 
 /** A cache directory holding `script` where `bin/tastebud` looks for this version's binary. */
 const cacheWithBinary = (script: string | undefined) => {
@@ -110,8 +111,9 @@ test("the plugin, its marketplace and the README carry this release and the shar
 
   // Edit the README to these exact lines when this fails after a version bump.
   const readme = readFileSync(join(REPO, "README.md"), "utf8");
-  const { claudeCodePlugin, codex, mcpServersJson, cursorInstallLink, vscode } = agentHostConnectLinesFor();
-  for (const line of [claudeCodePlugin, codex, mcpServersJson, cursorInstallLink, vscode])
+  const { claudeCodePlugin, npxPrefetch, codex, mcpServersJson, cursorInstallLink, vscode } =
+    agentHostConnectLinesFor();
+  for (const line of [claudeCodePlugin, npxPrefetch, codex, mcpServersJson, cursorInstallLink, vscode])
     expect(readme).toContain(line);
 });
 
@@ -139,7 +141,7 @@ test("bin/tastebud fetches its release once, checked against SHA256SUMS, then ru
     exitCode: 0,
     stdout: "ran mcp --store /tmp/a b <hello>\n",
   });
-  expect((await runScript(SHIM, ["--version"], env)).stdout).toBe("ran --version <>\n");
+  expect((await runScript(SHIM, ["status"], env)).stdout).toBe("ran status <>\n");
   expect(release.fetched.archives).toBe(1);
 });
 
@@ -149,9 +151,9 @@ test("TASTEBUD_BIN runs a checkout instead of the release, with no download, and
   writeFileSync(checkout, FAKE_BINARY);
   chmodSync(checkout, 0o755);
   const unreachable = { XDG_CACHE_HOME: cacheWithBinary(undefined), TASTEBUD_INSTALL_BASE_URL: "http://127.0.0.1:9" };
-  expect(await runScript(SHIM, ["--version"], { ...unreachable, TASTEBUD_BIN: checkout })).toEqual({
+  expect(await runScript(SHIM, ["status"], { ...unreachable, TASTEBUD_BIN: checkout })).toEqual({
     exitCode: 0,
-    stdout: "ran --version <>\n",
+    stdout: "ran status <>\n",
     stderr: "",
   });
   const bareName = await runScript(SHIM, ["--version"], { ...unreachable, TASTEBUD_BIN: "tastebud" });

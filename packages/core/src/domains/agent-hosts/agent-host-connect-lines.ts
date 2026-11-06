@@ -18,6 +18,11 @@ export interface AgentHostConnectLines {
   readonly claudeCodePlugin: string;
   /** The `~/.claude/settings.json` entry that points the plugin at a store; absent for the default store. */
   readonly claudeCodeStoreSettings?: string;
+  /**
+   * Run once before registering an npx host: it downloads the binary in a terminal, where a failure shows,
+   * instead of inside the host's first MCP start and its startup timeout.
+   */
+  readonly npxPrefetch: string;
   readonly codex: string;
   /** `~/.cursor/mcp.json`, and the JSON any other MCP client (Claude Desktop, Windsurf, …) takes. */
   readonly mcpServersJson: string;
@@ -51,6 +56,7 @@ export const agentHostConnectLinesFor = (storeRoot?: string): AgentHostConnectLi
   const commandLine = ["npx", ...args].map(shellQuotedWord).join(" ");
   const lines: AgentHostConnectLines = {
     claudeCodePlugin: TASTEBUD_PLUGIN_INSTALL_COMMAND,
+    npxPrefetch: `npx -y tastebud@${TASTEBUD_VERSION} --version`,
     codex: `codex mcp add tastebud -- ${commandLine}`,
     mcpServersJson: JSON.stringify({ mcpServers: { tastebud: server } }),
     cursorInstallLink: `https://cursor.com/en/install-mcp?name=tastebud&config=${encodeURIComponent(base64OfText(JSON.stringify(server)))}`,

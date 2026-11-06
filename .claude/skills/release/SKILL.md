@@ -14,9 +14,10 @@ normal release (a failing check you can't fix in the code, something already pub
 
 `bun run release <x.y.z> --notes <file>` (`scripts/release/release.ts`) bumps the version in
 `tastebud-version.ts`, the plugin manifest and the README's host lines, runs the gate, commits `Release v<x.y.z>`,
-and pushes main with an annotated tag whose message is the notes. The tag starts `.github/workflows/release.yml`:
-it builds four binaries, creates the GitHub release with the tag's notes, then publishes `tastebud` to npm through
-trusted publishing (no token; the `npm` GitHub environment; `TASTEBUD_PUBLISH_ENABLED` must be `true`).
+and pushes only an annotated tag whose message is the notes. The tag starts `.github/workflows/release.yml`: it
+builds four binaries, creates the GitHub release with the tag's notes, then publishes `tastebud` to npm through
+trusted publishing (no token; the `npm` GitHub environment). main is pushed last, after verifying: the marketplace
+serves the plugin from main, so a bumped plugin version there before its binary exists breaks new installs.
 
 ## Steps
 
@@ -39,12 +40,14 @@ trusted publishing (no token; the `npm` GitHub environment; `TASTEBUD_PUBLISH_EN
    - `npx -y tastebud@<x.y.z> --version`, twice: the first downloads the binary, the second runs from the cache.
    - `plugins/tastebud/bin/tastebud --version` from a clean cache: the plugin's own download, checked against
      `SHA256SUMS`.
-7. **Report** the version, the release URL, and what was verified.
+7. **Push main**: `git push origin main`. Only now do new plugin installs get the new version. If a session ends
+   before this step, the release is otherwise complete: verify, then push.
+8. **Report** the version, the release URL, and what was verified.
 
 ## When the workflow fails
 
-- **Before anything is published** (no GitHub release, `npm view tastebud@<x.y.z>` 404s): fix it on main, then
-  move the tag onto the fix (`git tag -fa --cleanup=verbatim v<x.y.z> -m "$(git tag -l --format='%(contents)' v<x.y.z>)" <sha>` and
+- **Before anything is published** (no GitHub release, `npm view tastebud@<x.y.z>` 404s): commit the fix on top
+  of the release commit (main is still unpushed), then move the tag onto it (`git tag -fa --cleanup=verbatim v<x.y.z> -m "$(git tag -l --format='%(contents)' v<x.y.z>)" <sha>` and
   `git push -f origin v<x.y.z>`), which starts a fresh run. Graham allows this only while nothing is published. A
   flaky step can just be re-run with `gh run rerun <id> --failed`.
 - **The GitHub release exists but npm failed:** `gh run rerun <id> --failed` re-runs only the publish job.

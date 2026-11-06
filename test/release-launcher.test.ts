@@ -6,7 +6,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 
 import { writeTastebudNpmPackage } from "../scripts/release/build-tastebud-npm-package.ts";
-import { makeTemporaryDirectory, serveFakeRelease } from "./support.ts";
+import { fakeTastebudBinary, makeTemporaryDirectory, serveFakeRelease } from "./support.ts";
 
 // Bun puts a `node` that is Bun itself first on a child's PATH; the launcher must run under Node.
 const realNode = Bun.which("node", {
@@ -40,7 +40,7 @@ const runLauncher = async ({ launcher, env }: Awaited<ReturnType<typeof installP
 
 test("concurrent first runs download the release once; later runs are offline and pass args and exit codes", async () => {
   expect(realNode).not.toBeNull();
-  const release = await serveFakeRelease('#!/bin/sh\necho "tastebud got: $*"\nexit 7\n');
+  const release = await serveFakeRelease(fakeTastebudBinary('echo "tastebud got: $*"\nexit 7'));
   const installed = await installPackage(release.url);
   const firstRuns = await Promise.all([runLauncher(installed), runLauncher(installed), runLauncher(installed)]);
   await release.server.stop(true);
@@ -52,8 +52,7 @@ test("concurrent first runs download the release once; later runs are offline an
 });
 
 test("a SIGTERM sent to the launcher alone reaches the binary, and the launcher dies by it too", async () => {
-  // install.sh runs `--version` on what it installs, so only a real start sleeps.
-  const release = await serveFakeRelease('#!/bin/sh\n[ "$1" = --version ] && exit 0\necho $$\nexec sleep 30\n');
+  const release = await serveFakeRelease(fakeTastebudBinary("echo $$\nexec sleep 30"));
   const { launcher, env } = await installPackage(release.url);
   const node = Bun.spawn([realNode ?? "node", launcher, "review"], { env, stdout: "pipe", stderr: "ignore" });
   // The binary's first output line is its pid, so it is running once this read returns.
