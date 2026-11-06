@@ -23,6 +23,8 @@
     "dev:review": "bun run --cwd apps/review dev",
     "build:review": "bun run --cwd apps/review build",
     "build:binary": "bun scripts/build-tastebud-binary.ts",
+    "dev:link": "cd packages/cli && bun link",
+    "dev:unlink": "cd packages/cli && bun unlink",
     "prepare": "lefthook install"
   },
   "devDependencies": {

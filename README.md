@@ -170,15 +170,21 @@ export default {
 
 ## Developing
 
+Run Tastebud from a checkout to change it and see the result at once: no build, no release.
+
 ```bash
 git clone https://github.com/GLips/tastebud && cd tastebud
 bun install
-bun run build:review                                          # the review UI `tastebud review` serves
-ln -s "$PWD/packages/cli/src/main.ts" ~/.local/bin/tastebud   # run from source, any directory on your PATH
-claude --plugin-dir "$PWD/plugins/tastebud"                    # the plugin from this checkout, for one session
+bun run build:review   # the review UI `tastebud review` serves; rerun after UI changes
+bun run dev:link       # `tastebud` on your PATH (~/.bun/bin) runs this checkout's source
 ```
 
-The plugin runs the binary at `~/.cache/tastebud/<version>/tastebud` and downloads the release when it's missing; to run your own build instead, link it there first (`ln -s "$PWD/packages/cli/src/main.ts" ~/.cache/tastebud/0.1.0/tastebud`, or a compiled binary).
+Then point your agent at it:
+
+- **Claude Code, keeping the plugin:** add `{"env":{"TASTEBUD_BIN":"~/.bun/bin/tastebud"}}` to `~/.claude/settings.json`. The plugin's MCP server, hook and skill then run your checkout instead of downloading its release. To also edit the plugin's own files (skill, hooks), start sessions with `claude --plugin-dir "$PWD/plugins/tastebud"`.
+- **Any host, without the plugin:** register the linked command, e.g. `claude mcp add tastebud -- tastebud mcp` or `codex mcp add tastebud -- tastebud mcp`.
+
+The MCP server is a long-running process: after changing code, reconnect it (`/mcp` in Claude Code) or start a new session. `bun run dev:unlink` removes the link.
 
 `bun run dev:review` runs the UI with hot reload on :4747. `bun run build:binary` compiles `dist/bin/<os>-<arch>/tastebud`
 for this machine (`--all` for every platform), and `bun run check` is the gate.

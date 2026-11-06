@@ -50,5 +50,14 @@ fetch_tastebud_binary() {
   trap - EXIT HUP INT TERM
 }
 
-[ -x "$tastebud_binary" ] || fetch_tastebud_binary
+if [ -n "$tastebud_binary_override" ]; then
+  case $tastebud_binary in /*) ;; *)
+    echo "tastebud: TASTEBUD_BIN must be a path, like ~/.bun/bin/tastebud, not \"$tastebud_binary\"" >&2
+    exit 1
+    ;;
+  esac
+  [ -x "$tastebud_binary" ] || { echo "tastebud: TASTEBUD_BIN=$tastebud_binary is not an executable" >&2; exit 1; }
+else
+  [ -x "$tastebud_binary" ] || fetch_tastebud_binary
+fi
 exec "$tastebud_binary" "$@"

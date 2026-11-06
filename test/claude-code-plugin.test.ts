@@ -177,6 +177,22 @@ test("bin/tastebud fetches its release once, checked against SHA256SUMS, then ru
   expect(release.fetched.archives).toBe(1);
 });
 
+test("TASTEBUD_BIN runs a checkout instead of the release, with no download, and must be a path", async () => {
+  const work = makeTemporaryDirectory("plugin-dev-bin");
+  const checkout = join(work, "tastebud");
+  writeFileSync(checkout, FAKE_BINARY);
+  chmodSync(checkout, 0o755);
+  const unreachable = { XDG_CACHE_HOME: cacheWithBinary(undefined), TASTEBUD_INSTALL_BASE_URL: "http://127.0.0.1:9" };
+  expect(await runScript(SHIM, ["--version"], { ...unreachable, TASTEBUD_BIN: checkout })).toEqual({
+    exitCode: 0,
+    stdout: "ran --version <>\n",
+    stderr: "",
+  });
+  const bareName = await runScript(SHIM, ["--version"], { ...unreachable, TASTEBUD_BIN: "tastebud" });
+  expect({ exitCode: bareName.exitCode, stdout: bareName.stdout }).toEqual({ exitCode: 1, stdout: "" });
+  expect(bareName.stderr).toContain("must be a path");
+});
+
 test("the prompt hook starts tastebud only when it is on, a store exists and the binary is already there", async () => {
   const store = makeTemporaryDirectory("plugin-store");
   const noStore = join(store, "missing");
