@@ -1,9 +1,10 @@
 /**
- * Claude Code transcript lines for hook fixtures, shaped like the records Claude Code 2.1.319 writes
- * under ~/.claude/projects/: one JSON object per line, one content block per assistant record, tool
- * results as `user` records, and the hook's own output as a `hook_additional_context` attachment.
+ * Claude Code transcript lines for hook and mining fixtures, shaped like the records Claude Code
+ * 2.1.319 writes under ~/.claude/projects/: one JSON object per line, one content block per assistant
+ * record, tool results as `user` records, and the hook's own output as a `hook_additional_context`
+ * attachment. The words are invented; no real transcript text is copied here.
  */
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const common = (type: string) => ({
@@ -28,6 +29,7 @@ export const ownerTurn = (text: string, via: "typed" | "sdk" = "typed") => ({
   permissionMode: "auto",
   promptSource: via,
   turnOrigin: via === "sdk" ? "sdk" : "human",
+  ...(via === "typed" && { origin: { kind: "human" } }),
 });
 
 const assistantRecord = (block: unknown) => ({
@@ -122,5 +124,66 @@ export const writeTranscript = (directory: string, records: ReadonlyArray<unknow
       .map((record) => JSON.stringify(record))
       .join("\n")}\n`,
   );
+  return path;
+};
+
+/** Typed while the agent worked and sent as the next turn. */
+export const queuedTurn = (text: string) => ({ ...ownerTurn(text), promptSource: "queued" });
+
+/** Typed while the agent worked and delivered inside the running turn, as Claude Code records it. */
+export const midTurnMessage = (prompt: string, origin: "human" | "task-notification" = "human") => ({
+  ...common("attachment"),
+  attachment: {
+    type: "queued_command",
+    prompt,
+    source_uuid: crypto.randomUUID(),
+    commandMode: origin === "human" ? "prompt" : "task-notification",
+    origin: { kind: origin },
+    ...(origin === "human" && { humanTurn: true }),
+  },
+});
+
+/**
+ * A slash command and the skill body Claude Code expands it into, a separate `isMeta` record. The
+ * command record carries no `promptSource`.
+ */
+export const slashCommand = (name: string, args: string, skillBody: string) => [
+  {
+    ...common("user"),
+    promptId: crypto.randomUUID(),
+    message: {
+      role: "user",
+      content: `<command-message>${name}</command-message>\n<command-name>/${name}</command-name>\n<command-args>${args}</command-args>`,
+    },
+    origin: { kind: "human" },
+    turnOrigin: "human",
+  },
+  { ...common("user"), isMeta: true, message: { role: "user", content: [{ type: "text", text: skillBody }] } },
+];
+
+/** A notification Claude Code sends the agent as a `user` record when a background task ends. */
+export const taskNotification = (text: string) => ({
+  ...common("user"),
+  message: { role: "user", content: `<task-notification>\n<summary>${text}</summary>\n</task-notification>` },
+  origin: { kind: "task-notification" },
+  promptSource: "system",
+  turnOrigin: "task_notification",
+});
+
+/** `records` placed in `cwd` at `timestamp`, as every record of a real session carries them. */
+export const sentFrom = (cwd: string, timestamp: string, records: ReadonlyArray<unknown>) =>
+  records.flat(Number.POSITIVE_INFINITY).map((record) => Object.assign({}, record, { cwd, timestamp }));
+
+/** Writes a session's transcript where Claude Code keeps it: `<configDir>/projects/<project>/<session>.jsonl`. */
+export const writeSessionTranscript = (
+  configDir: string,
+  project: string,
+  session: string,
+  records: ReadonlyArray<unknown>,
+) => {
+  const directory = join(configDir, "projects", project);
+  mkdirSync(directory, { recursive: true });
+  const path = join(directory, `${session}.jsonl`);
+  writeFileSync(path, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`);
   return path;
 };

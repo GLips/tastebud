@@ -1,0 +1,4 @@
+{
+  "capture": "reads the transcript message a capture by reference quotes (readEligibleTranscriptMessage)",
+  "operation-registry": "declares this feature's operations in the registry"
+}

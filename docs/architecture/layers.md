@@ -22,7 +22,7 @@ out-of-tree comment rule still run over it.
 | `shared/` | Cross-cutting pure atoms (`InvalidTasteInput`, `CorruptRecordFile`, `TasteSurface`) | `shared/`, `effect` |
 | `infrastructure/` | Files, yaml, SQLite, git, home directory, locks, ids | infrastructure, shared, `env.ts`, packages |
 | `features/<f>/operations/` | One user-visible operation each, plus its text rendering | domains, shared, infrastructure, granted feature barrels |
-| `env.ts` | The only `process.env` reader and writer; `TASTEBUD_STORE` is the one variable | — |
+| `env.ts` | The only `process.env` reader and writer; `TASTEBUD_STORE` and `CLAUDE_CONFIG_DIR` are its variables | — |
 
 Infrastructure never imports upward. The record index takes its tokenizer, decoder and search projection as
 arguments, so it knows storage rows and nothing about records.

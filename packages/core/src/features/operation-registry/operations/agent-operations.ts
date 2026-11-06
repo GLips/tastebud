@@ -1,9 +1,14 @@
 /** The operations agents reach over the CLI and MCP. */
 import { Schema } from "effect";
 
-import { RecallResultSchema, ShowResultSchema, SourceViewSchema } from "#core/domains/record-views/index.ts";
+import { RecallResultSchema, ShowResultSchema } from "#core/domains/record-views/index.ts";
 import { ThreadEntryRecordSchema } from "#core/domains/records/index.ts";
-import { captureSource, CaptureSourceInput, renderCaptureText } from "#core/features/capture/index.server.ts";
+import {
+  CaptureResultSchema,
+  captureSource,
+  CaptureSourceInput,
+  renderCaptureText,
+} from "#core/features/capture/index.server.ts";
 import {
   AuditPlacesInput,
   AuditPlacesResultSchema,
@@ -64,6 +69,12 @@ import {
   StoreCatalogInput,
   StoreCatalogResultSchema,
 } from "#core/features/store-catalog/index.server.ts";
+import {
+  listTranscriptCandidates,
+  renderTranscriptCandidatesText,
+  TranscriptCandidatesInput,
+  TranscriptCandidatesResultSchema,
+} from "#core/features/transcript-mining/index.server.ts";
 
 import { declareTasteOperation, NoInput } from "./taste-operation-declaration.ts";
 
@@ -86,9 +97,20 @@ export const AGENT_TASTE_OPERATIONS = {
     description:
       'Save a person\'s exact words for the owner to review later. Call it when the owner states a durable preference, corrects your approach, or asks you to remember something: their words verbatim (never yours) with said_by "owner", and enough of what they were reacting to in `before` to keep the meaning. Anyone else is named by account and label.',
     input: CaptureSourceInput,
-    output: Schema.Struct({ source: SourceViewSchema, path: Schema.String }),
+    output: CaptureResultSchema,
     run: captureSource,
     renderText: renderCaptureText,
+  }),
+  "transcript-candidates": declareTasteOperation({
+    name: "transcript-candidates",
+    audience: "agent",
+    kind: "query",
+    description:
+      "Words the owner typed in recent Claude Code sessions, only on request: each message's reference, its exact parts, time, cwd and places, and counts of what was left out. Capture one by passing its reference as `transcript`.",
+    input: TranscriptCandidatesInput,
+    output: TranscriptCandidatesResultSchema,
+    run: listTranscriptCandidates,
+    renderText: renderTranscriptCandidatesText,
   }),
   propose: declareTasteOperation({
     name: "propose",

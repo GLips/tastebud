@@ -19,8 +19,9 @@ export const captureCommand = Command.make(
   "capture",
   {
     kind: optionalTextFlag("kind", "Source kind (default: the config's conversationSourceKind)"),
-    saidBy: Flag.String("said-by").pipe(
-      Flag.withDescription('Who said it: "owner", else a source account, e.g. human:dana or slack:acme/U123'),
+    saidBy: optionalTextFlag(
+      "said-by",
+      'Who said it: "owner", else a source account, e.g. human:dana or slack:acme/U123 (not with --transcript-*)',
     ),
     label: optionalTextFlag("label", "The speaker's display name, e.g. Dana (default for owner: ownerName)"),
     saidAt: optionalTextFlag("said-at", "When they said it, ISO 8601 with offset (default: now)"),
@@ -32,21 +33,37 @@ export const captureCommand = Command.make(
     after: optionalTextFlag("after", "What came right after"),
     address: optionalTextFlag("address", "A permalink to the words"),
     revises: optionalTextFlag("revises", "A source of the same kind these words edit"),
+    transcriptSession: optionalTextFlag(
+      "transcript-session",
+      "The Claude Code session the words come from, as transcript-candidates lists it",
+    ),
+    transcriptMessage: optionalTextFlag(
+      "transcript-message",
+      "The message uuid in that session; speaker, time and place then come from the transcript",
+    ),
     by: actorFlag,
     ...contextFlags,
     json: jsonFlag,
     store: storeFlag,
   },
-  ({ saidBy, label, saidAt, precision, quote, by, json, store, ...flags }) =>
+  ({ saidBy, label, saidAt, precision, quote, transcriptSession, transcriptMessage, by, json, store, ...flags }) =>
     Effect.gen(function* () {
-      const input = definedFields({
-        ...flags,
-        said_by: saidBy,
-        said_by_label: label,
-        said_at: saidAt,
-        said_at_precision: precision,
-        quote: yield* readTextOrStdin(quote),
-      });
+      // Either flag alone still sends `transcript`, so core names the missing half.
+      const transcript =
+        Option.isNone(transcriptSession) && Option.isNone(transcriptMessage)
+          ? {}
+          : { transcript: definedFields({ session: transcriptSession, message: transcriptMessage }) };
+      const input = {
+        ...definedFields({
+          ...flags,
+          said_by: saidBy,
+          said_by_label: label,
+          said_at: saidAt,
+          said_at_precision: precision,
+          quote: yield* readTextOrStdin(quote),
+        }),
+        ...transcript,
+      };
       yield* runCliOperation("capture", input, { store, json, actor: by });
     }),
 ).pipe(
@@ -55,6 +72,11 @@ export const captureCommand = Command.make(
     {
       command: 'tastebud capture --said-by owner --quote "No default exports, ever." --by claude-code/2.x',
       description: "Record what the owner just said",
+    },
+    {
+      command:
+        'tastebud capture --transcript-session 5194f308-… --transcript-message 9d64dc35-… --quote "No default exports" --by claude-code/2.x',
+      description: "Record words from a past session, as transcript-candidates listed them",
     },
   ]),
 );

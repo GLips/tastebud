@@ -40,6 +40,12 @@ const categoryOf = (error: TasteError): TasteFailureCategory =>
     StoreWriteFailed: () => "broken",
     OperationNotAllowed: () => "refused",
     ReviewPortTaken: () => "input",
+    TranscriptReferenceUnresolved: () => "input",
+    TranscriptReadFailed: () => "broken",
+    TranscriptMessageNotFound: () => "input",
+    TranscriptMessageIneligible: () => "refused",
+    TranscriptQuoteNotFound: () => "input",
+    TranscriptFieldConflict: () => "input",
   });
 
 /**

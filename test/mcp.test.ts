@@ -57,7 +57,9 @@ test("tools/list is capture alone, with a strict schema, and no other name runs"
   expect(tools.map((tool) => tool.name)).toEqual(["capture"]);
   const capture = tools[0]?.inputSchema;
   expect(capture?.additionalProperties).toBe(false);
-  expect(capture?.required?.toSorted()).toEqual(["quote", "said_by"]);
+  // `said_by` may be left out when `transcript` names the message, which settles the speaker.
+  expect(capture?.required).toEqual(["quote"]);
+  expect(JSON.stringify(capture?.properties?.transcript)).toContain('"session"');
   expect(JSON.stringify(capture?.properties?.in)).toContain("only when you actually know it");
   expect(JSON.stringify(tools)).not.toContain('"null"');
 

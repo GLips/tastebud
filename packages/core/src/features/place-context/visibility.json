@@ -5,5 +5,6 @@
   "proposals": "resolves the operation context (resolveOperationContext)",
   "recall": "resolves the operation context, and the places of files the hook's previous turn touched (resolveOperationContext, resolvePlacesForDirectory)",
   "store-catalog": "resolves the operation context (resolveOperationContext)",
-  "store-setup": "resolves config-check's probes under the candidate config (resolvePlacesForDirectory)"
+  "store-setup": "resolves config-check's probes under the candidate config (resolvePlacesForDirectory)",
+  "transcript-mining": "places each transcript message's cwd (resolvePlacesForDirectory)"
 }

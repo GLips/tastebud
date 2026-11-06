@@ -11,5 +11,6 @@
   "review-threads": "opens the store: TasteStore and its config",
   "store-catalog": "opens the store: TasteStore and its config",
   "store-host": "opens the store: TasteStore and its config",
-  "store-setup": "loads candidate config text as the store would, and reads the store root"
+  "store-setup": "loads candidate config text as the store would, and reads the store root",
+  "transcript-mining": "opens the store: TasteStore and its config"
 }

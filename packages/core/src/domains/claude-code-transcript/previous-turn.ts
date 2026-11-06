@@ -14,6 +14,7 @@ import {
 } from "@tastebud/core/hook-evidence";
 
 import {
+  isHookContextRecord,
   isToolResultBlock,
   succeededToolUseIdsOf,
   textOfBlock,
@@ -102,7 +103,7 @@ const emissionsIn = (
   userAt: ReadonlyArray<number>,
 ): Array<RecordedHookEmission> =>
   records.flatMap((record, index) => {
-    if (record.type !== "attachment" || record.isSidechain === true) return [];
+    if (!isHookContextRecord(record) || record.isSidechain === true) return [];
     const ownerTurnsAgo = userAt.filter((userIndex) => userIndex > index).length;
     return record.attachment.content
       .flatMap(parseHookEmissionMarkers)

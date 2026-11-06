@@ -1,7 +1,7 @@
 /**
- * The Claude Code transcript records the prompt hook reads, decoded from JSONL lines. Claude Code
- * writes many more record types (api requests, snapshots, mode changes); those, and any line that
- * doesn't parse, decode to nothing and are skipped.
+ * The Claude Code transcript records the prompt hook and transcript mining read, decoded from JSONL
+ * lines. Claude Code writes many more record types (api requests, snapshots, mode changes); those,
+ * and any line that doesn't parse, decode to nothing and are skipped.
  */
 import { Option, Schema } from "effect";
 
@@ -44,8 +44,21 @@ const ContentBlockSchema = Schema.Union([
 ]);
 type ContentBlock = typeof ContentBlockSchema.Type;
 
+/** Where a message sits and who started it: what mining needs to cite a message and judge it. */
+const messageFields = {
+  uuid: Schema.optionalKey(Schema.String),
+  timestamp: Schema.optionalKey(Schema.String),
+  cwd: Schema.optionalKey(Schema.String),
+  /** `cli` for the interactive terminal; `sdk-cli` and other `sdk-*` values for headless runs. */
+  entrypoint: Schema.optionalKey(Schema.String),
+};
+
+/** Who started a turn: `{ kind: "human" }` for the owner, `peer`, `task-notification`, `plugin` and others for the rest. */
+const OriginField = Schema.optionalKey(Schema.Struct({ kind: Schema.optionalKey(Schema.String) }));
+
 const UserRecordSchema = Schema.Struct({
   type: Schema.Literal("user"),
+  ...messageFields,
   isSidechain: Schema.optionalKey(Schema.Boolean),
   isMeta: Schema.optionalKey(Schema.Boolean),
   isCompactSummary: Schema.optionalKey(Schema.Boolean),
@@ -53,6 +66,7 @@ const UserRecordSchema = Schema.Struct({
   promptSource: Schema.optionalKey(Schema.String),
   /** `human`, `sdk` or `scheduled` for the owner's turns; `peer`, `system` and others for the rest. Absent in older versions and on tool results. */
   turnOrigin: Schema.optionalKey(Schema.String),
+  origin: OriginField,
   message: Schema.Struct({ content: Schema.Union([Schema.String, Schema.Array(ContentBlockSchema)]) }),
 });
 export type UserRecord = typeof UserRecordSchema.Type;
@@ -79,11 +93,31 @@ const HookContextRecordSchema = Schema.Struct({
   }),
 });
 
+/**
+ * A message the owner sent while the agent was working, delivered inside the running turn (seen in
+ * 2.1.319). `origin` and `commandMode` tell it apart from task notifications delivered the same way.
+ */
+const QueuedCommandRecordSchema = Schema.Struct({
+  type: Schema.Literal("attachment"),
+  isSidechain: Schema.optionalKey(Schema.Boolean),
+  ...messageFields,
+  attachment: Schema.Struct({
+    type: Schema.Literal("queued_command"),
+    prompt: Schema.Union([Schema.String, Schema.Array(ContentBlockSchema)]),
+    commandMode: Schema.optionalKey(Schema.String),
+    origin: OriginField,
+    humanTurn: Schema.optionalKey(Schema.Boolean),
+    isMeta: Schema.optionalKey(Schema.Boolean),
+  }),
+});
+export type QueuedCommandRecord = typeof QueuedCommandRecordSchema.Type;
+
 const TranscriptRecordSchema = Schema.Union([
   UserRecordSchema,
   AssistantRecordSchema,
   CompactBoundarySchema,
   HookContextRecordSchema,
+  QueuedCommandRecordSchema,
 ]);
 export type TranscriptRecord = typeof TranscriptRecordSchema.Type;
 
@@ -92,6 +126,9 @@ const decodeTranscriptLine = Schema.decodeUnknownOption(Schema.fromJsonString(Tr
 /** One JSONL line as a record the hook reads, or undefined. */
 export const transcriptRecordOf = (line: string): TranscriptRecord | undefined =>
   Option.getOrUndefined(decodeTranscriptLine(line));
+
+export const isHookContextRecord = Schema.is(HookContextRecordSchema);
+export const isQueuedCommandRecord = Schema.is(QueuedCommandRecordSchema);
 
 export const textOfBlock = (block: ContentBlock): string | undefined =>
   Schema.is(TextBlockSchema)(block) ? block.text : undefined;

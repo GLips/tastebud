@@ -1,9 +1,18 @@
 import type { KindNotRecallable, RetiredKind, UnknownKind } from "#core/domains/kind-catalog/index.ts";
 import type { AmbiguousRecordRef, UnknownRecordRef } from "#core/domains/record-snapshot/index.ts";
+import type { TranscriptFieldConflict, TranscriptQuoteNotFound } from "#core/features/capture/index.server.ts";
 import type { DecisionNotAllowed, WideningNeedsAcknowledgement } from "#core/features/decisions/index.server.ts";
 import type { NearRepeat, ScopeRequired } from "#core/features/proposals/index.server.ts";
 import type { ReviewPortTaken } from "#core/features/store-host/index.server.ts";
 import type { StaleTastebudConfig, StoreNotEmpty } from "#core/features/store-setup/index.server.ts";
+import type {
+  TranscriptMessageIneligible,
+  TranscriptMessageNotFound,
+} from "#core/features/transcript-mining/index.server.ts";
+import type {
+  TranscriptReadFailed,
+  TranscriptReferenceUnresolved,
+} from "#core/infrastructure/claude-code-transcript-errors.ts";
 import type {
   InvalidConfig,
   PlaceResolutionFailed,
@@ -39,4 +48,10 @@ export type TasteError =
   | StoreReadFailed
   | StoreWriteFailed
   | OperationNotAllowed
-  | ReviewPortTaken;
+  | ReviewPortTaken
+  | TranscriptReferenceUnresolved
+  | TranscriptReadFailed
+  | TranscriptMessageNotFound
+  | TranscriptMessageIneligible
+  | TranscriptQuoteNotFound
+  | TranscriptFieldConflict;

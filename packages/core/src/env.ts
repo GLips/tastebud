@@ -1,11 +1,15 @@
 /**
- * The one reader and writer of `process.env` in Tastebud. `TASTEBUD_STORE` is the only variable Tastebud defines; the
- * rest is passed through, to git and to a store's custom place resolver.
+ * The one reader and writer of `process.env` in Tastebud. It reads two variables: `TASTEBUD_STORE`,
+ * the only one Tastebud defines, and Claude Code's `CLAUDE_CONFIG_DIR`, where its transcripts live.
+ * The rest is passed through, to git and to a store's custom place resolver.
  */
 type ProcessEnvironment = Readonly<Record<string, string | undefined>>;
 
 /** `TASTEBUD_STORE`, the store root a shell uses when no `--store` is given. Blank counts as unset. */
 export const readTastebudStoreVariable = (): string | undefined => process.env["TASTEBUD_STORE"] || undefined;
+
+/** Claude Code's `CLAUDE_CONFIG_DIR`, whose `projects/` holds its transcripts. Blank counts as unset. */
+export const readClaudeConfigDirVariable = (): string | undefined => process.env["CLAUDE_CONFIG_DIR"] || undefined;
 
 /**
  * Points this process's `TASTEBUD_STORE` at `root`, so code resolving its store per call (the review server

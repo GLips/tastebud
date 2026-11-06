@@ -25,6 +25,7 @@ import {
   reviewUrlCommand,
   showCommand,
   threadReplyCommand,
+  transcriptCandidatesCommand,
 } from "#cli/features/cli-operations/index.server.ts";
 import { seedCommand } from "#cli/features/demo-seed/index.server.ts";
 import { reviewCommand } from "#cli/features/review-server/index.server.ts";
@@ -40,6 +41,7 @@ const tastebudCommand = Command.make("tastebud").pipe(
     recallCommand,
     recallExplainCommand,
     captureCommand,
+    transcriptCandidatesCommand,
     proposeCommand,
     listCommand,
     showCommand,

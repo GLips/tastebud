@@ -32,7 +32,7 @@ exports. Importing another feature's barrel needs a reason in its `visibility.js
 raises them, all in the `TasteError` union, shown only through `describeTasteFailure`. Match tags with
 `Match`/`catchTag`, never `_tag` comparisons or `instanceof`.
 
-**Environment:** `TASTEBUD_STORE` is the only variable, read only in core `env.ts`.
+**Environment:** `TASTEBUD_STORE` and `CLAUDE_CONFIG_DIR` (where Claude Code transcripts live) are the only variables, both read only in core `env.ts`.
 
 **Effect:** exported controllers and operations are `Effect.fn("<feature>.<export>")`. Decode outside data
 with Schema at the boundary; no `as` casts.

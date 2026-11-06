@@ -8,6 +8,7 @@
   },
   "exports": {
     "./agent-hosts": "./src/domains/agent-hosts/index.ts",
+    "./claude-code-transcript": "./src/domains/claude-code-transcript/index.ts",
     "./decisions": "./src/features/decisions/index.server.ts",
     "./derivation-lifecycle": "./src/domains/derivation-lifecycle/index.ts",
     "./derivation-scope": "./src/domains/derivation-scope/index.ts",
