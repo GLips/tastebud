@@ -37,14 +37,14 @@ Inside Claude Code that is `/plugin install tastebud --marketplace GLips/tastebu
 **Other hosts** get capture only: Tastebud currently installs automatic recall only for Claude Code, and the MCP-only setup for Codex and other hosts provides capture, so their agents save your words but nothing you accepted reaches them on its own. They run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`, and later runs download nothing more. Run this once before registering, so the download happens here, where a failure shows, not during the host's first connection:
 
 ```bash
-npx -y tastebud@0.1.1 --version
+npx -y tastebud@0.2.0 --version
 ```
 
 Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
 
-- Codex: `codex mcp add tastebud -- npx -y tastebud@0.1.1 mcp`. The first start fetches the package and the binary; if Codex gives up on it, raise `startup_timeout_sec` under `[mcp_servers.tastebud]` in `~/.codex/config.toml`.
-- Cursor: [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=tastebud&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRhc3RlYnVkQDAuMS4xIiwibWNwIl19), or `{"mcpServers":{"tastebud":{"command":"npx","args":["-y","tastebud@0.1.1","mcp"]}}}` in `~/.cursor/mcp.json`. Any other MCP client (Claude Desktop, Windsurf, …) takes the same JSON.
-- VS Code: `code --add-mcp '{"name":"tastebud","type":"stdio","command":"npx","args":["-y","tastebud@0.1.1","mcp"]}'`
+- Codex: `codex mcp add tastebud -- npx -y tastebud@0.2.0 mcp`. The first start fetches the package and the binary; if Codex gives up on it, raise `startup_timeout_sec` under `[mcp_servers.tastebud]` in `~/.codex/config.toml`.
+- Cursor: [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=tastebud&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRhc3RlYnVkQDAuMi4wIiwibWNwIl19), or `{"mcpServers":{"tastebud":{"command":"npx","args":["-y","tastebud@0.2.0","mcp"]}}}` in `~/.cursor/mcp.json`. Any other MCP client (Claude Desktop, Windsurf, …) takes the same JSON.
+- VS Code: `code --add-mcp '{"name":"tastebud","type":"stdio","command":"npx","args":["-y","tastebud@0.2.0","mcp"]}'`
 
 **The CLI alone.** One executable with the review UI inside; no Bun, no Node:
 

@@ -1,6 +1,6 @@
 {
   "name": "tastebud",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Human-ratified taste for agents: the prompt hook that recalls what you accepted, capture over MCP, and the review UI.",
   "author": { "name": "Graham Lipsman" },
   "homepage": "https://github.com/GLips/tastebud",
