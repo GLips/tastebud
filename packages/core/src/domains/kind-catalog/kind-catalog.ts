@@ -30,6 +30,8 @@ export interface DerivedKindDefinition extends SourceKindDefinition {
 export interface TasteCatalog {
   readonly sourceKinds: ReadonlyArray<SourceKindDefinition>;
   readonly derivedKinds: ReadonlyArray<DerivedKindDefinition>;
+  /** The source kind `capture` uses when no kind is named: words heard in an agent conversation. */
+  readonly conversationSourceKind?: string;
 }
 
 /** The kind key whose derivations default their subject to the owner. */
@@ -43,6 +45,8 @@ export const DEFAULT_SOURCE_KINDS: ReadonlyArray<SourceKindDefinition> = [
     description: "A person's exact words, verbatim and attributed.",
   },
 ];
+
+export const DEFAULT_CONVERSATION_SOURCE_KIND = "memory";
 
 export const DEFAULT_DERIVED_KINDS: ReadonlyArray<DerivedKindDefinition> = [
   {
@@ -78,7 +82,7 @@ export const requireSourceKind = (
     : Effect.succeed(kind);
 };
 
-/** A derived kind named by a caller, for propose, recall, context and list filters. */
+/** A derived kind named by a caller, for propose, recall and list filters. */
 export const requireDerivedKind = (
   catalog: TasteCatalog,
   key: string,
@@ -104,7 +108,7 @@ export const requireLiveDerivedKind = (
 
 /**
  * The kinds recall-style reads cover. Named kinds must exist and not be `never`; with none named,
- * `defaultPolicies` picks them (`inject` for context and the hook, `inject` and `pull` for recall).
+ * `defaultPolicies` picks them (`inject` for the hook, `inject` and `pull` for recall).
  */
 export const selectRecallKinds = (
   catalog: TasteCatalog,
@@ -134,5 +138,8 @@ export const buildCatalogView = (input: {
   resolver: input.resolver,
   sourceKinds: input.catalog.sourceKinds.map((kind) => ({ ...kind })),
   derivedKinds: input.catalog.derivedKinds.map((kind) => ({ ...kind, sources: [...kind.sources] })),
+  ...(input.catalog.conversationSourceKind !== undefined && {
+    conversationSourceKind: input.catalog.conversationSourceKind,
+  }),
   hook: input.hook,
 });

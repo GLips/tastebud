@@ -65,6 +65,11 @@ export const DEMO_CONFIG_TEXT = `// The demo store's config: Dana, a developer w
 export default {
   owner: ${JSON.stringify(DEMO_OWNER)},
 
+  ownerName: "Dana",
+
+  // Words an agent hears from Dana in conversation are memories, so capture needs no kind.
+  conversationSourceKind: "memory",
+
   // github.com/acme/web::apps/checkout from a checkout of acme/web, else the directory.
   place: "git",
 

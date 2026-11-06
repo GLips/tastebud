@@ -11,7 +11,6 @@ export {
 export { reindexCommand } from "./controllers/store-commands.ts";
 export {
   catalogCommand,
-  contextCommand,
   listCommand,
   openCommand,
   placesCommand,

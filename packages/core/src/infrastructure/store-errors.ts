@@ -1,20 +1,24 @@
 /** Failures of the store's environment: its files, config module, git and the decision lock. */
 import { Data, Predicate } from "effect";
 
-import { isArgumentSurface, type TasteSurface } from "#core/shared/taste-surface.ts";
+import type { TasteSurface } from "#core/shared/taste-surface.ts";
 
 /** A Node system error's `code` (`ENOENT`, `EEXIST`, …), read off a caught value. */
 export const errorCodeOf = (cause: unknown): string | undefined =>
   Predicate.hasProperty(cause, "code") && Predicate.isString(cause.code) ? cause.code : undefined;
 
-/** No `tastebud.config.ts` at the resolved root. The sentence sends an agent to setup, spelled for its surface. */
+/**
+ * No `tastebud.config.ts` at the resolved root. Setup runs only through the CLI, so over MCP the
+ * sentence says who can run it: an agent with a shell, or the owner.
+ */
 export class StoreNotInitialised extends Data.TaggedError("StoreNotInitialised")<{
   readonly root: string;
 }> {
   sentenceFor(surface: TasteSurface) {
-    const setup = isArgumentSurface(surface)
-      ? "Set it up with the owner: call tastebud_config_show with guide: true and lead them through the interview it returns. To use a different store, the MCP server must be started with --store <dir>"
-      : "Set it up with the owner: run `tastebud config-show --guide` and lead them through the interview it prints. To use a different store, pass --store or set TASTEBUD_STORE";
+    const setup =
+      surface === "mcp"
+        ? "Setup runs through the Tastebud CLI: if you have a shell, run `tastebud config-show --guide` and lead the owner through the interview it prints; otherwise ask the owner to run it. To use a different store, the MCP server must be started with --store <dir>"
+        : "Set it up with the owner: run `tastebud config-show --guide` and lead them through the interview it prints. To use a different store, pass --store or set TASTEBUD_STORE";
     return `No Tastebud store at ${this.root} yet. ${setup}.`;
   }
   override get message() {

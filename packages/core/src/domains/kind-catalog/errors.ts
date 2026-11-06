@@ -1,7 +1,5 @@
 import { Data } from "effect";
 
-import { isArgumentSurface, type TasteSurface } from "#core/shared/taste-surface.ts";
-
 /** A kind key the catalog has never had. */
 export class UnknownKind extends Data.TaggedError("UnknownKind")<{
   readonly kind: string;
@@ -24,17 +22,11 @@ export class RetiredKind extends Data.TaggedError("RetiredKind")<{
   }
 }
 
-/** Recall or context asked for a kind whose policy is `never`. */
+/** Recall asked for a kind whose policy is `never`. */
 export class KindNotRecallable extends Data.TaggedError("KindNotRecallable")<{
   readonly kind: string;
 }> {
-  sentenceFor(surface: TasteSurface) {
-    const instead = isArgumentSurface(surface)
-      ? `tastebud_list with kind: "${this.kind}"`
-      : `\`tastebud list --kind ${this.kind}\``;
-    return `"${this.kind}" has recall: never; use ${instead} instead.`;
-  }
   override get message() {
-    return this.sentenceFor("cli");
+    return `"${this.kind}" has recall: never; use \`tastebud list --kind ${this.kind}\` instead.`;
   }
 }

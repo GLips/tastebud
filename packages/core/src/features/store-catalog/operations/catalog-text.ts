@@ -3,11 +3,6 @@ import type { CatalogView } from "#core/domains/kind-catalog/index.ts";
 import type { TasteContext } from "#core/domains/places/index.ts";
 import { formatContextLine, section } from "#core/domains/record-text/index.ts";
 
-/** Kind prompts are config text written once for both surfaces, so the catalog says how to read their flags. */
-const PROMPT_SPELLING_NOTE =
-  "Prompts spell inputs as CLI flags. Over MCP, each is the tastebud_propose field of the same name with " +
-  '_ for -, except --place <key> (scope: "places" with places: [<key>]) and --global (scope: "global").';
-
 export const renderCatalogText = (result: {
   readonly catalog: CatalogView;
   readonly storeRoot: string;
@@ -19,7 +14,10 @@ export const renderCatalogText = (result: {
     formatContextLine(result.context),
     section(
       "Source kinds",
-      result.catalog.sourceKinds.map((kind) => `- ${kind.key}: ${kind.description ?? kind.plural}`),
+      result.catalog.sourceKinds.map(
+        (kind) =>
+          `- ${kind.key}${kind.key === result.catalog.conversationSourceKind ? " (capture's default)" : ""}: ${kind.description ?? kind.plural}`,
+      ),
     ),
     section(
       "Derived kinds",
@@ -32,5 +30,4 @@ export const renderCatalogText = (result: {
             .join("\n"),
       ),
     ),
-    PROMPT_SPELLING_NOTE,
   ].join("\n\n");

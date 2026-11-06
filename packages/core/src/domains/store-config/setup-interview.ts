@@ -16,9 +16,9 @@ How to run it:
 - Use their words. When they describe what they care about, quote them back in the kind descriptions and prompts.
 - Never write without an explicit yes to the exact diff.
 
-Operations are spelled \`config-show\` here: over MCP that's the tool \`tastebud_config_show\`, on the CLI \`tastebud config-show\`. On the CLI, pass a file's text with \`--text -\` and pipe it in.
+Operations are spelled \`config-show\` here; on the CLI that's \`tastebud config-show\`. Setup runs only through the CLI. Pass a file's text with \`--text -\` and pipe it in.
 
-Which store you reach depends on how you reach Tastebud. The CLI takes it per command: \`--store <dir>\`, else \`TASTEBUD_STORE\`, else \`~/.tastebud\`. Over MCP, every tool uses the one store the server was started with; no tool argument changes it.
+The CLI takes the store per command: \`--store <dir>\`, else \`TASTEBUD_STORE\`, else \`~/.tastebud\`. The MCP server's \`capture\` uses the one store the server was started with; no tool argument changes it.
 
 ## 1. Look before asking
 
@@ -31,7 +31,7 @@ This guide came from \`config-show\` with \`guide\`, so the rest of that result 
 
 ## 2. Who the owner is
 
-Ask who they are as \`human:<id>\`, suggesting one from what you know (their login, their name: "human:dana?"). It's an id, not a display name; it never changes.
+Ask who they are as \`human:<id>\`, suggesting one from what you know (their login, their name: "human:dana?"). It's an id, not a display name; it never changes. Ask how their captured words should be labelled and set \`ownerName\` (default: the id after \`human:\`).
 
 ## 3. Whose words count: source kinds
 
@@ -40,7 +40,7 @@ Sources are people's exact words, verbatim and attributed. Ask what they want re
 - customers on calls, users in support tickets or interviews;
 - teammates in code reviews or design docs.
 
-Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Recommend the default, just \`memory\`, unless they name another population. Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` of whose words and from where.
+Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Recommend the default, just \`memory\`, unless they name another population. Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` of whose words and from where. \`conversationSourceKind\` names the kind for words an agent hears in conversation (recommend \`memory\`), so \`capture\` needs no kind.
 
 ## 4. What conclusions they want: derived kinds
 

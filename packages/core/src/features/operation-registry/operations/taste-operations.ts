@@ -25,6 +25,9 @@ export type TasteOperationInput<N extends TasteOperationName> = TasteOperations[
 /** What an operation returns: plain JSON, described by its `output` schema. */
 export type TasteOperationOutput<N extends TasteOperationName> = TasteOperations[N]["output"]["Type"];
 
+/** The operations agents may reach; human operations are refused to them at run time. */
+export type AgentTasteOperationName = keyof typeof AGENT_TASTE_OPERATIONS | StoreRootTasteOperationName;
+
 /** The operations that run with only the store's root, so a missing store doesn't stop them. */
 export type StoreRootTasteOperationName = keyof typeof STORE_ROOT_TASTE_OPERATIONS;
 

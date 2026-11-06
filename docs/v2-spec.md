@@ -165,7 +165,7 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
 
 ### 3.2 Recall policy
 
-- **`inject`:** eligible for the prompt hook, `context`, and pull recall.
+- **`inject`:** eligible for the prompt hook and pull recall.
 - **`pull`:** pull recall, and `context --kind`. Never sent by the hook.
 - **`never`:** never recalled. Only `list`, `show` and the review UI surface it. An ideas backlog is a list, not a recall.
 
@@ -295,7 +295,6 @@ declareTasteOperation({
 | `capture` | agent | Append a source of a given kind. `captured_in` defaults to the context. |
 | `propose` | agent | Append a derivation of a given kind, with a scope (§2.4) and the repeat check. |
 | `recall` | agent | Eligible derivations of `inject` and `pull` kinds ranked by text, then rejections ("not accepted"), then matching sources. Takes `--kind` and `--history`. Each hit carries an explanation: policy, status, which place matched, and score. |
-| `context` | agent | Every accepted, eligible derivation of the selected kinds (default: the `inject` kinds), for a SessionStart hook. |
 | `list` | agent | Derivations filtered by kind, status, place, subject or text. Sources too, with `--sources`. |
 | `show` | agent | One record with its evidence, decisions, thread, reverse links, and proposed and effective scope. |
 | `thread-reply` | agent | Append an agent entry to a derivation's thread. |

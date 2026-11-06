@@ -1,6 +1,6 @@
 /**
- * Every registry operation reaches its audience: agent operations through a CLI command (MCP lists them
- * from the registry on its own), human operations through a review repo. A new operation that no
+ * Every registry operation reaches its audience: agent operations through a CLI command (MCP serves only
+ * the few it exposes), human operations through a review repo. A new operation that no
  * shell calls fails here instead of shipping unreachable.
  */
 import { expect, test } from "bun:test";

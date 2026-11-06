@@ -26,13 +26,14 @@ mkdir -p /tmp/acme/web/apps/checkout /tmp/acme/billing-api
 git -C /tmp/acme/web init -q && git -C /tmp/acme/web remote add origin git@github.com:acme/web.git
 git -C /tmp/acme/billing-api init -q && git -C /tmp/acme/billing-api remote add origin https://github.com/acme/billing-api.git
 
-tastebud context --in /tmp/acme/web/apps/checkout
-tastebud context --in /tmp/acme/billing-api
+tastebud places --in /tmp/acme/web/apps/checkout
+tastebud list --kind belief --status accepted --place github.com/acme/web::apps/checkout
+tastebud list --kind belief --status accepted --place github.com/acme/billing-api::
 ```
 
-From `apps/checkout` the context is `github.com/acme/web::apps/checkout`. You get the global beliefs, the `acme/web` ones (the repo root covers its subdirectories), and "In checkout, never show a price the server hasn't confirmed". That last one was proposed from checkout, so its scope defaulted to the whole repo; Dana narrowed it to `apps/checkout` when they accepted it. From `billing-api` you get the global beliefs plus the billing ones (integer cents, a real Postgres) and nothing from `acme/web`.
+From `apps/checkout` the context is `github.com/acme/web::apps/checkout`. There you get the global beliefs, the `acme/web` ones (the repo root covers its subdirectories), and "In checkout, never show a price the server hasn't confirmed". That last one was proposed from checkout, so its scope defaulted to the whole repo; Dana narrowed it to `apps/checkout` when they accepted it. At `billing-api` you get the global beliefs plus the billing ones (integer cents, a real Postgres) and nothing from `acme/web`.
 
-`context` lists only `inject` kinds. Insights and ideas don't appear.
+Only `inject` kinds like beliefs reach agents through the prompt hook. Insights and ideas don't.
 
 ## 3. Recall, rejections included
 

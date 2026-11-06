@@ -1,7 +1,7 @@
 /**
  * The Claude Code plugin in plugins/tastebud as Claude Code runs it: its manifest and install lines in step
  * with the release, `bin/tastebud` fetching that release once, the prompt hook's gate, and the whole loop
- * through the plugin's MCP server. Under TASTEBUD_TEST_BINARY the served release is that compiled binary.
+ * from a capture over the plugin's MCP server to the hook recalling the accepted belief. Under TASTEBUD_TEST_BINARY the served release is that compiled binary.
  */
 import { afterEach, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -15,10 +15,10 @@ import { TASTEBUD_VERSION } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 
 import {
-  demoConfigText,
+  callerFor,
   makeGitRepo,
+  makeTestStore,
   makeTemporaryDirectory,
-  OWNER,
   runOperation,
   serveFakeRelease,
   fakeTastebudBinary,
@@ -62,9 +62,6 @@ const decodeHooks = Schema.decodeUnknownSync(
 const readText = (path: string) => readFileSync(path, "utf8");
 const decodeCapturedSourceId = Schema.decodeUnknownSync(
   Schema.Struct({ source: Schema.Struct({ source: Schema.Struct({ id: Schema.String }) }) }),
-);
-const decodeProposedDerivationId = Schema.decodeUnknownSync(
-  Schema.Struct({ derivation: Schema.Struct({ id: Schema.String }) }),
 );
 
 const openClients: Array<Client> = [];
@@ -198,9 +195,9 @@ const releaseBinary = () => {
   return `#!/bin/sh\nexec ${TASTEBUD_COMMAND_LINE.map(shellQuotedWord).join(" ")} "$@"\n`;
 };
 
-test("one plugin install runs the loop: setup, capture and propose over its MCP server, accept, then recall", async () => {
+test("one plugin install runs the loop: capture over its MCP server, propose, accept, then the hook recalls it", async () => {
   const release = await serveFakeRelease(releaseBinary());
-  const store = join(makeTemporaryDirectory("plugin-loop"), "store");
+  const store = await makeTestStore();
   const client = new Client({ name: "tastebud-plugin-test", version: "1.0.0" });
   await client.connect(
     new StdioClientTransport({
@@ -218,35 +215,33 @@ test("one plugin install runs the loop: setup, capture and propose over its MCP 
   await release.server.stop(true);
   expect(client.getServerVersion()).toMatchObject({ name: "tastebud", version: TASTEBUD_VERSION });
 
-  const written = await client.callTool({
-    name: "tastebud_config_write",
-    arguments: { text: demoConfigText(`"git"`), expected_current: "" },
-  });
-  expect(written.structuredContent).toMatchObject({ created: true });
   const repo = makeGitRepo("https://github.com/acme/web.git");
   const captured = await client.callTool({
-    name: "tastebud_capture",
-    arguments: { kind: "memory", said_by: OWNER, said_by_label: "Tess", quote: "Keep PRs under 300 lines.", in: repo },
+    name: "capture",
+    arguments: { said_by: "owner", quote: "Keep PRs under 300 lines.", in: repo },
   });
   const source = decodeCapturedSourceId(captured.structuredContent).source.source.id;
-  const proposed = await client.callTool({
-    name: "tastebud_propose",
-    arguments: { kind: "belief", statement: "Keep pull requests small", supports: [source], in: repo },
-  });
-  const derivation = decodeProposedDerivationId(proposed.structuredContent).derivation.id;
+  // Curation runs through the CLI; in-process here, since test/cli.test.ts covers the commands.
+  const proposed = await runOperation(
+    store,
+    "propose",
+    { kind: "belief", statement: "Keep pull requests small", supports: [source] },
+    await callerFor(store, { cwd: repo }),
+  );
   // The owner's accept, as the review UI sends it; test/review.test.ts covers that page itself.
   await runOperation(
     store,
     "decide",
-    { ref: derivation, outcome: "accept" },
-    {
-      via: "review",
-      context: { places: [], origin: "unknown" },
-    },
+    { ref: proposed.derivation.id, outcome: "accept" },
+    { via: "review", context: { places: [], origin: "unknown" } },
   );
 
-  const recalled = await client.callTool({ name: "tastebud_recall", arguments: { query: "pull requests", in: repo } });
-  expect(recalled.isError).toBeFalsy();
-  expect(JSON.stringify(recalled.structuredContent)).toContain("Keep pull requests small");
+  const preview = await runOperation(
+    store,
+    "hook-preview",
+    { prompt: "open the pull requests", in: repo },
+    await callerFor(store, { cwd: repo }),
+  );
+  expect(preview.additionalContext).toContain("Keep pull requests small");
   expect(release.fetched.archives).toBe(1);
 });

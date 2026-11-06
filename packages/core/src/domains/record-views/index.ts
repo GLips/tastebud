@@ -1,5 +1,4 @@
 export {
-  ContextResultSchema,
   DerivationSummarySchema,
   DerivationViewSchema,
   RecallExclusionReasonSchema,
@@ -10,7 +9,6 @@ export {
   SourceViewSchema,
 } from "./view-schemas.ts";
 export type {
-  ContextResult,
   DerivationSummary,
   DerivationView,
   ExcludedRecallHit,

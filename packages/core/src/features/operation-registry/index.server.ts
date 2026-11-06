@@ -9,7 +9,7 @@ export type {
   TasteFailureEnvelope,
 } from "./operations/describe-taste-failure.ts";
 export { HUMAN_TASTE_OPERATIONS } from "./operations/human-operations.ts";
-export { listTasteOperations, mcpToolNameOf } from "./operations/operation-listing.ts";
+export { listTasteOperations } from "./operations/operation-listing.ts";
 export type { TasteOperationListing } from "./operations/operation-listing.ts";
 export {
   renderTasteOperationText,
@@ -33,6 +33,7 @@ export type {
 export { STORE_ROOT_TASTE_OPERATIONS } from "./operations/store-root-operations.ts";
 export { isStoreRootTasteOperation, TASTE_OPERATIONS } from "./operations/taste-operations.ts";
 export type {
+  AgentTasteOperationName,
   StoreRootTasteOperationName,
   TasteOperationInput,
   TasteOperationName,

@@ -6,6 +6,7 @@
 import { Predicate, Result, Schema } from "effect";
 
 import {
+  DEFAULT_CONVERSATION_SOURCE_KIND,
   DEFAULT_DERIVED_KINDS,
   DEFAULT_HOOK_SETTINGS,
   DEFAULT_SOURCE_KINDS,
@@ -37,6 +38,8 @@ type KindLabels = Readonly<{ singular: string; plural: string; description?: str
 /** The shape `tastebud.config.ts` default-exports (spec §4.3). Loading checks it with the schema below. */
 export type TastebudConfig = Readonly<{
   owner: `human:${string}`;
+  ownerName?: string;
+  conversationSourceKind?: string;
   place?: "git" | "directories" | PlaceResolverFunction;
   sourceKinds?: Readonly<Record<string, KindLabels>>;
   derivedKinds?: Readonly<
@@ -68,6 +71,8 @@ export type PlaceResolverSetting =
 export interface LoadedTastebudConfig {
   readonly path: string;
   readonly owner: string;
+  /** How the owner's captured words are labelled: `ownerName`, else the id after `human:`. */
+  readonly ownerName: string;
   readonly resolver: PlaceResolverSetting;
   readonly catalog: TasteCatalog;
   readonly hook: HookSettings;
@@ -101,6 +106,8 @@ const PlaceSettingSchema = Schema.Union([
 
 export const TastebudConfigFileSchema = Schema.Struct({
   owner: HumanAccountSchema,
+  ownerName: Schema.optionalKey(NonEmpty),
+  conversationSourceKind: Schema.optionalKey(KindKey),
   place: Schema.optionalKey(PlaceSettingSchema),
   sourceKinds: Schema.optionalKey(Schema.Record(KindKey, Schema.Struct(labelFields))),
   derivedKinds: Schema.optionalKey(
@@ -152,7 +159,13 @@ const buildCatalog = (file: TastebudConfigFile): Result.Result<TasteCatalog, Rea
       ? DEFAULT_DERIVED_KINDS
       : Object.entries(file.derivedKinds).map(([key, kind]) => Object.assign({ key }, kind));
   const sourceKeys = new Set(sourceKinds.map((kind) => kind.key));
+  // The built-in kinds name their own conversation kind; a config that replaces them names it itself.
+  const conversationSourceKind =
+    file.conversationSourceKind ?? (file.sourceKinds === undefined ? DEFAULT_CONVERSATION_SOURCE_KIND : undefined);
   const problems = [
+    ...(conversationSourceKind === undefined || sourceKeys.has(conversationSourceKind)
+      ? []
+      : [`conversationSourceKind: "${conversationSourceKind}" is not a source kind`]),
     ...derivedKinds.flatMap((kind) =>
       kind.sources
         .filter((source) => !sourceKeys.has(source))
@@ -162,7 +175,13 @@ const buildCatalog = (file: TastebudConfigFile): Result.Result<TasteCatalog, Rea
       .filter((kind) => sourceKeys.has(kind.key))
       .map((kind) => `derivedKinds.${kind.key}: "${kind.key}" is already a source kind`),
   ];
-  return problems.length > 0 ? Result.fail(problems) : Result.succeed({ sourceKinds, derivedKinds });
+  return problems.length > 0
+    ? Result.fail(problems)
+    : Result.succeed({
+        sourceKinds,
+        derivedKinds,
+        ...(conversationSourceKind !== undefined && { conversationSourceKind }),
+      });
 };
 
 /** A decoded config file as the config every operation reads, or each problem naming its field. */
@@ -175,6 +194,7 @@ export const loadedTastebudConfigOf = (
   return Result.succeed({
     path,
     owner: file.owner,
+    ownerName: file.ownerName ?? file.owner.slice("human:".length),
     resolver: resolverSettingOf(file.place),
     catalog: catalog.success,
     hook: { ...DEFAULT_HOOK_SETTINGS, ...file.hook },
@@ -190,6 +210,11 @@ export const starterTastebudConfigText = (
 export default {
   // The human whose taste this store holds. Only they ratify derivations.
   owner: ${JSON.stringify(owner)},
+  // How the owner's captured words are labelled; without it, the id after "human:".
+  // ownerName: "Your Name",
+
+  // The source kind for words an agent hears in conversation, so capture needs no kind.
+  conversationSourceKind: "memory",
 
   // How a working directory becomes a place:
   //   "git"          a repo place from the origin remote (github.com/you/app::sub/dir), else the directory

@@ -17,9 +17,9 @@ export const ThreadEntryInput = Schema.Struct({
 });
 export type ThreadEntryInput = typeof ThreadEntryInput.Type;
 
-/** How an agent answers a note. The listener prints it, so it is spelled here once, for both surfaces. */
+/** How an agent answers a note. The listener prints it, so it is spelled here once. */
 export const threadReplyInstruction = (derivationId: string, agent: string): string =>
-  `tastebud thread-reply ${derivationId} "…" --by ${agent} (MCP: tastebud_thread_reply)`;
+  `tastebud thread-reply ${derivationId} "…" --by ${agent}`;
 
 /** Appends one entry by `author` to the thread of the derivation `input.ref` names. */
 export const appendThreadEntry = Effect.fn("review-threads.appendThreadEntry")(function* (

@@ -1,5 +1,5 @@
 /**
- * Pull recall and `context`. Eligibility is the same everywhere: a derivation of a selected kind
+ * Pull recall, and the eligibility the hook shares. Eligibility is the same everywhere: a derivation of a selected kind
  * whose effective scope is global or covers a context place. Each hit says why it is here, and
  * close matches that were left out say why not.
  */

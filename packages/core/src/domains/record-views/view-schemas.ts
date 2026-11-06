@@ -114,14 +114,6 @@ export const RecallResultSchema = Schema.Struct({
 });
 export type RecallResult = typeof RecallResultSchema.Type;
 
-export const ContextResultSchema = Schema.Struct({
-  context: TasteContextSchema,
-  kinds: Schema.Array(Schema.String),
-  /** Every accepted, eligible derivation of those kinds, oldest first. */
-  derivations: Schema.Array(RecallHitSchema),
-});
-export type ContextResult = typeof ContextResultSchema.Type;
-
 export const DerivationViewSchema = Schema.Struct({
   ...DerivationSummarySchema.fields,
   derivation: DerivationRecordSchema,

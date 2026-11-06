@@ -78,17 +78,6 @@ export const recallExplainCommand = Command.make(
   ]),
 );
 
-export const contextCommand = Command.make(
-  "context",
-  {
-    kind: kindsFlag("A derived kind to list (default: every inject kind)"),
-    ...contextFlags,
-    json: jsonFlag,
-    store: storeFlag,
-  },
-  ({ json, store, ...flags }) => runCliOperation("context", definedFields(flags), { store, json }),
-).pipe(describedAs("context"));
-
 export const listCommand = Command.make(
   "list",
   {

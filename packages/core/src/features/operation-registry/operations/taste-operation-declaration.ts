@@ -44,11 +44,11 @@ export interface TasteOperationDeclaration<
   E extends TasteError,
   R extends TasteServices,
 > {
-  /** CLI `tastebud <name>`; MCP tool `tastebud_<name>` with `-` as `_`. */
+  /** CLI `tastebud <name>`; an MCP tool of the same name when the MCP package exposes it. */
   readonly name: Name;
   readonly audience: TasteOperationAudience;
   readonly kind: TasteOperationKind;
-  /** MCP's tool description and the CLI's help line. */
+  /** The CLI's help line, and the MCP tool description when exposed. */
   readonly description: string;
   readonly input: Input;
   readonly output: Output;

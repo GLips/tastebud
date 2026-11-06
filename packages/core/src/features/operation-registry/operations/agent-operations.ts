@@ -1,12 +1,7 @@
 /** The operations agents reach over the CLI and MCP. */
 import { Schema } from "effect";
 
-import {
-  ContextResultSchema,
-  RecallResultSchema,
-  ShowResultSchema,
-  SourceViewSchema,
-} from "#core/domains/record-views/index.ts";
+import { RecallResultSchema, ShowResultSchema, SourceViewSchema } from "#core/domains/record-views/index.ts";
 import { ThreadEntryRecordSchema } from "#core/domains/records/index.ts";
 import { captureSource, CaptureSourceInput, renderCaptureText } from "#core/features/capture/index.server.ts";
 import {
@@ -33,13 +28,10 @@ import {
   ExplainRecallInput,
   HookPayloadSchema,
   HookPreviewInput,
-  listContextDerivations,
-  ListContextDerivationsInput,
   previewHookPayload,
   recallDerivations,
   RecallDerivationsInput,
   RecallExplainResultSchema,
-  renderContextText,
   renderHookPreviewText,
   renderRecallExplainText,
   renderRecallText,
@@ -90,7 +82,8 @@ export const AGENT_TASTE_OPERATIONS = {
     name: "capture",
     audience: "agent",
     kind: "command",
-    description: "Append a source: a human's exact words, verbatim and attributed. Never your own words.",
+    description:
+      'Save a person\'s exact words for the owner to review later. Call it when the owner states a durable preference, corrects your approach, or asks you to remember something: their words verbatim (never yours) with said_by "owner", and enough of what they were reacting to in `before` to keep the meaning. Anyone else is named by account and label.',
     input: CaptureSourceInput,
     output: Schema.Struct({ source: SourceViewSchema, path: Schema.String }),
     run: captureSource,
@@ -128,16 +121,6 @@ export const AGENT_TASTE_OPERATIONS = {
     output: RecallExplainResultSchema,
     run: explainRecallEligibility,
     renderText: renderRecallExplainText,
-  }),
-  context: declareTasteOperation({
-    name: "context",
-    audience: "agent",
-    kind: "query",
-    description: "Every accepted derivation that applies here, for session start (default: the inject kinds).",
-    input: ListContextDerivationsInput,
-    output: ContextResultSchema,
-    run: listContextDerivations,
-    renderText: renderContextText,
   }),
   list: declareTasteOperation({
     name: "list",

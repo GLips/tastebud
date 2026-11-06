@@ -19,9 +19,6 @@ export interface TasteOperationListing {
   readonly output: Schema.Top;
 }
 
-/** Every operation for one audience, in registry order. MCP lists the `agent` ones as tools. */
+/** Every operation for one audience, in registry order. */
 export const listTasteOperations = (audience: TasteOperationAudience): ReadonlyArray<TasteOperationListing> =>
   Object.values(TASTE_OPERATIONS).filter((operation) => operation.audience === audience);
-
-/** MCP's tool name for an operation. */
-export const mcpToolNameOf = (name: TasteOperationName): string => `tastebud_${name.replaceAll("-", "_")}`;

@@ -15,7 +15,6 @@ Use the CLI or the MCP tools; they are the same operations with the same field n
 |---|---|---|
 | Learn the store | `tastebud catalog` | `tastebud_catalog` |
 | Recall before a choice | `tastebud recall "<query>"` | `tastebud_recall {query}` |
-| Everything that applies here | `tastebud context` | `tastebud_context` |
 | Capture words | `tastebud capture --kind … --said-by … --label … --quote … --by <you>` | `tastebud_capture {kind, said_by, said_by_label, quote, …}` |
 | Propose | `tastebud propose --kind … --statement … --supports <id> --reasoning … --by <you>` | `tastebud_propose {kind, statement, supports, reasoning, …}` |
 | Look something up | `tastebud list`, `tastebud show <ref>` | `tastebud_list`, `tastebud_show {ref}` |

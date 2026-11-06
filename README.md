@@ -80,7 +80,6 @@ tastebud review                            # review UI on http://127.0.0.1:4747
 | `tastebud capture` | Append a source: someone's exact words. |
 | `tastebud propose` | Propose a derivation that cites sources, with a scope and the near-repeat check. |
 | `tastebud recall "<query>"` | What applies here: accepted, then rejected, then raw sources, each with why it matched. |
-| `tastebud context` | Every accepted derivation of the inject kinds that applies here, for session start. |
 | `tastebud list` / `tastebud show <ref>` | Browse by kind, status, place, subject or text; one record with its evidence, decisions and thread. |
 | `tastebud thread-reply <ref> "<text>"` | Answer the owner's note on a review thread. |
 | `tastebud review` / `tastebud review listen` | The review UI (`--open` opens it in a browser, reusing one already up for the store); a long-lived listener that wakes an agent when the owner writes a note. |
@@ -170,7 +169,7 @@ export default {
 ```
 
 - A resolver function gets `{ cwd, source, env }` and returns place keys. It must be deterministic. `source` is set only when capturing.
-- `recall` is `inject` (the hook, `context` and recall), `pull` (recall and `context --kind` only) or `never` (only list, show and the review UI).
+- `recall` is `inject` (the hook and recall), `pull` (recall only) or `never` (only list, show and the review UI).
 - `sources` lists the source kinds a derivation of that kind must cite. A kind you remove later is retired: its records stay readable but can't be proposed, accepted or recalled.
 - The demo's [`demo/.tastebud/tastebud.config.ts`](demo/.tastebud/tastebud.config.ts) has three full proposal prompts to copy from.
 

@@ -176,9 +176,6 @@ describe("lifecycle", () => {
       [original.id, "rejected", "only acme-web"],
     ]);
     expect(describeTasteFailure(refusal, "cli").envelope.sentence).toContain(`--despite ${original.id}`);
-    expect(describeTasteFailure(refusal, "mcp").envelope.sentence).toContain(
-      `despite: ["${original.id}"] and despite_case:`,
-    );
 
     // A disjoint scope makes the same words only related; another kind never matches at all.
     const { related } = await runOperation(root, "propose", { kind: "belief", ...repeat }, inBilling);

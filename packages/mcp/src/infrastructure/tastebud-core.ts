@@ -2,9 +2,9 @@
 export {
   describeTasteFailure,
   listTasteOperations,
-  mcpToolNameOf,
   renderTasteOperationText,
   runTasteOperationAtStoreRoot,
+  type AgentTasteOperationName,
   type TasteOperationListing,
   type TasteOperationWireInput,
 } from "@tastebud/core/operations";

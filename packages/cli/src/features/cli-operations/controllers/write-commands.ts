@@ -18,11 +18,11 @@ import { describedAs, readTextOrStdin, runCliOperation } from "./run-cli-operati
 export const captureCommand = Command.make(
   "capture",
   {
-    kind: optionalTextFlag("kind", "Source kind (default: the only one, when the catalog has one)"),
+    kind: optionalTextFlag("kind", "Source kind (default: the config's conversationSourceKind)"),
     saidBy: Flag.String("said-by").pipe(
-      Flag.withDescription("Who said it: a source account, e.g. human:dana or slack:acme/U123"),
+      Flag.withDescription('Who said it: "owner", else a source account, e.g. human:dana or slack:acme/U123'),
     ),
-    label: Flag.String("label").pipe(Flag.withDescription("The speaker's display name, e.g. Dana")),
+    label: optionalTextFlag("label", "The speaker's display name, e.g. Dana (default for owner: ownerName)"),
     saidAt: optionalTextFlag("said-at", "When they said it, ISO 8601 with offset (default: now)"),
     precision: Flag.optional(Flag.Literals("precision", SAID_AT_PRECISIONS)).pipe(
       Flag.withDescription("How exact --said-at is (default: inferred from it)"),
@@ -53,8 +53,7 @@ export const captureCommand = Command.make(
   describedAs("capture"),
   Command.withExamples([
     {
-      command:
-        'tastebud capture --said-by human:dana --label Dana --quote "No default exports, ever." --by claude-code/2.x',
+      command: 'tastebud capture --said-by owner --quote "No default exports, ever." --by claude-code/2.x',
       description: "Record what the owner just said",
     },
   ]),

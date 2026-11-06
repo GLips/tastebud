@@ -66,6 +66,29 @@ describe("tastebud.config.ts", () => {
     expect(refused.message).toContain("--global");
   });
 
+  test("capture takes just the words once the config names the owner's name and the conversation kind", async () => {
+    // The demo kinds replace the built-ins, so until the config names a conversation kind there is none.
+    const root = await makeTestStore(demoConfigText(`"git"`));
+    const words = { said_by: "owner", quote: "Our forms stay short." };
+    const unnamed = await failOperation(root, "capture", words, unknownCaller);
+    expect(unnamed.message).toContain("kind is required");
+
+    const named = demoConfigText(`"git"`).replace(
+      "place:",
+      `ownerName: "Tess", conversationSourceKind: "memory",\n  place:`,
+    );
+    writeFileSync(join(root, "tastebud.config.ts"), named);
+    const { source } = await runOperation(root, "capture", words, unknownCaller);
+    expect(source.source).toMatchObject({ kind: "memory", said_by: OWNER, said_by_label: "Tess" });
+
+    writeFileSync(
+      join(root, "tastebud.config.ts"),
+      named.replace(`conversationSourceKind: "memory"`, `conversationSourceKind: "belief"`),
+    );
+    const invalid = await failOperation(root, "catalog", {}, unknownCaller);
+    expect(invalid.message).toContain(`conversationSourceKind: "belief" is not a source kind`);
+  });
+
   test("a bad config fails naming the field, and fixing it takes effect in the same process", async () => {
     const root = await makeTestStore(
       `export default { owner: "${OWNER}", derivedKinds: { insight: { singular: "insight", plural: "insights", sources: ["transcript"], recall: "pull", acceptLabel: "Keep", proposalPrompt: "…" } } };`,

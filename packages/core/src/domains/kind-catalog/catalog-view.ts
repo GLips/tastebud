@@ -31,6 +31,7 @@ export const CatalogViewSchema = Schema.Struct({
   resolver: Schema.Literals(PLACE_RESOLVER_NAMES),
   sourceKinds: Schema.Array(SourceKindViewSchema),
   derivedKinds: Schema.Array(DerivedKindViewSchema),
+  conversationSourceKind: Schema.optionalKey(Schema.String),
   hook: HookSettingsSchema,
 });
 export type CatalogView = typeof CatalogViewSchema.Type;

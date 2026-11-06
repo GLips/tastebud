@@ -52,7 +52,7 @@ the feature. `health/trampolines` warns on those passthroughs; that warning is a
 | Reading or writing store files, the index, git | core `infrastructure/` |
 | A new thing agents or the reviewer can do | a core feature operation, declared in `operation-registry` |
 | A CLI flag or command | `packages/cli/src/features/cli-operations/controllers/` |
-| An MCP tool | nothing: tools are listed from the operation registry |
+| An MCP tool | its operation name in `MCP_EXPOSED_OPERATIONS` (packages/mcp tastebud-tools); keep the list short |
 | A review screen | `apps/review/src/features/<f>/ui/`, routed from `routes/` |
 | A key a write makes stale | a bundle in `apps/review/src/shared/query-keys.ts` |
 

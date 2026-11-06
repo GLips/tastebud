@@ -1,7 +1,7 @@
 /** Text for recall, context and the hook preview. Section names come from kind labels, not hardcoded nouns. */
 import { formatScopeLabel } from "#core/domains/places/index.ts";
 import { day, formatContextLine, formatSourceLine, indent, quoted, section } from "#core/domains/record-text/index.ts";
-import type { ContextResult, ExcludedRecallHit, RecallHit, RecallResult } from "#core/domains/record-views/index.ts";
+import type { ExcludedRecallHit, RecallHit, RecallResult } from "#core/domains/record-views/index.ts";
 
 import type { HookPayload } from "./build-hook-payload.ts";
 import type { RecallExplainItem, RecallExplainResult } from "./recall-explain.ts";
@@ -80,18 +80,6 @@ export const renderRecallExplainText = (result: RecallExplainResult) =>
   [
     formatContextLine(result.context),
     result.items.length === 0 ? "(no derivation matches)" : result.items.map(formatRecallExplainItem).join("\n"),
-  ].join("\n");
-
-export const renderContextText = (result: ContextResult) =>
-  [
-    formatContextLine(result.context),
-    result.derivations.length === 0
-      ? `(no accepted ${result.kinds.join(" or ")} applies here)`
-      : result.derivations
-          .map(
-            (hit) => `- ${hit.statement}  {${formatScopeLabel(hit.effectiveScope)}}  (${hit.kindLabel})  [${hit.id}]`,
-          )
-          .join("\n"),
   ].join("\n");
 
 const HOOK_SILENCE_WORDING: Record<NonNullable<HookPayload["silence"]>, string> = {

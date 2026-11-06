@@ -74,13 +74,11 @@ const retryFieldsOf = (error: TasteError): TasteFailureRetry =>
     Match.orElse((): TasteFailureRetry => ({})),
   );
 
-/** Refusals whose retry hint names inputs, so their sentence depends on the surface. */
+/** Failures whose next step differs by surface, so their sentence does too. */
 const sentenceOf = (error: TasteError, surface: TasteSurface): string =>
   Match.value(error).pipe(
     Match.tags({
       NearRepeat: (matched) => matched.sentenceFor(surface),
-      ScopeRequired: (matched) => matched.sentenceFor(surface),
-      KindNotRecallable: (matched) => matched.sentenceFor(surface),
       StoreNotInitialised: (matched) => matched.sentenceFor(surface),
     }),
     Match.orElse((other) => other.message),

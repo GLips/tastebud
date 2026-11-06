@@ -39,6 +39,6 @@ export const mcpCommand = Command.make("mcp", { store: storeFlag }, ({ store }) 
   serveTastebudMcp(Option.getOrUndefined(store)),
 ).pipe(
   Command.withDescription(
-    "Serve the agent operations as MCP tools over stdio (tastebud_recall, tastebud_propose, …). Install: claude mcp add tastebud -- tastebud mcp",
+    "Serve Tastebud's MCP tool, capture, over stdio. Install: claude mcp add tastebud -- tastebud mcp",
   ),
 );

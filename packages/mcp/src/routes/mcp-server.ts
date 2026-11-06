@@ -1,8 +1,7 @@
 /**
- * `tastebud mcp`: the stdio MCP server. Every `agent` operation is a tool named `tastebud_<name>`, with the
- * operation's description and a JSON schema generated from its encoded input. Human operations
- * (inbox, decide, thread notes) are never listed: deciding happens only in the review UI. There are no
- * prompts: the setup interview comes back from `tastebud_config_show` with `guide`.
+ * `tastebud mcp`: the stdio MCP server. It serves only the tools the MCP package exposes (just
+ * `capture`), named as their operations. Recall reaches agents through the prompt hook, and setup and
+ * curation run through the CLI, so an everyday session carries one Tastebud tool.
  */
 import {
   callTastebudTool,
@@ -20,13 +19,12 @@ import {
 } from "#mcp/infrastructure/mcp-sdk.ts";
 
 const TASTEBUD_MCP_INSTRUCTIONS = [
-  "Tastebud holds how its owner works: beliefs and other kinds they ratified, the ones they rejected, and their own words as sources.",
-  "Call tastebud_catalog first to learn the kinds and how to propose each.",
-  "If there is no store yet, or the owner asks to set Tastebud up or change what it keeps, call tastebud_config_show with guide: true and lead the owner through the interview it returns.",
-  "If the owner states a preference or correction before a store exists, offer setup, and once the store exists capture their words as an early source.",
-  "Pass your working directory as `in` on every tool that takes it, so Tastebud knows which project you are in.",
-  "tastebud_recall before a judgment call; tastebud_capture the owner's exact words; tastebud_propose a derivation citing them.",
-  "You can't accept or reject anything: hand the owner tastebud_review_url instead.",
+  "Tastebud saves the owner's preferences and corrections for later review.",
+  "When the owner states a durable preference, corrects your approach, or asks you to remember something, call capture with their exact words and enough surrounding context to preserve their meaning.",
+  "Attribute other people's words explicitly.",
+  "A saved source is evidence, not an accepted belief.",
+  "Pass a working directory only when you actually know it.",
+  "Setup and curation use the Tastebud CLI.",
 ].join(" ");
 
 /** Serves the store named by `--store` / `TASTEBUD_STORE` / `~/.tastebud` on stdin and stdout until the client leaves. */

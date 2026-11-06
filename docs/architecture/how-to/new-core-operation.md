@@ -20,7 +20,7 @@ through the registry.
 6. **CLI command (agent operations).** Add the command in the matching
    `packages/cli/src/features/cli-operations/controllers/*-commands.ts`, calling
    `runCliOperation("<name>", input, options)`. Flags come from `shared/cli-flags.ts`.
-7. **MCP tool.** Nothing to do: tools and their input schemas are listed from the registry.
+7. **MCP tool.** Usually none: MCP serves only `MCP_EXPOSED_OPERATIONS` in `packages/mcp` (just `capture`).
 8. **Review (human operations).** Call it from a review repo; see
    [new-review-feature.md](new-review-feature.md).
 9. **Tests.** `test/operation-surface-parity.test.ts` fails until the operation is reachable from its audience.

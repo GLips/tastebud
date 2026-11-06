@@ -1,7 +1,6 @@
 /**
  * The shipped instruction for the built-in `belief` kind. `tastebud catalog` hands it to agents, so it is
- * written to be followed as-is. It spells inputs as CLI flags; the catalog's text tells MCP callers
- * how those map to `tastebud_propose` fields.
+ * written to be followed as-is. It spells inputs as CLI flags: propose runs only through the CLI.
  */
 export const BELIEF_PROPOSAL_PROMPT = `Propose a belief when the owner's own words show a durable preference or judgment: how they like work done, or what they hold true about their world. A belief is one line a future agent can act on. It counts only once the owner accepts it in the review UI; you never decide.
 

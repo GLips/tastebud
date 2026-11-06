@@ -9,7 +9,7 @@ import { Schema, SchemaAST } from "effect";
 const CONTEXT_FIELD_DESCRIPTIONS: ReadonlyMap<string, string> = new Map([
   [
     "in",
-    "Your working directory, as an absolute path. Pass it on every call: Tastebud resolves it to the project you are in (repo and subdirectory). Without it, only global entries apply.",
+    "Your working directory, as an absolute path, only when you actually know it: Tastebud resolves it to the project you are in (repo and subdirectory). Leave it out rather than guess.",
   ],
   [
     "at",
