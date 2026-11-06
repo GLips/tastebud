@@ -11,7 +11,7 @@ import {
   quoteFitsTranscriptParts,
 } from "#core/domains/claude-code-transcript/index.ts";
 import type { LoadedTastebudConfig } from "#core/domains/store-config/index.ts";
-import { hasContextOverride, type TasteCaller } from "#core/domains/taste-caller/index.ts";
+import type { TasteCaller } from "#core/domains/taste-caller/index.ts";
 import { OWNER_SUBJECT } from "#core/domains/taste-vocabulary/index.ts";
 import { contextFromDirectory, resolveOperationContext } from "#core/features/place-context/index.server.ts";
 import {
@@ -21,63 +21,75 @@ import {
 import { formatLocalIsoTime } from "#core/shared/iso-times.ts";
 
 import { TranscriptFieldConflict, TranscriptQuoteNotFound } from "../errors.ts";
+import type { CaptureSourceInput } from "./capture.ts";
 
-/** The capture fields a transcript reference settles, as the caller may also have given them. */
-interface TranscriptCaptureClaims {
-  readonly transcript: TranscriptReference;
-  readonly quote: string;
-  readonly said_by?: string;
-  readonly said_by_label?: string;
-  readonly said_at?: string;
-  readonly said_at_precision?: string;
-  readonly address?: string;
-  readonly in?: string;
-  readonly at?: ReadonlyArray<string>;
-}
-
-const conflictsOf = (
+/** The first field the caller gave that the transcript contradicts. */
+const firstTranscriptConflictOf = (
   config: LoadedTastebudConfig,
-  claims: TranscriptCaptureClaims,
+  input: CaptureSourceInput,
   message: EligibleTranscriptMessage,
   address: string,
-): ReadonlyArray<TranscriptFieldConflict> => {
-  const conflicts: Array<TranscriptFieldConflict> = [];
-  const check = (field: string, given: string | undefined, agrees: (given: string) => boolean, transcript: string) => {
-    if (given !== undefined && !agrees(given))
-      conflicts.push(new TranscriptFieldConflict({ field, given, transcript }));
-  };
-  check("said_by", claims.said_by, (given) => given === OWNER_SUBJECT || given === config.owner, OWNER_SUBJECT);
-  check("said_by_label", claims.said_by_label, (given) => given === config.ownerName, config.ownerName);
-  check("said_at", claims.said_at, (given) => Date.parse(given) === Date.parse(message.timestamp), message.timestamp);
-  check("said_at_precision", claims.said_at_precision, (given) => given === "second", "second");
-  check("address", claims.address, (given) => given === address, address);
-  return conflicts;
+): TranscriptFieldConflict | undefined => {
+  const fields = [
+    {
+      field: "said_by",
+      given: input.said_by,
+      agrees: (given: string) => given === OWNER_SUBJECT || given === config.owner,
+      transcript: OWNER_SUBJECT,
+    },
+    {
+      field: "said_by_label",
+      given: input.said_by_label,
+      agrees: (given: string) => given === config.ownerName,
+      transcript: config.ownerName,
+    },
+    {
+      field: "said_at",
+      given: input.said_at,
+      agrees: (given: string) => Date.parse(given) === Date.parse(message.timestamp),
+      transcript: message.timestamp,
+    },
+    {
+      field: "said_at_precision",
+      given: input.said_at_precision,
+      agrees: (given: string) => given === "second",
+      transcript: "second",
+    },
+    { field: "address", given: input.address, agrees: (given: string) => given === address, transcript: address },
+  ];
+  const conflict = fields.find(({ given, agrees }) => given !== undefined && !agrees(given));
+  return conflict?.given === undefined
+    ? undefined
+    : new TranscriptFieldConflict({ field: conflict.field, given: conflict.given, transcript: conflict.transcript });
 };
 
 const samePlaces = (left: ReadonlyArray<string>, right: ReadonlyArray<string>) =>
   left.length === right.length && left.every((place) => right.includes(place));
 
-/** The speaker, time, address and places a capture of `claims.transcript` records. */
+/**
+ * The speaker, time, address and places a capture of `reference` records. `in` is ignored: agents
+ * pass their own working directory, which says nothing about where a mined message was sent.
+ */
 export const readTranscriptCapture = Effect.fn("capture.readTranscriptCapture")(function* (
   config: LoadedTastebudConfig,
-  claims: TranscriptCaptureClaims,
+  input: CaptureSourceInput,
+  reference: TranscriptReference,
   caller: TasteCaller,
   kind: string,
 ) {
-  const reference = claims.transcript;
   const message = yield* readEligibleTranscriptMessage(reference);
-  if (!quoteFitsTranscriptParts(message.parts, claims.quote))
+  if (!quoteFitsTranscriptParts(message.parts, input.quote))
     return yield* new TranscriptQuoteNotFound({ session: reference.session, messageId: reference.message });
   const address = claudeCodeTranscriptAddress(reference.session, reference.message);
-  const [conflict] = conflictsOf(config, claims, message, address);
+  const conflict = firstTranscriptConflictOf(config, input, message, address);
   if (conflict !== undefined) return yield* conflict;
   const source = { kind, address, saidBy: config.owner };
   const context = yield* contextFromDirectory(config, message.cwd, "in", source);
-  if (hasContextOverride(claims)) {
-    const given = yield* resolveOperationContext(claims, caller, source);
+  if (input.at !== undefined && input.at.length > 0) {
+    const given = yield* resolveOperationContext({ at: input.at }, caller, source);
     if (!samePlaces(given.places, context.places))
       return yield* new TranscriptFieldConflict({
-        field: claims.in === undefined ? "at" : "in",
+        field: "at",
         given: given.places.join(", "),
         transcript: context.places.join(", "),
       });

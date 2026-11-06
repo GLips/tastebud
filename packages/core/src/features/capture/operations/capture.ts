@@ -46,11 +46,13 @@ export const CaptureSourceInput = Schema.Struct({
   after: OptionalVerbatimText,
   address: OptionalTrimmedText.annotate({ description: "A permalink to the words" }),
   revises: OptionalTrimmedText.annotate({ description: "A source of the same kind these words edit" }),
-  in: OptionalTrimmedText.annotate({ description: "Capture as if in this directory" }),
+  in: OptionalTrimmedText.annotate({
+    description: "Capture as if in this directory; ignored with `transcript`, whose message says where it was sent",
+  }),
   at: OptionalTrimmedTextList.annotate({ description: "Capture as if at these places" }),
   transcript: Schema.optionalKey(TranscriptReferenceSchema).annotate({
     description:
-      "The Claude Code message the quote comes from, as transcript-candidates lists it. The quote must be an exact stretch of one of its parts; speaker, time and place then come from the transcript. Capturing a message again returns the first capture",
+      "The Claude Code message the quote comes from, as transcript-candidates lists it. The quote must be an exact stretch of one of its parts; speaker, time and place then come from the transcript, so leave out said_by, said_at, address and at. Capturing the same quote from a message again returns the first capture; another quote from it is a new source",
   }),
 });
 export type CaptureSourceInput = typeof CaptureSourceInput.Type;
@@ -58,7 +60,7 @@ export type CaptureSourceInput = typeof CaptureSourceInput.Type;
 export const CaptureResultSchema = Schema.Struct({
   source: SourceViewSchema,
   path: Schema.String,
-  /** True when a capture of the same transcript message already existed and is returned instead. */
+  /** True when the same quote from the same transcript message was captured before and is returned instead. */
   already_captured: Schema.Boolean,
 });
 
@@ -126,12 +128,19 @@ export const captureSource = Effect.fn("capture.captureSource")(function* (
   const said =
     input.transcript === undefined
       ? yield* readCallerCapture(store.config, input, caller, kind.key)
-      : yield* readTranscriptCapture(store.config, { ...input, transcript: input.transcript }, caller, kind.key);
-  // A transcript capture's address names its message, so a second capture of it finds the first.
+      : yield* readTranscriptCapture(store.config, input, input.transcript, caller, kind.key);
+  // A transcript capture's address names its message, so the same words captured from it again find
+  // the first. Other words from that message are a source of their own.
   const earlier =
     input.transcript === undefined
       ? undefined
-      : snapshot.records.find((entry) => entry.record.type === "Source" && entry.record.address === said.address);
+      : snapshot.records.find(
+          ({ record }) =>
+            record.type === "Source" &&
+            record.address === said.address &&
+            record.quote === input.quote &&
+            record.kind === kind.key,
+        );
   if (earlier?.record.type === "Source")
     return { source: view(earlier.record), path: earlier.path, already_captured: true };
   const revised = input.revises === undefined ? undefined : yield* resolveSourceRef(snapshot, input.revises);

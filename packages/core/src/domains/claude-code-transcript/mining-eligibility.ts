@@ -105,6 +105,12 @@ const entrypointSignal = (value: string | undefined): TurnSignal => ({
   human: new Set(["cli"]),
   notHuman: (entrypoint) => entrypoint.startsWith("sdk"),
 });
+const turnOriginSignal = (value: string | undefined): TurnSignal => ({
+  field: "turnOrigin",
+  value,
+  human: new Set(["human"]),
+  notHuman: (origin) => NOT_HUMAN_TURN_ORIGINS.has(origin),
+});
 const originSignal = (origin: UserRecord["origin"]): TurnSignal => ({
   field: "origin.kind",
   value: origin?.kind,
@@ -147,12 +153,7 @@ const eligibleWithParts = (
 const mineSlashCommand = (record: UserRecord, text: string): MinedTranscriptMessage => {
   const judged = judgeTurnSignals(record, [
     entrypointSignal(record.entrypoint),
-    {
-      field: "turnOrigin",
-      value: record.turnOrigin,
-      human: new Set(["human"]),
-      notHuman: (origin) => NOT_HUMAN_TURN_ORIGINS.has(origin),
-    },
+    turnOriginSignal(record.turnOrigin),
     originSignal(record.origin),
   ]);
   if (judged !== undefined) return judged;
@@ -180,12 +181,7 @@ const mineUserRecord = (record: UserRecord): MinedTranscriptMessage | undefined 
       human: new Set(["typed", "queued"]),
       notHuman: (source) => NOT_HUMAN_PROMPT_SOURCES.has(source),
     },
-    {
-      field: "turnOrigin",
-      value: record.turnOrigin,
-      human: new Set(["human"]),
-      notHuman: (origin) => NOT_HUMAN_TURN_ORIGINS.has(origin),
-    },
+    turnOriginSignal(record.turnOrigin),
     originSignal(record.origin),
   ]);
   if (judged !== undefined) return judged;
@@ -231,11 +227,3 @@ export const mineClaudeCodeTranscriptLines = (lines: ReadonlyArray<string>): Rea
     const mined = record === undefined ? undefined : mineTranscriptRecord(record);
     return mined === undefined ? [] : [mined];
   });
-
-/** Whether `quote` is an exact, contiguous stretch of one part; a quote across two parts is not. */
-export const quoteFitsTranscriptParts = (parts: ReadonlyArray<string>, quote: string): boolean =>
-  parts.some((part) => part.includes(quote));
-
-/** The `address` a source captured from a transcript message carries, so a second capture finds it. */
-export const claudeCodeTranscriptAddress = (session: string, message: string): string =>
-  `claude-code-transcript:${session}/${message}`;

@@ -38,8 +38,7 @@ const CandidatesJson = Schema.fromJsonString(
         parts: Schema.Array(Schema.String),
       }),
     ),
-    excluded: Schema.Int,
-    unknown: Schema.Int,
+    left_out: Schema.Array(Schema.Struct({ status: Schema.String, count: Schema.Int })),
     unresolved: Schema.Int,
     other_projects: Schema.Int,
   }),
@@ -112,7 +111,9 @@ test("transcript-candidates keeps only what the owner typed, without Claude Code
   ]);
   expect(result.candidates[0]?.places).toEqual(["github.com/acme/web::"]);
   // Task notification (attachment and record), two skill bodies, an empty slash command, sdk, sidechain.
-  expect([result.excluded, result.unknown]).toEqual([7, 2]);
+  const leftOut = (status: string) =>
+    result.left_out.reduce((total, entry) => (entry.status === status ? total + entry.count : total), 0);
+  expect([leftOut("excluded"), leftOut("unknown")]).toEqual([7, 2]);
 });
 
 test("transcript-candidates filters by project and window before any text, counting what it can't place", async () => {
@@ -133,7 +134,7 @@ test("transcript-candidates filters by project and window before any text, count
   expect([result.other_projects, result.unresolved]).toEqual([1, 1]);
 });
 
-test("capture by transcript reference records the transcript's speaker, time and place, once per message", async () => {
+test("capture by transcript reference records the transcript's speaker, time and place, once per quote", async () => {
   const { configDir, web, run, candidates } = await mining();
   const saidAt = minutesAgo(15);
   writeSessionTranscript(
@@ -149,11 +150,15 @@ test("capture by transcript reference records the transcript's speaker, time and
     "--transcript-message",
     candidate?.reference.message ?? "",
   ];
-  const capture = (quote: string) =>
-    run(["capture", ...reference, "--quote", quote, "--by", "claude-code/test", "--json"]);
+  const capture = (quote: string, extra: ReadonlyArray<string> = []) =>
+    run(["capture", ...reference, "--quote", quote, ...extra, "--by", "claude-code/test", "--json"]);
 
   const first = Schema.decodeUnknownSync(CaptureJson)((await capture("Name exports for grep.")).stdout);
-  const again = Schema.decodeUnknownSync(CaptureJson)((await capture("Prefer small modules.")).stdout);
+  const again = Schema.decodeUnknownSync(CaptureJson)((await capture("Name exports for grep.")).stdout);
+  const other = Schema.decodeUnknownSync(CaptureJson)(
+    // An agent passes its own directory as `in`; the message's cwd still places the capture.
+    (await capture("Prefer small modules.", ["--in", makeGitRepo("git@github.com:acme/api.git")])).stdout,
+  );
 
   expect(first.source.source.said_by).toBe(OWNER);
   expect(Date.parse(first.source.source.said_at)).toBe(Date.parse(saidAt));
@@ -163,6 +168,9 @@ test("capture by transcript reference records the transcript's speaker, time and
     true,
     first.source.source.id,
   ]);
+  expect([other.already_captured, other.source.source.address]).toEqual([false, first.source.source.address]);
+  expect(other.source.source.id).not.toBe(first.source.source.id);
+  expect(other.source.source.captured_in).toEqual(["github.com/acme/web::"]);
 });
 
 test("capture by transcript reference refuses inexact quotes, contradicting fields, ineligible messages and escapes from the root", async () => {

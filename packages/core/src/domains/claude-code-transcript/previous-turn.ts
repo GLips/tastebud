@@ -11,7 +11,7 @@ import {
   type RecordedHookEmission,
   type TouchedPath,
   type TranscriptReading,
-} from "@tastebud/core/hook-evidence";
+} from "#core/domains/hook-evidence/index.ts";
 
 import {
   isHookContextRecord,

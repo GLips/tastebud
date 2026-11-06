@@ -61,13 +61,11 @@ export const TranscriptCandidatesResultSchema = Schema.Struct({
   projects: Schema.Array(Schema.String),
   sessions: Schema.Int,
   candidates: Schema.Array(TranscriptCandidateSchema),
-  /** Messages in the window and the projects that mining's rule left out, by status. */
-  excluded: Schema.Int,
-  unknown: Schema.Int,
   /** Messages whose cwd resolved to no place, so they can't be placed or filtered. */
   unresolved: Schema.Int,
   /** Messages placed outside the requested projects. */
   other_projects: Schema.Int,
+  /** Messages in the window and the projects that mining's rule left out, counted by status and problem. */
   left_out: Schema.Array(LeftOutSchema),
 });
 export type TranscriptCandidatesResult = typeof TranscriptCandidatesResultSchema.Type;
@@ -150,8 +148,6 @@ export const listTranscriptCandidates = Effect.fn("transcript-mining.listTranscr
     projects,
     sessions: files.length,
     candidates: candidates.toSorted((left, right) => compareIsoTimes(left.said_at, right.said_at)),
-    excluded: judged.filter((message) => message.status === "excluded").length,
-    unknown: judged.filter((message) => message.status === "unknown").length,
     unresolved,
     other_projects: otherProjects,
     left_out: tallyLeftOut(judged),
