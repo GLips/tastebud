@@ -3,11 +3,17 @@
  * `bun run build:review`) and from a compiled binary alike. Embedded client files are static routes; the shell
  * and every server function go to TanStack Start's server entry.
  */
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
+import { fetchLoopbackJson } from "./api-client.ts";
 import { ReviewPortTaken } from "./tastebud-core.ts";
 
 const IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+/** Answered by Bun itself, outside TanStack's routes: which store this review server serves. */
+const REVIEW_IDENTITY_PATH = "/_tastebud/review.json";
+
+const decodeReviewIdentity = Schema.decodeUnknownEffect(Schema.Struct({ store: Schema.String }));
 
 const isAddressInUse = Schema.is(Schema.Struct({ code: Schema.Literal("EADDRINUSE") }));
 
@@ -23,19 +29,22 @@ const reviewAssetResponse = (urlPath: string, filePath: string) => {
  * Listens on 127.0.0.1 (not `localhost`, which Bun binds to one address family while a browser may try the
  * other) until the process ends. Only a taken port is a typed failure; any other bind error is a bug.
  */
-export const serveReviewApp = (port: number) =>
+export const serveReviewApp = (port: number, storeRoot: string) =>
   Effect.gen(function* () {
     // A literal lazy import: `bun build --compile` still embeds the bundle, and other commands never load it. From
     // an unbuilt checkout this dies naming apps/review/dist/review-bundle.ts: run `bun run build:review`.
     const { REVIEW_CLIENT_ASSETS, fetchReviewServerEntry } = yield* Effect.promise(
       () => import("@tastebud/review/bundle"),
     );
-    const routes = Object.fromEntries(
-      Object.entries(REVIEW_CLIENT_ASSETS).map(([urlPath, filePath]) => [
-        urlPath,
-        reviewAssetResponse(urlPath, filePath),
-      ]),
-    );
+    const routes = {
+      ...Object.fromEntries(
+        Object.entries(REVIEW_CLIENT_ASSETS).map(([urlPath, filePath]) => [
+          urlPath,
+          reviewAssetResponse(urlPath, filePath),
+        ]),
+      ),
+      [REVIEW_IDENTITY_PATH]: Response.json({ store: storeRoot }),
+    };
     yield* Effect.suspend(() => {
       try {
         return Effect.succeed(Bun.serve({ hostname: "127.0.0.1", port, routes, fetch: fetchReviewServerEntry }));
@@ -44,3 +53,14 @@ export const serveReviewApp = (port: number) =>
       }
     });
   });
+
+/**
+ * The store a review server already listening on this port serves, or none. Anything that isn't a Tastebud
+ * review server answering within a second (nothing listening, another app, a hung process) reads as none.
+ */
+export const probeReviewServerStore = (port: number) =>
+  fetchLoopbackJson(port, REVIEW_IDENTITY_PATH, "1 second").pipe(
+    Effect.flatMap(decodeReviewIdentity),
+    Effect.map((identity) => Option.some(identity.store)),
+    Effect.orElseSucceed(() => Option.none<string>()),
+  );

@@ -82,7 +82,7 @@ A config may import relative files and \`node:\` builtins only; no packages. Tas
 ## 7. Wire up their agents
 
 Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain how Tastebud reaches each one, because recall only works through what is installed:
-- **Claude Code**: the Tastebud plugin brings the MCP server, the skill, \`/tastebud:setup\` and the prompt hook. \`inject\` kinds reach every prompt through the hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the skill and the MCP server's instructions tell it to do.
+- **Claude Code**: the Tastebud plugin brings the MCP server, the skill, \`/tastebud:setup\`, \`/tastebud:review\` and the prompt hook. \`inject\` kinds reach every prompt through the hook. \`pull\` kinds and everything else reach the agent only when it calls \`recall\` or \`context\`, which the skill and the MCP server's instructions tell it to do.
 - **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. Recall still works with it off.
 - **Other hosts** have no prompt hook: nothing is injected, and the agent recalls only when it calls \`recall\` or \`context\`, prompted by the MCP server's instructions (and the skill, where the host loads skills). Some hosts, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to every tool that reads where it is.
 - A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session.
@@ -93,11 +93,11 @@ Suggest the lines for each host, and never edit their agent settings or run an i
 - Cursor: \`${defaultLines.mcpServersJson}\` in \`~/.cursor/mcp.json\`, with \`"--store", "<root>"\` after \`"mcp"\` for another store.
 - VS Code: \`${defaultLines.vscode}\`, with the same \`--store\` arguments for another store.
 - Any other MCP client takes the same JSON as Cursor. These lines run the npm package through \`npx\`, so they need Node. Have the owner run \`${defaultLines.npxPrefetch}\` once first: it downloads the binary where a failure shows, rather than during the host's first connection.
-- The review UI: \`tastebud review --store <root>\` (without \`--store\` for \`~/.tastebud\`). With only the plugin installed, the agent can run it for them, since the plugin puts \`tastebud\` on its shell's PATH; otherwise the CLI comes from \`npm install -g tastebud\` or the install script in the README.
+- The review UI: \`/tastebud:review\` in Claude Code, or \`tastebud review --open --store <root>\` (without \`--store\` for \`~/.tastebud\`), which opens it in a browser. With only the plugin installed, the agent can run it for them, since the plugin puts \`tastebud\` on its shell's PATH; otherwise the CLI comes from \`npm install -g tastebud\` or the install script in the README.
 
 ## 8. Prove the loop
 
-Pick something the owner said during this interview that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, \`capture\` it verbatim as a \`memory\` (or the right source kind), said by their \`human:\` id, and \`propose\` the conclusion it supports by that kind's prompt. Hand them the link from \`review-url\` and tell them to run \`tastebud review\` (with \`--store <root>\` if it isn't ~/.tastebud) and accept it there: only they can.
+Pick something the owner said during this interview that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, \`capture\` it verbatim as a \`memory\` (or the right source kind), said by their \`human:\` id, and \`propose\` the conclusion it supports by that kind's prompt. Hand them the link from \`review-url\` and tell them to open the review UI with \`/tastebud:review\` in Claude Code, or \`tastebud review --open\` (with \`--store <root>\` if it isn't ~/.tastebud), and accept it there: only they can.
 
 Once they say they've accepted it, show it coming back:
 - \`recall\` on its topic, from a place its scope covers. It should appear under accepted.

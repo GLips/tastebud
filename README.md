@@ -26,7 +26,7 @@ Install is only getting an agent connected. Setup is a conversation the agent le
 
 Tastebud runs on macOS (arm64, x64) and Linux (x64, arm64); there is no Windows build. Each install downloads one 28–41 MB binary on first use, with `curl` and `tar`. The lines below pin this release; to upgrade, change the version in them (or reinstall the plugin).
 
-**Claude Code: the plugin.** One line brings the MCP server, the skill, `/tastebud:setup` and the prompt hook. The plugin downloads the Tastebud binary for its own version on first start, so there is nothing else to install.
+**Claude Code: the plugin.** One line brings the MCP server, the skill, `/tastebud:setup`, `/tastebud:review` (opens the review UI) and the prompt hook. The plugin downloads the Tastebud binary for its own version on first start, so there is nothing else to install.
 
 ```bash
 claude plugin install tastebud --marketplace GLips/tastebud --config prompt_hook=true
@@ -46,7 +46,7 @@ Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
 - Cursor: [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=tastebud&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRhc3RlYnVkQDAuMS4wIiwibWNwIl19), or `{"mcpServers":{"tastebud":{"command":"npx","args":["-y","tastebud@0.1.0","mcp"]}}}` in `~/.cursor/mcp.json`. Any other MCP client (Claude Desktop, Windsurf, …) takes the same JSON.
 - VS Code: `code --add-mcp '{"name":"tastebud","type":"stdio","command":"npx","args":["-y","tastebud@0.1.0","mcp"]}'`
 
-The skill (when to capture, propose and recall) is [`plugins/tastebud/skills/tastebud`](plugins/tastebud/skills/tastebud); outside Claude Code, copy it wherever your host reads skills (Codex: `~/.codex/skills/tastebud`).
+The skill (when to capture, propose and recall) is [`plugins/tastebud/skills/remember`](plugins/tastebud/skills/remember); outside Claude Code, copy it wherever your host reads skills (Codex: `~/.codex/skills/remember`).
 
 **The CLI alone.** One executable with the review UI inside; no Bun, no Node:
 
@@ -83,7 +83,7 @@ tastebud review                            # review UI on http://127.0.0.1:4747
 | `tastebud context` | Every accepted derivation of the inject kinds that applies here, for session start. |
 | `tastebud list` / `tastebud show <ref>` | Browse by kind, status, place, subject or text; one record with its evidence, decisions and thread. |
 | `tastebud thread-reply <ref> "<text>"` | Answer the owner's note on a review thread. |
-| `tastebud review` / `tastebud review listen` | The review UI; a long-lived listener that wakes an agent when the owner writes a note. |
+| `tastebud review` / `tastebud review listen` | The review UI (`--open` opens it in a browser, reusing one already up for the store); a long-lived listener that wakes an agent when the owner writes a note. |
 | `tastebud places` / `tastebud repoint` | Places in use and an audit of scopes that match none of your directories; propose moving a scope from one place to another. |
 | `tastebud hook prompt` / `tastebud hook preview` | The prompt hook, and exactly what it would inject. |
 | `tastebud mcp` | The agent commands as MCP tools over stdio. |
@@ -96,7 +96,7 @@ Only the owner decides, and only in the review UI. `tastebud open [ref]` prints 
 
 ## Agents
 
-**The skill.** [`plugins/tastebud/skills/tastebud/SKILL.md`](plugins/tastebud/skills/tastebud/SKILL.md) teaches an agent when to capture, propose, recall and listen, and points it at setup.
+**The skill.** [`plugins/tastebud/skills/remember/SKILL.md`](plugins/tastebud/skills/remember/SKILL.md) teaches an agent when to capture, propose, recall and listen, and points it at setup.
 
 **MCP.** `tastebud mcp` serves the agent commands as tools (`tastebud_catalog`, `tastebud_recall`, `tastebud_propose`, …) and the `setup` prompt. The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
 
@@ -115,7 +115,7 @@ Cursor reads `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
 
 Add `--store <dir>` after `mcp`, or set `TASTEBUD_STORE` in the server's environment, to use a store other than `~/.tastebud`.
 
-**The Claude Code plugin** lives in [`plugins/tastebud`](plugins/tastebud), served from this repo's marketplace. Its `bin/tastebud` runs the release binary of the plugin's version, downloaded once into `~/.cache/tastebud/<version>/` (or `$XDG_CACHE_HOME`), and is on the Bash tool's PATH, so Claude can run the CLI too. Its server shows as `plugin:tastebud:tastebud`, with tools like `mcp__plugin_tastebud_tastebud__tastebud_recall`.
+**The Claude Code plugin** lives in [`plugins/tastebud`](plugins/tastebud), served from this repo's marketplace. Its `bin/tastebud` runs the release binary of the plugin's version, downloaded once into `~/.cache/tastebud/<version>/` (or `$XDG_CACHE_HOME`), and is on the Bash tool's PATH, so Claude can run the CLI too. `/tastebud:setup` runs the setup interview; `/tastebud:review` runs `tastebud review --open`, starting the review server for the session if it isn't up. Its server shows as `plugin:tastebud:tastebud`, with tools like `mcp__plugin_tastebud_tastebud__tastebud_recall`.
 
 **The prompt hook.** `tastebud hook prompt` is a Claude Code `UserPromptSubmit` hook; the plugin installs it, on by default. It resolves where the session is from the hook's `cwd`, and adds at most three accepted or rejected derivations of the `inject` kinds that match the prompt, labelled as evidence. It never adds raw sources, gives up silently after 650 ms, and always exits 0. The plugin skips it without starting anything when there is no store, and `tastebud` stops before resolving the place when no kind is `inject`. Without the plugin, add it to `~/.claude/settings.json`:
 

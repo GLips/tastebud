@@ -21,8 +21,12 @@ export const reviewCommand = Command.make(
   "review",
   {
     port: Flag.optional(Flag.Int("port")).pipe(Flag.withDescription("Overrides the store config's review.port")),
+    open: Flag.Boolean("open").pipe(
+      Flag.withDescription("Open it in the browser; exits at once if this store's review UI is already up"),
+      Flag.withDefault(false),
+    ),
     json: jsonFlag,
     store: storeFlag,
   },
-  ({ port, json, store }) => startReviewServer(port, json, store),
+  ({ port, open, json, store }) => startReviewServer(port, open, json, store),
 ).pipe(Command.withDescription("Start the review UI on 127.0.0.1"), Command.withSubcommands([listenCommand]));
