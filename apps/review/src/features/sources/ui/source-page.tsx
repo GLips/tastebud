@@ -1,22 +1,9 @@
-import {
-  Box,
-  Alert,
-  Anchor,
-  Center,
-  CopyButton,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  Title,
-  Tooltip,
-} from "@mantine/core";
+import { Box, Alert, Center, CopyButton, Group, Loader, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { shortIdOf } from "@tastebud/core/taste-vocabulary";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatReviewTime } from "#review/shared/format.ts";
@@ -25,6 +12,7 @@ import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SourceAddress } from "#review/shared/ui/source-address.tsx";
 
 const Route = getRouteApi("/sources/$id");
 
@@ -148,12 +136,7 @@ export function SourcePage() {
               <Text size="xs" c="dimmed">
                 Where
               </Text>
-              <Anchor href={source.address} target="_blank" rel="noreferrer" size="sm">
-                <Group gap="2xs" wrap="nowrap">
-                  {source.address}
-                  <ExternalLink size={12} />
-                </Group>
-              </Anchor>
+              <SourceAddress address={source.address} variant="line" />
             </>
           )}
           {source.revises !== undefined && (

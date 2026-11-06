@@ -8,4 +8,8 @@ export {
   TranscriptEligibilityReasonSchema,
 } from "./mining-eligibility.ts";
 export { readClaudeCodeTranscriptLines } from "./previous-turn.ts";
-export { claudeCodeTranscriptAddress, quoteFitsTranscriptParts } from "./transcript-reference.ts";
+export {
+  claudeCodeTranscriptAddress,
+  claudeCodeTranscriptSessionOf,
+  quoteFitsTranscriptParts,
+} from "./transcript-reference.ts";

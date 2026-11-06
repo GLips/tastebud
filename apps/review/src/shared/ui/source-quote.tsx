@@ -2,11 +2,12 @@ import { ActionIcon, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { SourceView } from "@tastebud/core/record-views";
 import type { SourceRecord } from "@tastebud/core/records";
-import { ArrowUpRight, ExternalLink, GitCommitVertical, TextQuote } from "lucide-react";
+import { ArrowUpRight, GitCommitVertical, TextQuote } from "lucide-react";
 
 import { formatReviewTime } from "#review/shared/format.ts";
 
 import { ActionIconLink } from "./router-links.tsx";
+import { SourceAddress } from "./source-address.tsx";
 
 const styles = stylex.create({
   quote: { display: "flex", gap: "8px", alignItems: "baseline" },
@@ -102,22 +103,7 @@ export function SourceQuote({
               </ActionIcon>
             </Tooltip>
           )}
-          {source.address !== undefined && (
-            <Tooltip label="Open where it was said" withArrow>
-              <ActionIcon
-                component="a"
-                href={source.address}
-                target="_blank"
-                rel="noreferrer"
-                variant="subtle"
-                color="gray"
-                size="xs"
-                aria-label="Open where it was said"
-              >
-                <ExternalLink size={12} />
-              </ActionIcon>
-            </Tooltip>
-          )}
+          {source.address !== undefined && <SourceAddress address={source.address} variant="icon" />}
           <Tooltip label={`This ${view.kindLabel} and what cites it`} withArrow openDelay={300}>
             <ActionIconLink
               to="/sources/$id"
