@@ -1,10 +1,10 @@
 /**
- * `tastebud hook prompt`: the Claude Code UserPromptSubmit hook. Reads the event JSON on stdin, resolves
- * the context from its `cwd`, reads the previous turn from its `transcript_path`, and prints the hook
- * JSON when there is something to inject. It always
- * exits 0 and never writes to stderr: a prompt must never wait on, or be blocked by, Tastebud.
- * The feature barrel holds nothing else, so `main.ts` can load it without effect/cli and keep
- * the cold start inside the budget.
+ * `tastebud hook prompt`: the Claude Code UserPromptSubmit hook. Reads the event JSON on stdin,
+ * resolves the context from its `cwd`, reads the previous turn from its `transcript_path`, and
+ * prints the hook JSON when there is something to inject. It always exits 0 and never writes to
+ * stderr: a prompt must never wait on, or be blocked by, Tastebud.
+ * Nothing the feature barrel exports may import effect/cli: `main.ts` loads it before the command
+ * tree to keep the cold start inside the budget.
  */
 import { DEFAULT_HOOK_SETTINGS } from "@tastebud/core/kind-catalog";
 import { Effect, Exit, Option, Schema } from "effect";

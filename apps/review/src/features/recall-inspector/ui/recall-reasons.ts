@@ -1,3 +1,4 @@
+import { HOOK_OUTPUT_BUDGET_CHARS, HOOK_REPEAT_WINDOW_TURNS } from "@tastebud/core/hook-evidence";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { TasteContext } from "@tastebud/core/places";
 import type { HookPayload, RecallExplainItem } from "@tastebud/core/recall";
@@ -47,14 +48,14 @@ export const hookSilenceWording = (hook: HookPayload, catalog: CatalogView | und
       return "The context is unknown, so the hook stays silent rather than guess.";
     case "no-inject-kinds":
       return "No kind in this store has the inject policy.";
-    case "over-budget":
+    case "timed-out":
       return `Timed out: building the payload took longer than ${catalog?.hook.budgetMs ?? 650} ms, so the hook stayed silent.`;
     case "no-matches":
       return "No accepted inject item here matches these words.";
     case "recently-emitted":
-      return "Everything it would send was already sent within the last three turns.";
+      return `Everything it would send was already sent within the last ${HOOK_REPEAT_WINDOW_TURNS} turns.`;
     case "output-budget":
-      return "Nothing it would send fits the hook's 4 KiB output budget.";
+      return `Nothing it would send fits the hook's ${HOOK_OUTPUT_BUDGET_CHARS}-character output budget.`;
     case undefined:
       return "";
   }

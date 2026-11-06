@@ -1,7 +1,8 @@
 /**
  * What the prompt hook knows besides the prompt, as any host can supply it: the turn before this
- * prompt and the derivations recent hook runs already sent. A host's transcript decoder fills it in;
- * relevance, scope and selection read only this shape.
+ * prompt and the derivations earlier hook runs sent, each with its age in owner turns. A host's
+ * transcript decoder fills it in and applies no policy; relevance, scope, selection and the repeat
+ * window read only this shape.
  */
 import { Schema } from "effect";
 
@@ -14,9 +15,6 @@ export const PREVIOUS_TURN_LIMITS = {
   /** Characters of text written by edits, the latest kept. */
   changedTextChars: 4096,
 } as const;
-
-/** A derivation sent within this many real user turns is not sent again unless its state changed. */
-export const HOOK_REPEAT_WINDOW_TURNS = 3;
 
 const TouchedPathSchema = Schema.Struct({
   path: Schema.String,
@@ -37,15 +35,25 @@ export const HookEmissionSchema = Schema.Struct({ id: Schema.String, fingerprint
 export type HookEmission = typeof HookEmissionSchema.Type;
 
 /**
+ * An emission as found in the host's record, with how many owner messages came after it: 0 for
+ * output sent on the latest owner message before this prompt.
+ */
+export const RecordedHookEmissionSchema = Schema.Struct({
+  ...HookEmissionSchema.fields,
+  ownerTurnsAgo: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+});
+export type RecordedHookEmission = typeof RecordedHookEmissionSchema.Type;
+
+/**
  * A host transcript as the hook read it. `unavailable` means there was one but it couldn't be
- * read, so the hook falls back to the prompt alone. An empty `recentEmissions` suppresses nothing,
+ * read, so the hook falls back to the prompt alone. An empty `earlierEmissions` suppresses nothing,
  * which is also what a transcript in an unfamiliar format yields.
  */
 export const TranscriptReadingSchema = Schema.Union([
   Schema.Struct({
     status: Schema.Literal("read"),
     previousTurn: Schema.optionalKey(PreviousTurnEvidenceSchema),
-    recentEmissions: Schema.Array(HookEmissionSchema),
+    earlierEmissions: Schema.Array(RecordedHookEmissionSchema),
   }),
   Schema.Struct({ status: Schema.Literal("unavailable") }),
 ]);

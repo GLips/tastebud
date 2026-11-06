@@ -53,7 +53,7 @@ export function RecallInjectedPanel({ hook, stale }: { hook: HookPayload; stale:
       </Group>
       {hook.additionalContext === undefined ? (
         <Alert
-          color={hook.silence === "over-budget" ? "yellow" : "gray"}
+          color={hook.silence === "timed-out" ? "yellow" : "gray"}
           variant="light"
           {...stylex.props(stale && styles.stale)}
         >

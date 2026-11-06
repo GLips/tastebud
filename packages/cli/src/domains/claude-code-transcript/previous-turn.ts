@@ -1,15 +1,14 @@
 /**
  * The turn before the prompt now being submitted, read from the tail of a Claude Code transcript:
- * what the assistant said and which files its tools touched, and which derivations recent hook runs
- * already sent. Only what follows the latest `compact_boundary` counts, since compaction drops the
- * rest from the conversation.
+ * what the assistant said and which files its tools touched, and which derivations earlier hook
+ * runs sent, each aged in owner turns. Only what follows the latest `compact_boundary` counts, since
+ * compaction drops the rest from the conversation. How recent counts as a repeat is core's call.
  */
 import {
-  HOOK_REPEAT_WINDOW_TURNS,
-  type HookEmission,
   parseHookEmissionMarkers,
   PREVIOUS_TURN_LIMITS,
   type PreviousTurnEvidence,
+  type RecordedHookEmission,
   type TouchedPath,
   type TranscriptReading,
 } from "@tastebud/core/hook-evidence";
@@ -23,6 +22,13 @@ import {
   transcriptRecordOf,
   type UserRecord,
 } from "./transcript-records.ts";
+
+/**
+ * Turn origins Claude Code gives prompts nobody typed: another agent's message, a notification, a
+ * harness prompt, a resume after a usage limit. Any other origin is the owner, whether typed (`human`),
+ * sent through the SDK or `claude -p` (`sdk`), or set up to recur (`scheduled`).
+ */
+const NOT_OWNER_TURN_ORIGINS = new Set(["peer", "task_notification", "system", "auto_continuation"]);
 
 /** User-role text Claude Code writes itself: command output, task notifications, interruptions. */
 const HARNESS_TEXT_PREFIXES = ["<local-command-", "<task-notification>", "[Request interrupted"];
@@ -42,8 +48,7 @@ const userTextOf = (record: UserRecord): string =>
 const isRealUserMessage = (record: TranscriptRecord): record is UserRecord => {
   if (record.type !== "user") return false;
   if (record.isSidechain === true || record.isMeta === true || record.isCompactSummary === true) return false;
-  if (record.promptSource === "system" || (record.turnOrigin !== undefined && record.turnOrigin !== "human"))
-    return false;
+  if (record.promptSource === "system" || NOT_OWNER_TURN_ORIGINS.has(record.turnOrigin ?? "")) return false;
   if (typeof record.message.content !== "string" && record.message.content.some(isToolResultBlock)) return false;
   const text = userTextOf(record).trimStart();
   return !HARNESS_TEXT_PREFIXES.some((prefix) => text.startsWith(prefix));
@@ -85,17 +90,23 @@ const previousTurnOf = (records: ReadonlyArray<TranscriptRecord>): PreviousTurnE
   };
 };
 
-const emissionsIn = (records: ReadonlyArray<TranscriptRecord>): Array<HookEmission> =>
-  records.flatMap((record) =>
-    record.type === "attachment" && record.isSidechain !== true
-      ? record.attachment.content.flatMap(parseHookEmissionMarkers)
-      : [],
-  );
+/** Every hook emission in `records`, aged by the owner messages (at indexes `userAt`) recorded after it. */
+const emissionsIn = (
+  records: ReadonlyArray<TranscriptRecord>,
+  userAt: ReadonlyArray<number>,
+): Array<RecordedHookEmission> =>
+  records.flatMap((record, index) => {
+    if (record.type !== "attachment" || record.isSidechain === true) return [];
+    const ownerTurnsAgo = userAt.filter((userIndex) => userIndex > index).length;
+    return record.attachment.content
+      .flatMap(parseHookEmissionMarkers)
+      .map(({ id, fingerprint }) => ({ id, fingerprint, ownerTurnsAgo }));
+  });
 
 /**
  * `lines` are whole JSONL lines from the end of the transcript. The prompt being submitted is
  * normally not written yet when the hook runs; if it already is, it is set aside rather than taken
- * for the previous turn. Hook output recorded after the third-latest owner message is recent.
+ * for the previous turn, and doesn't age the emissions.
  */
 export const readClaudeCodeTranscriptLines = (lines: ReadonlyArray<string>, prompt: string): TranscriptReading => {
   const decoded = lines.map(transcriptRecordOf).filter((record) => record !== undefined);
@@ -113,10 +124,9 @@ export const readClaudeCodeTranscriptLines = (lines: ReadonlyArray<string>, prom
     }
   }
   const turnStart = (userAt.at(-1) ?? -1) + 1;
-  const recentStart = userAt.length >= HOOK_REPEAT_WINDOW_TURNS ? (userAt.at(-HOOK_REPEAT_WINDOW_TURNS) ?? 0) : 0;
   const previousTurn = previousTurnOf(records.slice(turnStart, end));
-  const recentEmissions = emissionsIn(records.slice(recentStart, end));
+  const earlierEmissions = emissionsIn(records.slice(0, end), userAt);
   return previousTurn === undefined
-    ? { status: "read", recentEmissions }
-    : { status: "read", previousTurn, recentEmissions };
+    ? { status: "read", earlierEmissions }
+    : { status: "read", previousTurn, earlierEmissions };
 };

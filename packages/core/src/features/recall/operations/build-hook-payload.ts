@@ -7,7 +7,17 @@ import { dirname, isAbsolute, resolve } from "node:path";
 
 import { Duration, Effect, Option, Schema } from "effect";
 
-import type { TouchedPath, TranscriptReading } from "#core/domains/hook-evidence/index.ts";
+import {
+  type HookCandidate,
+  type HookExcludedCandidate,
+  HookExclusionSchema,
+  HookMatchedBySchema,
+  mergeHookCandidates,
+  previousTurnSearchText,
+  selectHookItems,
+  type TouchedPath,
+  type TranscriptReading,
+} from "#core/domains/hook-evidence/index.ts";
 import type { DerivedKindDefinition, TasteCatalog } from "#core/domains/kind-catalog/index.ts";
 import type { TasteContext } from "#core/domains/places/index.ts";
 import { TasteContextSchema } from "#core/domains/places/index.ts";
@@ -15,16 +25,14 @@ import { DerivationSummarySchema, RecallExplanationSchema } from "#core/domains/
 import { resolvePlacesForDirectory } from "#core/features/place-context/index.server.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
 
-import { type HookCandidate, mergeHookCandidates, previousTurnSearchText, selectHookItems } from "./hook-selection.ts";
 import { assembleDerivationRecall } from "./recall.ts";
 
 const HOOK_SILENCE_REASONS = [
   "unknown-context",
   "no-inject-kinds",
   "no-matches",
-  "recently-emitted",
-  "output-budget",
-  "over-budget",
+  ...HookExclusionSchema.literals,
+  "timed-out",
 ] as const;
 
 /** At most this many directories of touched files are resolved, so a wide turn can't eat the budget. */
@@ -33,7 +41,7 @@ const TOUCHED_DIRECTORY_LIMIT = 4;
 const HookItemSchema = Schema.Struct({
   ...DerivationSummarySchema.fields,
   explanation: RecallExplanationSchema,
-  matchedBy: Schema.Literals(["prompt", "previous-turn"]),
+  matchedBy: HookMatchedBySchema,
   /** Status and scope as sent; the transcript marker carries it so a change is sent again. */
   fingerprint: Schema.String,
 });
@@ -41,7 +49,7 @@ export type HookItem = typeof HookItemSchema.Type;
 
 const HookExcludedItemSchema = Schema.Struct({
   ...HookItemSchema.fields,
-  exclusion: Schema.Literals(["recently-emitted", "output-budget"]),
+  exclusion: HookExclusionSchema,
 });
 
 export const HookPayloadSchema = Schema.Struct({
@@ -96,11 +104,13 @@ const placesOfTouchedFiles = Effect.fn("recall.placesOfTouchedFiles")(function* 
 ) {
   const { config } = yield* TasteStore;
   const base = context.cwd;
+  // A relative path needs the session's cwd to mean anything.
   const directories = [
     ...new Set(
-      touched
-        .filter((entry) => isAbsolute(entry.path) || base !== undefined)
-        .map((entry) => dirname(isAbsolute(entry.path) ? entry.path : resolve(base ?? "/", entry.path))),
+      touched.flatMap(({ path }) => {
+        if (isAbsolute(path)) return [dirname(path)];
+        return base === undefined ? [] : [dirname(resolve(base, path))];
+      }),
     ),
   ].slice(0, TOUCHED_DIRECTORY_LIMIT);
   const resolved = yield* Effect.forEach(
@@ -124,6 +134,11 @@ const hookItemOf = (candidate: HookCandidate): HookItem => ({
   ...candidate.hit,
   matchedBy: candidate.matchedBy,
   fingerprint: candidate.fingerprint,
+});
+
+const excludedItemOf = ({ exclusion, ...candidate }: HookExcludedCandidate): HookPayload["excluded"][number] => ({
+  ...hookItemOf(candidate),
+  exclusion,
 });
 
 /** Builds the prompt hook's payload within `hook.budgetMs`. */
@@ -156,12 +171,12 @@ export const buildHookPayload = Effect.fn("recall.buildHookPayload")(function* (
     return { context, touchedPlaces, candidates: mergeHookCandidates(promptHits, previousTurnHits, hook.limit) };
   });
   const built = yield* Effect.timeoutOption(build, Duration.millis(hook.budgetMs));
-  if (Option.isNone(built)) return silentPayload(base, "over-budget");
+  if (Option.isNone(built)) return silentPayload(base, "timed-out");
   const widened = { ...base, context: built.value.context, touchedPlaces: built.value.touchedPlaces };
   if (built.value.candidates.length === 0) return silentPayload(widened, "no-matches");
-  const recentEmissions = input.transcript?.status === "read" ? input.transcript.recentEmissions : [];
-  const selection = selectHookItems(built.value.candidates, recentEmissions);
-  const excluded = selection.heldBack.map((held) => ({ ...hookItemOf(held), exclusion: held.reason }));
+  const earlierEmissions = input.transcript?.status === "read" ? input.transcript.earlierEmissions : [];
+  const selection = selectHookItems(built.value.candidates, earlierEmissions);
+  const excluded = selection.excluded.map(excludedItemOf);
   if (selection.additionalContext === undefined)
     return silentPayload(
       widened,

@@ -19,13 +19,15 @@ const common = (type: string) => ({
   gitBranch: "main",
 });
 
-export const ownerTurn = (text: string) => ({
+/** A prompt the owner typed, or (`sdk`) sent through the Agent SDK or `claude -p`. */
+export const ownerTurn = (text: string, via: "typed" | "sdk" = "typed") => ({
   ...common("user"),
+  ...(via === "sdk" && { entrypoint: "sdk-cli" }),
   promptId: crypto.randomUUID(),
   message: { role: "user", content: text },
   permissionMode: "auto",
-  promptSource: "typed",
-  turnOrigin: "human",
+  promptSource: via,
+  turnOrigin: via === "sdk" ? "sdk" : "human",
 });
 
 const assistantRecord = (block: unknown) => ({

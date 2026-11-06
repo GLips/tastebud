@@ -113,8 +113,8 @@ test("stays silent, exit 0, on unknown context, a missing store and malformed st
 });
 
 /** `count` owner turns, each answered, with nothing in them the hook matches. */
-const turns = (count: number) =>
-  Array.from({ length: count }, (_, index) => [ownerTurn(`carry on ${index}`), assistantSays("Carried on.")]);
+const turns = (count: number, via: "typed" | "sdk" = "typed") =>
+  Array.from({ length: count }, (_, index) => [ownerTurn(`carry on ${index}`, via), assistantSays("Carried on.")]);
 
 const decodeHookPayload = Schema.decodeUnknownSync(Schema.fromJsonString(HookPayloadSchema));
 
@@ -212,6 +212,9 @@ test("a belief the hook sent within the last three owner turns is not sent again
   // A different status or scope fingerprint is news, so the belief goes out again.
   const restated = sent.replace(/:[0-9a-f]{8}/, ":00000000");
   expect(await hookFor([ownerTurn("sort the exports"), hookContext(restated), turns(1)])).toContain(exports);
+  // Prompts sent through the SDK or `claude -p` are owner turns too, so the window closes there as well.
+  expect(await hookFor([ownerTurn("sort the exports", "sdk"), hookContext(sent), turns(2, "sdk")])).toBe("");
+  expect(await hookFor([ownerTurn("sort the exports", "sdk"), hookContext(sent), turns(3, "sdk")])).toContain(exports);
 });
 
 test("nothing before the latest compact boundary counts, neither earlier hook output nor the turn before it", async () => {

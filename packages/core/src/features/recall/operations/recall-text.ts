@@ -1,4 +1,5 @@
 /** Text for recall, recall-explain and the hook preview. Section names come from kind labels, not hardcoded nouns. */
+import { HOOK_OUTPUT_BUDGET_CHARS, HOOK_REPEAT_WINDOW_TURNS } from "#core/domains/hook-evidence/index.ts";
 import { formatScopeLabel } from "#core/domains/places/index.ts";
 import { day, formatContextLine, formatSourceLine, indent, quoted, section } from "#core/domains/record-text/index.ts";
 import type { ExcludedRecallHit, RecallHit, RecallResult } from "#core/domains/record-views/index.ts";
@@ -86,9 +87,9 @@ const HOOK_SILENCE_WORDING: Record<NonNullable<HookPayload["silence"]>, string> 
   "unknown-context": "the context is unknown",
   "no-inject-kinds": "no kind has recall: inject",
   "no-matches": "nothing accepted matches this prompt or the previous turn here",
-  "recently-emitted": "everything it would send was sent within the last few turns",
-  "output-budget": "nothing fits the output budget",
-  "over-budget": "building it took longer than hook.budgetMs",
+  "recently-emitted": `everything it would send was sent within the last ${HOOK_REPEAT_WINDOW_TURNS} turns`,
+  "output-budget": `nothing fits the ${HOOK_OUTPUT_BUDGET_CHARS}-character output budget`,
+  "timed-out": "building it took longer than hook.budgetMs",
 };
 
 const PREVIOUS_TURN_WORDING: Record<HookPayload["previousTurn"], string> = {

@@ -1,25 +1,32 @@
 /**
- * The prompt hook's pure half: merge the prompt's and the previous turn's matches, hold back what a
- * recent run already sent, and fit whole items into the output budget. Scores from the two searches
- * are never compared; the prompt's matches simply come first.
+ * The prompt hook's selection policy: merge the prompt's and the previous turn's matches, exclude
+ * what a recent run already sent, and fit whole items into the output budget. Scores from the two
+ * searches are never compared; the prompt's matches simply come first.
  */
-import {
-  type HookEmission,
-  hookEmissionFingerprint,
-  type PreviousTurnEvidence,
-  renderHookEmissionMarker,
-} from "#core/domains/hook-evidence/index.ts";
+import { Schema } from "effect";
+
 import { formatScopeLabel } from "#core/domains/places/index.ts";
 import type { RecallHit } from "#core/domains/record-views/index.ts";
 
+import type { PreviousTurnEvidence, RecordedHookEmission } from "./hook-evidence.ts";
+import { hookEmissionFingerprint, renderHookEmissionMarker } from "./hook-marker.ts";
+
 /** The whole injected block, header and marker included, stays within this many characters. */
-const HOOK_OUTPUT_BUDGET_CHARS = 4096;
+export const HOOK_OUTPUT_BUDGET_CHARS = 4096;
+
+/** A derivation sent within this many owner turns is not sent again unless its state changed. */
+export const HOOK_REPEAT_WINDOW_TURNS = 3;
 
 const HOOK_HEADER =
   "These are previously accepted preferences relevant to this work. Apply them where relevant; the user's current explicit request takes precedence.";
 
 /** Which search found a hook item: the prompt's own words, or the turn the prompt answers. */
-export type HookMatchedBy = "prompt" | "previous-turn";
+export const HookMatchedBySchema = Schema.Literals(["prompt", "previous-turn"]);
+export type HookMatchedBy = typeof HookMatchedBySchema.Type;
+
+/** Why a selected item was not sent. */
+export const HookExclusionSchema = Schema.Literals(["recently-emitted", "output-budget"]);
+export type HookExclusion = typeof HookExclusionSchema.Type;
 
 export interface HookCandidate {
   readonly hit: Omit<RecallHit, "sources">;
@@ -27,7 +34,7 @@ export interface HookCandidate {
   readonly fingerprint: string;
 }
 
-export type HookHeldBack = "recently-emitted" | "output-budget";
+export type HookExcludedCandidate = HookCandidate & { readonly exclusion: HookExclusion };
 
 /** Prompt matches first, then previous-turn matches not already in; the first `limit` of those. */
 export const mergeHookCandidates = (
@@ -61,7 +68,7 @@ const renderHookBlock = (sent: ReadonlyArray<HookCandidate>) =>
 
 export interface HookSelection {
   readonly sent: ReadonlyArray<HookCandidate>;
-  readonly heldBack: ReadonlyArray<HookCandidate & { readonly reason: HookHeldBack }>;
+  readonly excluded: ReadonlyArray<HookExcludedCandidate>;
   /** Absent when nothing is sent. */
   readonly additionalContext?: string;
 }
@@ -73,23 +80,27 @@ export interface HookSelection {
  */
 export const selectHookItems = (
   candidates: ReadonlyArray<HookCandidate>,
-  recentEmissions: ReadonlyArray<HookEmission>,
+  earlierEmissions: ReadonlyArray<RecordedHookEmission>,
 ): HookSelection => {
-  const recent = new Set(recentEmissions.map((emission) => `${emission.id}:${emission.fingerprint}`));
-  const heldBack: Array<HookCandidate & { readonly reason: HookHeldBack }> = [];
+  const recent = new Set(
+    earlierEmissions
+      .filter((emission) => emission.ownerTurnsAgo < HOOK_REPEAT_WINDOW_TURNS)
+      .map((emission) => `${emission.id}:${emission.fingerprint}`),
+  );
+  const excluded: Array<HookExcludedCandidate> = [];
   const sent: Array<HookCandidate> = [];
   for (const candidate of candidates) {
     if (recent.has(`${candidate.hit.id}:${candidate.fingerprint}`)) {
-      heldBack.push({ ...candidate, reason: "recently-emitted" });
+      excluded.push({ ...candidate, exclusion: "recently-emitted" });
       continue;
     }
     if (renderHookBlock([...sent, candidate]).length > HOOK_OUTPUT_BUDGET_CHARS) {
-      heldBack.push({ ...candidate, reason: "output-budget" });
+      excluded.push({ ...candidate, exclusion: "output-budget" });
       continue;
     }
     sent.push(candidate);
   }
-  return sent.length === 0 ? { sent, heldBack } : { sent, heldBack, additionalContext: renderHookBlock(sent) };
+  return sent.length === 0 ? { sent, excluded } : { sent, excluded, additionalContext: renderHookBlock(sent) };
 };
 
 /** Splits `camelCase` and `snake_case` identifiers, so code an edit wrote matches words in a statement. */

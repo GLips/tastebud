@@ -35,7 +35,7 @@ const UserRecordSchema = Schema.Struct({
   isCompactSummary: Schema.optionalKey(Schema.Boolean),
   /** `typed`, `queued`, `sdk`; `system` for task notifications. Absent in older versions. */
   promptSource: Schema.optionalKey(Schema.String),
-  /** `human` for the owner's own turns. Absent in older versions and on tool results. */
+  /** `human`, `sdk` or `scheduled` for the owner's turns; `peer`, `system` and others for the rest. Absent in older versions and on tool results. */
   turnOrigin: Schema.optionalKey(Schema.String),
   message: Schema.Struct({ content: Schema.Union([Schema.String, Schema.Array(ContentBlockSchema)]) }),
 });
