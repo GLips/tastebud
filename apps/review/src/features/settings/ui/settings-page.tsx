@@ -161,7 +161,7 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
     <Stack gap="sm">
       <Text fw={600}>Connect an agent</Text>
       <InstallSnippet
-        title="Claude Code: the plugin (MCP server, skill, /tastebud:setup and the prompt hook)"
+        title="Claude Code: the plugin (MCP server, skill, /tastebud:review and the prompt hook)"
         code={lines.claudeCodePlugin}
         label="Claude Code plugin install"
       />

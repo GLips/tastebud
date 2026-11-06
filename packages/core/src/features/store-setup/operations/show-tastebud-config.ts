@@ -1,7 +1,7 @@
-/** `config-show`: where setup starts. A missing store is a result, not a failure. */
+/** `config-show`: where setup starts, with the interview on request. A missing store is a result, not a failure. */
 import { Effect, Result, Schema } from "effect";
 
-import { starterTastebudConfigText } from "#core/domains/store-config/index.ts";
+import { starterTastebudConfigText, TASTEBUD_SETUP_INTERVIEW } from "#core/domains/store-config/index.ts";
 import { loadTastebudConfigText } from "#core/features/record-store/index.server.ts";
 
 import {
@@ -10,7 +10,15 @@ import {
   tastebudConfigViewOf,
 } from "./tastebud-config-files.ts";
 
+export const ShowTastebudConfigInput = Schema.Struct({
+  guide: Schema.optionalKey(Schema.Boolean).annotate({
+    description: "Also return the setup interview to lead the owner through",
+  }),
+});
+
 export const ShowTastebudConfigResultSchema = Schema.Struct({
+  /** The setup interview, when asked for with `guide`. */
+  guide: Schema.optionalKey(Schema.String),
   root: Schema.String,
   path: Schema.String,
   exists: Schema.Boolean,
@@ -27,10 +35,14 @@ export const ShowTastebudConfigResultSchema = Schema.Struct({
 export type ShowTastebudConfigResult = typeof ShowTastebudConfigResultSchema.Type;
 
 /** The store's config text, hash and loaded view; for a missing store, where it would go and a starter. */
-export const showTastebudConfigText = Effect.fn("store-setup.showTastebudConfigText")(function* () {
+export const showTastebudConfigText = Effect.fn("store-setup.showTastebudConfigText")(function* (
+  input: typeof ShowTastebudConfigInput.Type,
+) {
   const { root, path, current } = yield* readOperationTastebudConfigFile;
+  const guide = input.guide === true ? { guide: TASTEBUD_SETUP_INTERVIEW } : {};
   if (current === undefined) {
     const missing: ShowTastebudConfigResult = {
+      ...guide,
       root,
       path,
       exists: false,
@@ -41,6 +53,7 @@ export const showTastebudConfigText = Effect.fn("store-setup.showTastebudConfigT
   }
   const loaded = yield* Effect.result(loadTastebudConfigText(path, current.text));
   const shown: ShowTastebudConfigResult = {
+    ...guide,
     root,
     path,
     exists: true,

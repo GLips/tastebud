@@ -316,7 +316,7 @@ The MCP server exposes every `agent` operation as `tastebud_<name>`, with `-` tu
 
 ### 5.2 Setup
 
-Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, served as the MCP prompt `setup` and printed by `tastebud setup-guide`, which the Claude Code plugin's `/tastebud:setup` runs.
+Installing is only connecting an agent (the MCP server, or the CLI on PATH). The rest is an interview the agent leads: whose words count (source kinds), what conclusions to draw (derived kinds and their prompts), and where work happens (`place`, tested on real paths with `config-check` probes). The agent shows the full file and the diff, and calls `config-write` only after the owner's explicit yes in chat; config is settings, not taste, so it needs no review-UI ratification. The script is one core constant, `TASTEBUD_SETUP_INTERVIEW`, returned by `config-show` with `guide` (`tastebud_config_show`, `tastebud config-show --guide`). There is no setup command or MCP prompt: the agent calls it when there is no store or the owner asks.
 
 The config operations run with only the store root (`TasteStoreRoot`), never an open store, so they work before a store exists; every other operation still opens one, and on a missing store fails with `StoreNotInitialised`, whose sentence points at setup.
 
@@ -412,7 +412,7 @@ Integration tests run through operations, with temp stores and real git.
    - `tools/list` holds exactly the agent operations.
    - `tastebud_propose` then `tastebud_recall` work with an `in` argument.
    - Invalid input gives `isError`.
-   - Setup from nothing: the `setup` prompt, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
+   - Setup from nothing: `config-show` with `guide`, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
 8. **CLI:** `tastebud capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `tastebud decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
 9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context.
 

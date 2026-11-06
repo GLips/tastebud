@@ -1,12 +1,12 @@
 /**
  * The store's config: `config-show`, `config-check` and `config-write`, plus `init` (the starter
- * text through the same write) and `setup-guide` (the interview an agent runs with the owner).
+ * text through the same write).
  */
-import { TASTEBUD_SETUP_INTERVIEW, starterTastebudConfigText } from "@tastebud/core/store-config";
+import { starterTastebudConfigText } from "@tastebud/core/store-config";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/cli";
 
-import { currentUserName, printLine } from "#cli/infrastructure/terminal.ts";
+import { currentUserName } from "#cli/infrastructure/terminal.ts";
 import { definedFields, jsonFlag, optionalTextFlag, repeatableTextFlag, storeFlag } from "#cli/shared/cli-flags.ts";
 
 import { describedAs, readTextOrStdin, runCliOperation } from "./run-cli-operation.ts";
@@ -15,8 +15,17 @@ const configTextFlag = Flag.String("text").pipe(
   Flag.withDescription("The complete tastebud.config.ts text, or - to read it from stdin"),
 );
 
-export const configShowCommand = Command.make("config-show", { json: jsonFlag, store: storeFlag }, ({ json, store }) =>
-  runCliOperation("config-show", {}, { store, json }),
+export const configShowCommand = Command.make(
+  "config-show",
+  {
+    guide: Flag.Boolean("guide").pipe(
+      Flag.withDescription("Also print the setup interview to lead the owner through"),
+      Flag.withDefault(false),
+    ),
+    json: jsonFlag,
+    store: storeFlag,
+  },
+  ({ guide, json, store }) => runCliOperation("config-show", { guide }, { store, json }),
 ).pipe(describedAs("config-show"));
 
 export const configCheckCommand = Command.make(
@@ -70,8 +79,4 @@ export const initCommand = Command.make(
   },
 ).pipe(
   Command.withDescription("Create a store with the commented starter tastebud.config.ts (an agent's setup does more)"),
-);
-
-export const setupGuideCommand = Command.make("setup-guide", {}, () => printLine(TASTEBUD_SETUP_INTERVIEW)).pipe(
-  Command.withDescription("The setup interview an agent runs with the owner to write tastebud.config.ts"),
 );

@@ -7,7 +7,6 @@ export {
   configShowCommand,
   configWriteCommand,
   initCommand,
-  setupGuideCommand,
 } from "./controllers/config-commands.ts";
 export { reindexCommand } from "./controllers/store-commands.ts";
 export {

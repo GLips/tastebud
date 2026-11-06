@@ -4,7 +4,11 @@ export {
   CheckTastebudConfigResultSchema,
   checkTastebudConfigText,
 } from "./operations/check-tastebud-config.ts";
-export { ShowTastebudConfigResultSchema, showTastebudConfigText } from "./operations/show-tastebud-config.ts";
+export {
+  ShowTastebudConfigInput,
+  ShowTastebudConfigResultSchema,
+  showTastebudConfigText,
+} from "./operations/show-tastebud-config.ts";
 export { countStoreRecordFiles, requireNoStoreRecords } from "./operations/store-record-count.ts";
 export {
   renderCheckTastebudConfigText,

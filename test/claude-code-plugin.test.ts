@@ -127,7 +127,12 @@ test("the plugin's MCP server and hooks run commands the CLI has", () => {
   expect(hooks.UserPromptSubmit[0]?.hooks[0]?.command).toBe('"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-hook.sh"');
   expect(readFileSync(PROMPT_HOOK, "utf8")).toContain('exec "$tastebud_binary" hook prompt\n');
   expect(readFileSync(PROMPT_HOOK, "utf8")).toContain(`/${TASTEBUD_CONFIG_FILE}" ]`);
-  for (const args of [["mcp", "--help"], ["hook", "prompt", "--help"], ["setup-guide"], ["--version"]])
+  for (const args of [
+    ["mcp", "--help"],
+    ["hook", "prompt", "--help"],
+    ["config-show", "--guide", "--help"],
+    ["--version"],
+  ])
     expect(Bun.spawnSync([...TASTEBUD_COMMAND_LINE, ...args], { stdout: "pipe", stderr: "pipe" }).exitCode).toBe(0);
 });
 

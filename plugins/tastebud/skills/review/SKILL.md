@@ -9,4 +9,4 @@ Run `"${CLAUDE_PLUGIN_ROOT}/bin/tastebud" review --open` with the Bash tool's `r
 
 Wait for the line it prints, then give the owner the URL from it. A server this starts lives as long as this session.
 
-If it reports that there is no store, point the owner at `/tastebud:setup`.
+If it reports that there is no store, offer to set Tastebud up: with a yes, run `tastebud config-show --guide` and lead the owner through the interview it prints.

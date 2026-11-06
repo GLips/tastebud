@@ -13,8 +13,8 @@ export class StoreNotInitialised extends Data.TaggedError("StoreNotInitialised")
 }> {
   sentenceFor(surface: TasteSurface) {
     const setup = isArgumentSurface(surface)
-      ? "Set it up with the owner: run this server's `setup` prompt, which starts with tastebud_config_show. To use a different store, the MCP server must be started with --store <dir>"
-      : "Set it up with the owner: `tastebud setup-guide` is the interview, starting with `tastebud config-show`. To use a different store, pass --store or set TASTEBUD_STORE";
+      ? "Set it up with the owner: call tastebud_config_show with guide: true and lead them through the interview it returns. To use a different store, the MCP server must be started with --store <dir>"
+      : "Set it up with the owner: run `tastebud config-show --guide` and lead them through the interview it prints. To use a different store, pass --store or set TASTEBUD_STORE";
     return `No Tastebud store at ${this.root} yet. ${setup}.`;
   }
   override get message() {

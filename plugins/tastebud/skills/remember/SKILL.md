@@ -26,7 +26,7 @@ On the CLI, `--by` is your own name as an agent (`claude-code/2.x`), never `huma
 
 ## Setup
 
-If there is no store yet (`tastebud catalog` says so), or the owner wants to change what Tastebud keeps, run the setup interview with them. Read it from `tastebud setup-guide`; the owner can also start it themselves with `/tastebud:setup` (the Claude Code plugin) or the MCP prompt `setup` in other hosts. It starts with `tastebud config-show` and ends with `tastebud config-write`, only after the owner says yes to the diff.
+If there is no store yet (`tastebud catalog` says so), or the owner asks to set Tastebud up or change what it keeps, run `tastebud config-show --guide` (`tastebud_config_show` with `guide: true`) and lead them through the interview it returns. It ends with `tastebud config-write`, only after the owner says yes to the diff. If the owner states a preference or correction before a store exists, offer setup, and once the store exists capture those words as an early source rather than dropping them.
 
 ## 1. Read the catalog first
 

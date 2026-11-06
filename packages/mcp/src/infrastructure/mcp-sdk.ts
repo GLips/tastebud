@@ -1,18 +1,12 @@
 /** The `@modelcontextprotocol/server` owner: building the server, its transport, and what the client says. */
-import { ProtocolError, ProtocolErrorCode, Server } from "@modelcontextprotocol/server";
+import { Server } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { TASTEBUD_VERSION } from "@tastebud/core/taste-vocabulary";
 
 export type TastebudMcpSdkServer = Server;
 
 export const createTastebudMcpSdkServer = (instructions: string): TastebudMcpSdkServer =>
-  new Server(
-    { name: "tastebud", version: TASTEBUD_VERSION },
-    { capabilities: { tools: {}, prompts: {} }, instructions },
-  );
-
-/** The JSON-RPC error for a request naming something the server doesn't have, like an unknown prompt. */
-export const invalidMcpParams = (message: string) => new ProtocolError(ProtocolErrorCode.InvalidParams, message);
+  new Server({ name: "tastebud", version: TASTEBUD_VERSION }, { capabilities: { tools: {} }, instructions });
 
 /** Serves `server` on stdin and stdout until the client leaves. */
 export const connectMcpServerOverStdio = (server: TastebudMcpSdkServer) => server.connect(new StdioServerTransport());

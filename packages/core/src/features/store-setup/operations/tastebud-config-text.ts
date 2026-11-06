@@ -27,7 +27,7 @@ const problemsSection = (problems: ReadonlyArray<string>) =>
     problems.map((problem) => `- ${problem}`),
   );
 
-export const renderShowTastebudConfigText = (result: ShowTastebudConfigResult) => {
+const renderConfigState = (result: ShowTastebudConfigResult) => {
   if (!result.exists)
     return [
       `No Tastebud store at ${result.root} yet. Writing a config there creates it: config-write with expected_current "".`,
@@ -40,6 +40,9 @@ export const renderShowTastebudConfigText = (result: ShowTastebudConfigResult) =
     result.text ?? "",
   ].join("\n\n");
 };
+
+export const renderShowTastebudConfigText = (result: ShowTastebudConfigResult) =>
+  [result.guide, renderConfigState(result)].filter((part) => part !== undefined).join("\n\n");
 
 export const renderCheckTastebudConfigText = (result: CheckTastebudConfigResult) =>
   [

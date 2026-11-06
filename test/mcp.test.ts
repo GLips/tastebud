@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { listTasteOperations, mcpToolNameOf } from "@tastebud/core/operations";
+import { TASTEBUD_SETUP_INTERVIEW } from "@tastebud/core/store-config";
 import { TASTEBUD_VERSION } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 
@@ -111,17 +112,15 @@ test("capture, propose and recall work from an `in` directory; bad input is an e
   expect(JSON.stringify(invalid.content)).toContain("bogus");
 });
 
-test("setup over MCP: the setup prompt, a check that writes nothing, then a write that creates the store", async () => {
+test("setup over MCP: the guide with no store, a check that writes nothing, then a write that creates the store", async () => {
   const store = join(makeTemporaryDirectory("setup"), "store");
   const client = await connectTastebudMcp(store);
-  const { prompts } = await client.listPrompts();
-  expect(prompts.map((prompt) => prompt.name)).toEqual(["setup"]);
-  const setup = await client.getPrompt({ name: "setup" });
-  expect(JSON.stringify(setup.messages)).toContain("config-show");
+  const shown = await client.callTool({ name: "tastebud_config_show", arguments: { guide: true } });
+  expect(shown.structuredContent).toMatchObject({ exists: false, guide: TASTEBUD_SETUP_INTERVIEW });
 
   const missing = await client.callTool({ name: "tastebud_catalog", arguments: {} });
   expect(missing.isError).toBe(true);
-  expect(JSON.stringify(missing.content)).toContain("`setup` prompt");
+  expect(JSON.stringify(missing.content)).toContain("tastebud_config_show with guide: true");
 
   const bad = demoConfigText(`"git"`).replace(`sources: ["memory"]`, `sources: ["chat"]`);
   const checked = await client.callTool({ name: "tastebud_config_check", arguments: { text: bad } });

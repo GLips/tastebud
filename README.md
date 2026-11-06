@@ -26,7 +26,7 @@ Install is only getting an agent connected. Setup is a conversation the agent le
 
 Tastebud runs on macOS (arm64, x64) and Linux (x64, arm64); there is no Windows build. Each install downloads one 28–41 MB binary on first use, with `curl` and `tar`. The lines below pin this release; to upgrade, change the version in them (or reinstall the plugin).
 
-**Claude Code: the plugin.** One line brings the MCP server, the skill, `/tastebud:setup`, `/tastebud:review` (opens the review UI) and the prompt hook. The plugin downloads the Tastebud binary for its own version on first start, so there is nothing else to install.
+**Claude Code: the plugin.** One line brings the MCP server, the skill, `/tastebud:review` (opens the review UI) and the prompt hook. The plugin downloads the Tastebud binary for its own version on first start, so there is nothing else to install.
 
 ```bash
 claude plugin install tastebud --marketplace GLips/tastebud --config prompt_hook=true
@@ -57,7 +57,7 @@ npm install -g tastebud                                                         
 
 Or download `tastebud-<os>-<arch>.tar.gz` from the release page. Binaries run on macOS (arm64, x64) and Linux (x64, arm64). With the CLI on your PATH, any host can run `tastebud mcp` instead of the `npx` line. A config may import its own relative files and `node:` builtins, never packages.
 
-Then **ask your agent to set Tastebud up**, or run `/tastebud:setup` in Claude Code (the MCP prompt `setup` in other hosts that show prompts). An agent with only the CLI reads the same interview from `tastebud setup-guide`. It asks whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `tastebud.config.ts` and its diff, and writes it once you say yes. Then it captures something you said during the interview and hands you the review link.
+Then **ask your agent to set Tastebud up**. It reads the interview from `tastebud_config_show` with `guide: true` (`tastebud config-show --guide` on the CLI) and asks whose words you want kept and from where, what conclusions you want drawn from them, and where your work lives. It tests the place resolver on your real directories, shows you the whole `tastebud.config.ts` and its diff, and writes it once you say yes. Then it captures something you said during the interview and hands you the review link.
 
 The store is `--store`, else `$TASTEBUD_STORE`, else `~/.tastebud`. Without an agent, `tastebud init` writes a commented starter config.
 
@@ -87,7 +87,7 @@ tastebud review                            # review UI on http://127.0.0.1:4747
 | `tastebud places` / `tastebud repoint` | Places in use and an audit of scopes that match none of your directories; propose moving a scope from one place to another. |
 | `tastebud hook prompt` / `tastebud hook preview` | The prompt hook, and exactly what it would inject. |
 | `tastebud mcp` | The agent commands as MCP tools over stdio. |
-| `tastebud config-show` / `config-check` / `config-write` | Setup's operations: the config and its hash, validate a candidate and diff it, write it (creating the store). `tastebud setup-guide` is the interview. |
+| `tastebud config-show` / `config-check` / `config-write` | Setup's operations: the config and its hash, validate a candidate and diff it, write it (creating the store). `config-show --guide` adds the setup interview. |
 | `tastebud init` / `tastebud seed` / `tastebud reindex` | The starter config; the demo store; rebuild the index. |
 
 Every command has `--help`, and most take `--json`. Commands that read where you are take `--in <dir>` (resolve that directory) or `--at <place>` (take that place as given). Exit codes: 0 ok, 1 broken, 2 bad input (including a proposal with no scope from an unknown place), 3 refused (a near repeat), 4 conflict.
@@ -98,7 +98,7 @@ Only the owner decides, and only in the review UI. `tastebud open [ref]` prints 
 
 **The skill.** [`plugins/tastebud/skills/remember/SKILL.md`](plugins/tastebud/skills/remember/SKILL.md) teaches an agent when to capture, propose, recall and listen, and points it at setup.
 
-**MCP.** `tastebud mcp` serves the agent commands as tools (`tastebud_catalog`, `tastebud_recall`, `tastebud_propose`, …) and the `setup` prompt. The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
+**MCP.** `tastebud mcp` serves the agent commands as tools (`tastebud_catalog`, `tastebud_recall`, `tastebud_propose`, …); it has no prompts. The owner's commands are never exposed. The server never uses its own working directory: when the client offers exactly one `file://` root, that is where the agent is; otherwise tools take `in` (a directory) or `at` (places).
 
 Registered by hand against an installed CLI (the [install section](#install) has the plugin and the `npx` lines):
 
@@ -115,7 +115,7 @@ Cursor reads `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
 
 Add `--store <dir>` after `mcp`, or set `TASTEBUD_STORE` in the server's environment, to use a store other than `~/.tastebud`.
 
-**The Claude Code plugin** lives in [`plugins/tastebud`](plugins/tastebud), served from this repo's marketplace. Its `bin/tastebud` runs the release binary of the plugin's version, downloaded once into `~/.cache/tastebud/<version>/` (or `$XDG_CACHE_HOME`), and is on the Bash tool's PATH, so Claude can run the CLI too. `/tastebud:setup` runs the setup interview; `/tastebud:review` runs `tastebud review --open`, starting the review server for the session if it isn't up. Its server shows as `plugin:tastebud:tastebud`, with tools like `mcp__plugin_tastebud_tastebud__tastebud_recall`.
+**The Claude Code plugin** lives in [`plugins/tastebud`](plugins/tastebud), served from this repo's marketplace. Its `bin/tastebud` runs the release binary of the plugin's version, downloaded once into `~/.cache/tastebud/<version>/` (or `$XDG_CACHE_HOME`), and is on the Bash tool's PATH, so Claude can run the CLI too. `/tastebud:review`, its only command, runs `tastebud review --open`, starting the review server for the session if it isn't up. Its server shows as `plugin:tastebud:tastebud`, with tools like `mcp__plugin_tastebud_tastebud__tastebud_recall`.
 
 **The prompt hook.** `tastebud hook prompt` is a Claude Code `UserPromptSubmit` hook; the plugin installs it, on by default. It resolves where the session is from the hook's `cwd`, and adds at most three accepted or rejected derivations of the `inject` kinds that match the prompt, labelled as evidence. It never adds raw sources, gives up silently after 650 ms, and always exits 0. The plugin skips it without starting anything when there is no store, and `tastebud` stops before resolving the place when no kind is `inject`. Without the plugin, add it to `~/.claude/settings.json`:
 
@@ -187,7 +187,7 @@ bun run dev:link       # `tastebud` on your PATH (~/.bun/bin) runs this checkout
 
 Then point your agent at it:
 
-- **Claude Code, keeping the plugin:** add `{"env":{"TASTEBUD_BIN":"~/.bun/bin/tastebud"}}` to `~/.claude/settings.json`. The plugin's MCP server and hook then run your checkout instead of downloading its release, in every session, so a broken checkout breaks Tastebud everywhere until you fix it or remove the variable. For the plugin's own files (skill, hooks, `/tastebud:setup`), install it from the checkout: `claude plugin marketplace add "$PWD"`, then `claude plugin install tastebud@tastebud --config prompt_hook=true`. A local marketplace loads the plugin in place, so edits arrive with the next session or `/reload-plugins`.
+- **Claude Code, keeping the plugin:** add `{"env":{"TASTEBUD_BIN":"~/.bun/bin/tastebud"}}` to `~/.claude/settings.json`. The plugin's MCP server and hook then run your checkout instead of downloading its release, in every session, so a broken checkout breaks Tastebud everywhere until you fix it or remove the variable. For the plugin's own files (skills, hooks), install it from the checkout: `claude plugin marketplace add "$PWD"`, then `claude plugin install tastebud@tastebud --config prompt_hook=true`. A local marketplace loads the plugin in place, so edits arrive with the next session or `/reload-plugins`.
 - **Any host, without the plugin:** register the linked command, e.g. `claude mcp add tastebud -- tastebud mcp` or `codex mcp add tastebud -- tastebud mcp`.
 
 The MCP server is a long-running process: after changing code, reconnect it (`/mcp` in Claude Code) or start a new session. `bun run dev:unlink` removes the link.

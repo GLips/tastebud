@@ -10,6 +10,7 @@ import {
   renderCheckTastebudConfigText,
   renderShowTastebudConfigText,
   renderWriteTastebudConfigText,
+  ShowTastebudConfigInput,
   ShowTastebudConfigResultSchema,
   showTastebudConfigText,
   WriteTastebudConfigInput,
@@ -17,7 +18,7 @@ import {
   writeOperationTastebudConfigText,
 } from "#core/features/store-setup/index.server.ts";
 
-import { declareTasteOperation, NoInput } from "./taste-operation-declaration.ts";
+import { declareTasteOperation } from "./taste-operation-declaration.ts";
 
 export const STORE_ROOT_TASTE_OPERATIONS = {
   "config-show": declareTasteOperation({
@@ -25,10 +26,10 @@ export const STORE_ROOT_TASTE_OPERATIONS = {
     audience: "agent",
     kind: "query",
     description:
-      "Setup starts here: the store's tastebud.config.ts text, its hash and what it loads as, or, with no store yet, where it would go and a starter.",
-    input: NoInput,
+      "Setup starts here: the store's tastebud.config.ts text, its hash and what it loads as, or, with no store yet, where it would go and a starter. With guide, also the setup interview.",
+    input: ShowTastebudConfigInput,
     output: ShowTastebudConfigResultSchema,
-    run: () => showTastebudConfigText(),
+    run: showTastebudConfigText,
     renderText: renderShowTastebudConfigText,
   }),
   "config-check": declareTasteOperation({
