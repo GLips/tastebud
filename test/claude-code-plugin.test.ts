@@ -20,6 +20,7 @@ import {
   makeTemporaryDirectory,
   OWNER,
   runOperation,
+  serveFakeRelease,
   TASTEBUD_COMMAND_LINE,
   tastebudProcessEnv,
 } from "./support.ts";
@@ -96,41 +97,6 @@ const runScript = async (script: string, args: ReadonlyArray<string>, env: Recor
     child.exited,
   ]);
   return { exitCode, stdout, stderr };
-};
-
-/**
- * A release server in 4900-4999 with this platform's archive of `binary` and its SHA256SUMS, counting
- * archive fetches.
- */
-const serveFakeRelease = async (binary: string | Uint8Array) => {
-  const work = makeTemporaryDirectory("plugin-release");
-  const archive = `tastebud-${process.platform}-${process.arch === "arm64" ? "arm64" : "x64"}.tar.gz`;
-  writeFileSync(join(work, "tastebud"), binary);
-  chmodSync(join(work, "tastebud"), 0o755);
-  expect(Bun.spawnSync(["tar", "-czf", archive, "tastebud"], { cwd: work }).exitCode).toBe(0);
-  const bytes = readFileSync(join(work, archive));
-  const sums = `${new Bun.CryptoHasher("sha256").update(bytes).digest("hex")}  ${archive}\n`;
-  const fetched = { archives: 0 };
-  for (let port = 4900; port < 5000; port += 1) {
-    try {
-      const server = Bun.serve({
-        hostname: "127.0.0.1",
-        port,
-        fetch: (request) => {
-          const path = new URL(request.url).pathname;
-          if (path === `/${archive}`) {
-            fetched.archives += 1;
-            return new Response(bytes);
-          }
-          return path === "/SHA256SUMS" ? new Response(sums) : new Response("missing", { status: 404 });
-        },
-      });
-      return { server, fetched, url: `http://127.0.0.1:${String(port)}` };
-    } catch {
-      // Taken: try the next one.
-    }
-  }
-  throw new Error("no free port in 4900-4999");
 };
 
 test("the plugin, its marketplace and the README carry this release and the shared host lines", () => {

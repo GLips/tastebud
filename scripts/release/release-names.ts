@@ -1,10 +1,7 @@
-/**
- * The names a release is published under. Platform packages are `${TASTEBUD_NPM_PACKAGE_NAME}-<os>-<arch>`
- * (`tastebud-darwin-arm64`, …), derived where they are written and resolved.
- */
+/** The npm package a release is published as: one launcher that fetches the binary from the GitHub release. */
 export const TASTEBUD_NPM_PACKAGE_NAME = "tastebud";
 
-/** The GitHub repo whose releases hold the binaries; install.sh and the launcher's hint point at it. */
+/** The GitHub repo whose releases hold the binaries; install.sh fetches from it. */
 export const TASTEBUD_RELEASE_REPO = "GLips/tastebud";
 
 /** Every platform a release ships, as `bun build --compile --target` spells it. */

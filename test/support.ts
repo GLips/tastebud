@@ -1,6 +1,15 @@
-/** Temp stores, real git checkouts, `tastebud` as a process, and a one-line way to run an operation as a caller would. */
-import { afterEach } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+/** Temp stores, real git checkouts, `tastebud` as a process, a fake GitHub release, and a one-line way to run an operation as a caller would. */
+import { afterEach, expect } from "bun:test";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -179,3 +188,38 @@ const DEMO_KINDS = `
 /** The demo's kinds (belief inject, insight pull, idea never) with `place` and `hook` as given. */
 export const demoConfigText = (place: string, hook = "{ limit: 3, budgetMs: 650 }") =>
   `export default {\n  owner: "${OWNER}",\n  place: ${place},${DEMO_KINDS}\n  hook: ${hook},\n};\n`;
+
+/**
+ * A GitHub release for install.sh to reach through TASTEBUD_INSTALL_BASE_URL: a server in 4900-4999 with
+ * this platform's archive of `binary` and its SHA256SUMS, counting archive fetches.
+ */
+export const serveFakeRelease = async (binary: string | Uint8Array) => {
+  const work = makeTemporaryDirectory("release");
+  const archive = `tastebud-${process.platform}-${process.arch === "arm64" ? "arm64" : "x64"}.tar.gz`;
+  writeFileSync(join(work, "tastebud"), binary);
+  chmodSync(join(work, "tastebud"), 0o755);
+  expect(Bun.spawnSync(["tar", "-czf", archive, "tastebud"], { cwd: work }).exitCode).toBe(0);
+  const bytes = readFileSync(join(work, archive));
+  const sums = `${new Bun.CryptoHasher("sha256").update(bytes).digest("hex")}  ${archive}\n`;
+  const fetched = { archives: 0 };
+  for (let port = 4900; port < 5000; port += 1) {
+    try {
+      const server = Bun.serve({
+        hostname: "127.0.0.1",
+        port,
+        fetch: (request) => {
+          const path = new URL(request.url).pathname;
+          if (path === `/${archive}`) {
+            fetched.archives += 1;
+            return new Response(bytes);
+          }
+          return path === "/SHA256SUMS" ? new Response(sums) : new Response("missing", { status: 404 });
+        },
+      });
+      return { server, fetched, url: `http://127.0.0.1:${String(port)}` };
+    } catch {
+      // Taken: try the next one.
+    }
+  }
+  throw new Error("no free port in 4900-4999");
+};

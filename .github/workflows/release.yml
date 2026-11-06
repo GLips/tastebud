@@ -92,20 +92,6 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - run: bun install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          path: release
-          merge-multiple: true
-      - name: Unpack the binaries
-        run: |
-          for archive in release/tastebud-*.tar.gz; do
-            platform="$(basename "$archive" .tar.gz)"; platform="${platform#tastebud-}"
-            mkdir -p "dist/bin/$platform" && tar -xzf "$archive" -C "dist/bin/$platform"
-          done
-      - run: bun scripts/release/write-npm-packages.ts
-      # Platform packages first: the launcher's optionalDependencies must already resolve when it lands.
-      - name: Publish
-        run: |
-          for package in dist/npm/darwin-arm64 dist/npm/darwin-x64 dist/npm/linux-x64 dist/npm/linux-arm64 dist/npm/launcher; do
-            npm publish "$package" --provenance --access public
-          done
+      - run: bun scripts/release/write-npm-package.ts
+      # After the GitHub release (needs: release): the package holds no binary and fetches it from there.
+      - run: npm publish dist/npm/tastebud --provenance --access public

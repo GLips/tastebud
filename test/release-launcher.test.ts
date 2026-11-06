@@ -1,11 +1,12 @@
-/** The npm launcher under real Node, against platform packages laid out as npm installs them. */
+/**
+ * The npm package under real Node, as write-npm-package.ts lays it out: its launcher fetches the release
+ * binary through the plugin's shim on first run, then runs it offline, passing arguments, exit codes and signals.
+ */
 import { expect, test } from "bun:test";
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { buildTastebudLauncher } from "../scripts/release/build-tastebud-launcher.ts";
-import { TASTEBUD_NPM_PACKAGE_NAME } from "../scripts/release/release-names.ts";
-import { makeTemporaryDirectory } from "./support.ts";
+import { writeTastebudNpmPackage } from "../scripts/release/build-tastebud-npm-package.ts";
+import { makeTemporaryDirectory, serveFakeRelease } from "./support.ts";
 
 // Bun puts a `node` that is Bun itself first on a child's PATH; the launcher must run under Node.
 const realNode = Bun.which("node", {
@@ -15,53 +16,49 @@ const realNode = Bun.which("node", {
     .join(":"),
 });
 
-const EXIT_SEVEN_BINARY = '#!/bin/sh\necho "tastebud got: $*"\nexit 7\n';
-
-/** node_modules with the launcher package and, if `withPlatformPackage`, this platform's, running `binaryScript`. */
-const installLauncher = async (withPlatformPackage: boolean, binaryScript = EXIT_SEVEN_BINARY) => {
-  const modules = join(makeTemporaryDirectory("npm"), "node_modules");
-  const launcherDir = join(modules, TASTEBUD_NPM_PACKAGE_NAME);
-  const launcher = await buildTastebudLauncher(join(launcherDir, "bin"));
-  writeFileSync(join(launcherDir, "package.json"), JSON.stringify({ name: TASTEBUD_NPM_PACKAGE_NAME, type: "module" }));
-  if (withPlatformPackage) {
-    const platformDir = join(modules, `${TASTEBUD_NPM_PACKAGE_NAME}-${process.platform}-${process.arch}`);
-    mkdirSync(join(platformDir, "bin"), { recursive: true });
-    writeFileSync(join(platformDir, "package.json"), "{}");
-    writeFileSync(join(platformDir, "bin/tastebud"), binaryScript);
-    chmodSync(join(platformDir, "bin/tastebud"), 0o755);
-  }
-  return launcher;
+/** The package's launcher, with an empty cache, fetching from `releaseUrl`. */
+const installPackage = async (releaseUrl: string) => {
+  const packageDir = await writeTastebudNpmPackage(join(makeTemporaryDirectory("npm"), "tastebud"));
+  const env = {
+    PATH: process.env["PATH"] ?? "",
+    HOME: makeTemporaryDirectory("npm-home"),
+    XDG_CACHE_HOME: makeTemporaryDirectory("npm-cache"),
+    TASTEBUD_INSTALL_BASE_URL: releaseUrl,
+  };
+  return { launcher: join(packageDir, "bin/tastebud.js"), env };
 };
 
-const runLauncher = (launcher: string) => {
-  const result = Bun.spawnSync([realNode ?? "node", launcher, "review", "--port", "4801"], {
+const runLauncher = async ({ launcher, env }: Awaited<ReturnType<typeof installPackage>>) => {
+  const child = Bun.spawn([realNode ?? "node", launcher, "review", "--port", "4801"], {
+    env,
     stdout: "pipe",
     stderr: "pipe",
   });
-  return { exitCode: result.exitCode, stdout: result.stdout.toString(), stderr: result.stderr.toString() };
+  const [stdout, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited]);
+  return { exitCode, stdout };
 };
 
-test("the launcher runs the platform binary with its arguments and passes its exit code through", async () => {
+test("concurrent first runs download the release once; later runs are offline and pass args and exit codes", async () => {
   expect(realNode).not.toBeNull();
-  expect(runLauncher(await installLauncher(true))).toEqual({
-    exitCode: 7,
-    stdout: "tastebud got: review --port 4801\n",
-    stderr: "",
-  });
-});
-
-test("with no platform package the launcher exits 1 naming the reinstall and the releases page", async () => {
-  const missing = runLauncher(await installLauncher(false));
-  expect(missing.exitCode).toBe(1);
-  expect(missing.stderr).toContain(`npm install ${TASTEBUD_NPM_PACKAGE_NAME}`);
-  expect(missing.stderr).toContain("/releases");
+  const release = await serveFakeRelease('#!/bin/sh\necho "tastebud got: $*"\nexit 7\n');
+  const installed = await installPackage(release.url);
+  const firstRuns = await Promise.all([runLauncher(installed), runLauncher(installed), runLauncher(installed)]);
+  await release.server.stop(true);
+  const ranOk = { exitCode: 7, stdout: "tastebud got: review --port 4801\n" };
+  // stdout carries only the binary's own: under MCP it is the protocol stream.
+  expect(firstRuns).toEqual([ranOk, ranOk, ranOk]);
+  expect(release.fetched.archives).toBe(1);
+  expect(await runLauncher(installed)).toEqual(ranOk);
 });
 
 test("a SIGTERM sent to the launcher alone reaches the binary, and the launcher dies by it too", async () => {
-  const launcher = await installLauncher(true, "#!/bin/sh\necho $$\nexec sleep 30\n");
-  const node = Bun.spawn([realNode ?? "node", launcher, "review"], { stdout: "pipe", stderr: "ignore" });
+  // install.sh runs `--version` on what it installs, so only a real start sleeps.
+  const release = await serveFakeRelease('#!/bin/sh\n[ "$1" = --version ] && exit 0\necho $$\nexec sleep 30\n');
+  const { launcher, env } = await installPackage(release.url);
+  const node = Bun.spawn([realNode ?? "node", launcher, "review"], { env, stdout: "pipe", stderr: "ignore" });
   // The binary's first output line is its pid, so it is running once this read returns.
   const firstChunk = await node.stdout.getReader().read();
+  await release.server.stop(true);
   const binaryPid = Number(new TextDecoder().decode(firstChunk.value).trim());
 
   node.kill("SIGTERM");

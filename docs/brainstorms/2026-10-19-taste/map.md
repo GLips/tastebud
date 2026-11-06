@@ -86,7 +86,7 @@ Background is in `~/research/2026-10-19-matt-pocock-personal-wiki.md` (Matt Poco
 
 - **D4, a local web review UI with agent threads:** `taste review` serves a local web page where proposals arrive grouped by subject in budget-sized batches. You triage them with the keyboard, accept a whole group at once, and see the quotes, any earlier rejection and any `despite` case inline. Any card can hold a comment thread with an agent. The agent attaches through a long-lived CLI process it backgrounds, and that process wakes it whenever Graham adds a note, which fixes the media-studio problem of agents never hearing replies. Decisions are written through `taste decide`.
   - **Stack (adopted):**
-    - Bun, shipped as standalone `bun build --compile` binaries cross-compiled per platform. Users don't need Bun. Distribution is through GitHub releases, Homebrew, and npm with per-platform optional packages.
+    - Bun, shipped as standalone `bun build --compile` binaries cross-compiled per platform. Users don't need Bun. Distribution is through GitHub releases, Homebrew, and npm with one launcher package that downloads the binary from the release on first run.
     - Effect v4 for the core and the CLI. Its v4 CLI module location is unverified.
     - `bun:sqlite` for the `.index/` cache only. It can be deleted and rebuilt from the files, and is never synced or edited. A v4 Bun SQLite adapter is unverified.
     - The review UI is TanStack Start in SPA mode with Router, Query, Form and Hotkeys, plus Mantine and StyleX, following media-studio and tk2.

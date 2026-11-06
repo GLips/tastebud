@@ -1,39 +1,20 @@
 #!/usr/bin/env node
 /**
- * The npm package's `tastebud`, run by Node: execs the compiled binary from the platform package npm installed beside
- * it (an optionalDependency npm picks by os and cpu). It never downloads; a missing package means reinstall.
- * Bundled into the launcher package by build-tastebud-launcher.ts.
+ * The npm package's `tastebud`, run by Node: runs the plugin's bin/tastebud shim that the package ships beside
+ * it, which execs the release binary of the package.json version, fetching it once from the GitHub release
+ * into the cache the Claude Code plugin uses. Bundled into the package by build-tastebud-npm-package.ts.
  */
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { TASTEBUD_NPM_PACKAGE_NAME, TASTEBUD_RELEASE_REPO } from "./release-names.ts";
+// Node runs a bin through its real path, so this resolves inside the package even from node_modules/.bin.
+const shim = fileURLToPath(new URL("tastebud", import.meta.url));
 
-const platformPackage = `${TASTEBUD_NPM_PACKAGE_NAME}-${process.platform}-${process.arch}`;
-const resolveBesideLauncher = createRequire(import.meta.url).resolve;
-
-const findPlatformBinary = () => {
-  try {
-    return join(dirname(resolveBesideLauncher(`${platformPackage}/package.json`)), "bin", "tastebud");
-  } catch {
-    return undefined;
-  }
-};
-
-const binary = findPlatformBinary();
-if (binary === undefined) {
-  process.stderr.write(
-    `tastebud: ${platformPackage} is not installed, so there is no tastebud binary for ${process.platform}-${process.arch}.\n` +
-      `Reinstall without --omit=optional (npm install ${TASTEBUD_NPM_PACKAGE_NAME}), or download one from\n` +
-      `https://github.com/${TASTEBUD_RELEASE_REPO}/releases\n`,
-  );
-  process.exit(1);
-}
-
-const child = spawn(binary, process.argv.slice(2), { stdio: "inherit" });
+// Through sh, so the shim needs no exec bit, whatever mode the tarball left it with.
+const child = spawn("/bin/sh", [shim, ...process.argv.slice(2)], { stdio: "inherit" });
 // A targeted kill reaches only this process, not the group a terminal's Ctrl-C reaches; passing it on keeps
-// `tastebud review` from outliving the launcher while still holding its port.
+// `tastebud review` from outliving the launcher while still holding its port. The shim execs the binary,
+// so the binary is this child.
 const forwardedSignals = ["SIGTERM", "SIGINT", "SIGHUP"] as const;
 for (const signal of forwardedSignals) process.on(signal, () => child.kill(signal));
 child.on("error", (error) => {

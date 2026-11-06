@@ -1,7 +1,8 @@
 #!/bin/sh
 # The Claude Code plugin's tastebud: the MCP server, the hooks and the Bash tool (bin/ is on its PATH) all
-# run this. It execs the release binary of the plugin's version, downloading it once through install.sh;
-# after that it runs offline. SessionStart calls it first so the download rarely lands on MCP startup.
+# run this, and so does the npm package's launcher. It execs the release binary of the package's version,
+# downloading it once through install.sh; after that it runs offline. SessionStart calls it first so the
+# download rarely lands on MCP startup.
 set -eu
 plugin_root="$(cd "$(dirname "$0")/.." && pwd -P)"
 . "$plugin_root/scripts/binary-path.sh"
@@ -28,7 +29,7 @@ fetch_tastebud_binary() {
       continue
     fi
     if [ "$waited" -ge "$lock_wait_limit" ]; then
-      echo "tastebud: another start (pid $holder) is still downloading v$plugin_version; the next start tries again" >&2
+      echo "tastebud: another start (pid $holder) is still downloading v$release_version; the next start tries again" >&2
       exit 1
     fi
     sleep 1
@@ -41,9 +42,9 @@ fetch_tastebud_binary() {
   trap 'rm -rf "$lock"; exit 143' TERM
   # stdout is the MCP stream, so the installer's messages go to stderr.
   if [ ! -x "$tastebud_binary" ] &&
-    ! TASTEBUD_INSTALL_VERSION="$plugin_version" TASTEBUD_INSTALL_DIR="$(dirname "$tastebud_binary")" \
+    ! TASTEBUD_INSTALL_VERSION="$release_version" TASTEBUD_INSTALL_DIR="$(dirname "$tastebud_binary")" \
       TASTEBUD_INSTALL_SKIP_PATH_HINT=1 sh "$plugin_root/scripts/install.sh" </dev/null >&2; then
-    echo "tastebud: the Claude Code plugin could not install tastebud v$plugin_version; it tries again on next start" >&2
+    echo "tastebud: could not install tastebud v$release_version; it tries again on next start" >&2
     exit 1
   fi
   rm -rf "$lock"

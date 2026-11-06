@@ -34,9 +34,9 @@ claude plugin install tastebud --marketplace GLips/tastebud --config prompt_hook
 
 Inside Claude Code that is `/plugin install tastebud --marketplace GLips/tastebud`, or on releases before 2.1.275, `/plugin marketplace add GLips/tastebud` then `/plugin install tastebud@tastebud`; those may note that `prompt_hook` is not yet set, and unset means on. The prompt hook is on: before each prompt it adds up to three ratified derivations of the `inject` kinds that match, and nothing without a store; `/config` (the plugin's "Prompt hook" row) turns it off, as does `echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin`. To use a store other than `~/.tastebud`, add `{"env":{"TASTEBUD_STORE":"<root>"}}` to `~/.claude/settings.json`.
 
-**Other hosts** run the npm package through `npx`, so they need Node. Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
+**Other hosts** run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`; later runs are offline. Add `--store <root>` after `mcp` for a store other than `~/.tastebud`.
 
-- Codex: `codex mcp add tastebud -- npx -y tastebud@0.1.0 mcp`. The first start fetches the package; if Codex gives up on it, raise `startup_timeout_sec` under `[mcp_servers.tastebud]` in `~/.codex/config.toml`.
+- Codex: `codex mcp add tastebud -- npx -y tastebud@0.1.0 mcp`. The first start fetches the package and the binary; if Codex gives up on it, raise `startup_timeout_sec` under `[mcp_servers.tastebud]` in `~/.codex/config.toml`.
 - Cursor: [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=tastebud&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRhc3RlYnVkQDAuMS4wIiwibWNwIl19), or `{"mcpServers":{"tastebud":{"command":"npx","args":["-y","tastebud@0.1.0","mcp"]}}}` in `~/.cursor/mcp.json`. Any other MCP client (Claude Desktop, Windsurf, …) takes the same JSON.
 - VS Code: `code --add-mcp '{"name":"tastebud","type":"stdio","command":"npx","args":["-y","tastebud@0.1.0","mcp"]}'`
 
