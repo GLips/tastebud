@@ -114,7 +114,9 @@ describe("lifecycle", () => {
     const payload = await runOperation(root, "hook-preview", { prompt: "make the checkout forms shorter" }, inWeb);
     expect(payload.items).toHaveLength(2);
     expect(payload.items.every((item) => item.kind === "belief")).toBe(true);
-    expect(payload.additionalContext).toContain("Accepted belief");
+    expect(payload.additionalContext).toContain("Keep checkout forms short (belief");
+    // Rejected derivations stay out of the hook; recall still shows them on request.
+    expect(payload.additionalContext).not.toContain("coupon");
     const unknown = await runOperation(root, "hook-preview", { prompt: "checkout forms" }, unknownCaller);
     expect([unknown.silence, unknown.hookOutput]).toEqual(["unknown-context", undefined]);
   });

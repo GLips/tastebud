@@ -50,7 +50,11 @@ export const hookSilenceWording = (hook: HookPayload, catalog: CatalogView | und
     case "over-budget":
       return `Timed out: building the payload took longer than ${catalog?.hook.budgetMs ?? 650} ms, so the hook stayed silent.`;
     case "no-matches":
-      return "No accepted or rejected inject item here matches these words.";
+      return "No accepted inject item here matches these words.";
+    case "recently-emitted":
+      return "Everything it would send was already sent within the last three turns.";
+    case "output-budget":
+      return "Nothing it would send fits the hook's 4 KiB output budget.";
     case undefined:
       return "";
   }

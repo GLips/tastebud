@@ -116,7 +116,7 @@ Add `--store <dir>` after `mcp`, or set `TASTEBUD_STORE` in the server's environ
 
 **The Claude Code plugin** lives in [`plugins/tastebud`](plugins/tastebud), served from this repo's marketplace. Its `bin/tastebud` runs the release binary of the plugin's version, downloaded once into `~/.cache/tastebud/<version>/` (or `$XDG_CACHE_HOME`), and is on the Bash tool's PATH, so Claude can run the CLI too. `/tastebud:review`, its only command, runs `tastebud review --open`, starting the review server for the session if it isn't up. Its server shows as `plugin:tastebud:tastebud`, with tools like `mcp__plugin_tastebud_tastebud__tastebud_recall`.
 
-**The prompt hook.** `tastebud hook prompt` is a Claude Code `UserPromptSubmit` hook; the plugin installs it, on by default. It resolves where the session is from the hook's `cwd`, and adds at most three accepted or rejected derivations of the `inject` kinds that match the prompt, labelled as evidence. It never adds raw sources, gives up silently after 650 ms, and always exits 0. The plugin skips it without starting anything when there is no store, and `tastebud` stops before resolving the place when no kind is `inject`. Without the plugin, add it to `~/.claude/settings.json`:
+**The prompt hook.** `tastebud hook prompt` is a Claude Code `UserPromptSubmit` hook; the plugin installs it, on by default. It resolves where the session is from the hook's `cwd`, and matches both the new prompt and the turn before it, read from the session transcript: what the agent said, the files it touched and the code it wrote. It adds at most three accepted derivations of the `inject` kinds, in 4 KiB, saying they are previously accepted preferences the current request overrides. A derivation it sent in the last three turns isn't sent again unless its status or scope changed. It never adds raw sources or rejected derivations, gives up silently after 650 ms, and always exits 0. The plugin skips it without starting anything when there is no store, and `tastebud` stops before resolving the place when no kind is `inject`. Without the plugin, add it to `~/.claude/settings.json`:
 
 ```json
 {
@@ -126,7 +126,7 @@ Add `--store <dir>` after `mcp`, or set `TASTEBUD_STORE` in the server's environ
 }
 ```
 
-`tastebud hook preview "<prompt>"` shows exactly what it would inject, and so does the review UI's recall inspector.
+`tastebud hook preview "<prompt>"` shows exactly what it would inject (add `--transcript <session.jsonl>` to include the previous turn and see what it holds back), and so does the review UI's recall inspector.
 
 ## `tastebud.config.ts` (reference)
 

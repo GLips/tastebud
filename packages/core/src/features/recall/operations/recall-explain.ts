@@ -80,8 +80,8 @@ const explainOne = (
   const hook = classifyRecallEligibility(view, rules.hook, derivation);
   return {
     ...summary,
-    // The hook never sends history; an item it would send is also one recall returns here.
-    outcome: hook.section === "accepted" || hook.section === "rejected" ? "injected" : "recalled",
+    // The hook sends only accepted items; an item it would send is also one recall returns here.
+    outcome: hook.section === "accepted" ? "injected" : "recalled",
     section: recall.section,
     explanation: { policy: recall.kind.recall, status: summary.status, matchedPlace: recall.matchedPlace, score },
   };

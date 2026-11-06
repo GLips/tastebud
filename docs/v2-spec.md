@@ -336,13 +336,25 @@ A resolver can't prove that a place will never come back, so the audit only comp
 ## 7. Hooks
 
 - **`tastebud hook prompt`** is the UserPromptSubmit hook.
-  - It reads `{prompt, cwd}` JSON on stdin and resolves context from `cwd`.
-  - It builds the payload with only `inject` kinds, at most `hook.limit` items, and a deadline of `hook.budgetMs`.
-  - It prints the Claude Code hook JSON (`hookSpecificOutput.additionalContext`).
-  - It always exits 0.
+  - It reads `{prompt, cwd, transcript_path}` JSON on stdin and resolves context from `cwd`.
+  - From the last 256 KiB of the transcript, after the latest `compact_boundary`, it takes the previous turn: the
+    assistant's visible prose (4 KiB), up to 12 files its Edit, Write, MultiEdit, NotebookEdit and Read calls touched
+    (modified first), and the text its edits wrote (4 KiB). Tool output, reasoning, subagents and earlier injections are
+    left out. The decoder is Claude Code specific and lives in the CLI; core takes a host-independent reading.
+  - The prompt and the previous turn are searched apart and merged with the prompt's matches first. Directories of
+    touched files widen the context (at most 4); a path only named in prose does not.
+  - It sends only accepted derivations of `inject` kinds: at most `hook.limit` whole items in 4 KiB, within
+    `hook.budgetMs`. An unreadable transcript means the prompt alone.
+  - The block opens with "These are previously accepted preferences relevant to this work. Apply them where relevant;
+    the user's current explicit request takes precedence." and ends with a `[tastebud-recall <id>:<fingerprint> …]`
+    marker, the fingerprint covering status and scope.
+  - No repeats, and no ledger: an item named by a marker in a `hook_additional_context` record of the last 3 owner
+    turns is held back unless its fingerprint changed. Selection comes first, so if every top item was sent, nothing is.
+  - It prints the Claude Code hook JSON (`hookSpecificOutput.additionalContext`) and always exits 0.
   - Install: `{"type":"command","command":"tastebud hook prompt"}`.
-- **`tastebud hook preview`** shows the prompt payload, through the same builder.
-- **Deferred: file-touch recall** (PostToolUse on Read and Edit, from the touched file's directory). It needs a relevance query, de-duplication based on what was actually delivered, context-reset handling and budgets. Post-edit delivery also lands too late to guide that edit. The `in` input is the seam it will use.
+- **`tastebud hook preview`** shows the prompt payload, through the same builder. `--transcript <file>` reads a
+  transcript as the hook does, and the preview lists what was held back (`recently-emitted`, `output-budget`) and
+  whether the transcript was `transcript-unavailable`. It writes nothing.
 
 ## 8. Review UI
 
@@ -413,7 +425,9 @@ Integration tests run through operations, with temp stores and real git.
    - Invalid input gives `isError`.
    - Setup from nothing: `config-show` with `guide`, `config-check` reporting by field and writing nothing, `config-write` creating a store `catalog` then reads.
 8. **CLI:** `tastebud capture`, `propose`, then `recall --json`, end to end in a temp store via `Bun.spawn`. `tastebud decide` writes nothing. `config-write` creates a store and refuses a stale `expected_current` (exit 4).
-9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context.
+9. **`tastebud hook prompt`** with stdin fixtures: inject kinds only, the limit, and silence on unknown context. With
+   transcript fixtures: a previous-turn edit recalls what the prompt alone misses, recent output isn't repeated, and a
+   compact boundary resets both.
 
 ## 11. Demo seed
 

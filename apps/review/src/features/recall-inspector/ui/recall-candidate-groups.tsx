@@ -141,7 +141,7 @@ export function RecallCandidateGroups({
         <GroupHeading
           title="Would inject"
           count={hook.items.length}
-          hint="What the prompt hook adds before the agent reads this prompt: inject kinds only, accepted then rejected, at most the hook's limit."
+          hint="What the prompt hook adds before the agent reads this prompt: accepted items of inject kinds only, at most the hook's limit. In a session it also searches the previous turn and skips what it sent recently."
         />
         {hook.items.length === 0 ? (
           <Text size="sm" c="dimmed">
@@ -153,11 +153,7 @@ export function RecallCandidateGroups({
               <CandidateRow
                 key={item.id}
                 item={item}
-                reason={
-                  item.status === "rejected"
-                    ? `Rejected, offered as not accepted · ${matchedPlaceWording(item.explanation.matchedPlace, known)}`
-                    : matchedPlaceWording(item.explanation.matchedPlace, known)
-                }
+                reason={matchedPlaceWording(item.explanation.matchedPlace, known)}
                 reasonColor="tastebud.8"
                 details={[
                   ["Policy", item.explanation.policy],

@@ -1,4 +1,4 @@
-/** Text for recall, context and the hook preview. Section names come from kind labels, not hardcoded nouns. */
+/** Text for recall, recall-explain and the hook preview. Section names come from kind labels, not hardcoded nouns. */
 import { formatScopeLabel } from "#core/domains/places/index.ts";
 import { day, formatContextLine, formatSourceLine, indent, quoted, section } from "#core/domains/record-text/index.ts";
 import type { ExcludedRecallHit, RecallHit, RecallResult } from "#core/domains/record-views/index.ts";
@@ -85,13 +85,30 @@ export const renderRecallExplainText = (result: RecallExplainResult) =>
 const HOOK_SILENCE_WORDING: Record<NonNullable<HookPayload["silence"]>, string> = {
   "unknown-context": "the context is unknown",
   "no-inject-kinds": "no kind has recall: inject",
-  "no-matches": "nothing accepted or rejected matches this prompt here",
+  "no-matches": "nothing accepted matches this prompt or the previous turn here",
+  "recently-emitted": "everything it would send was sent within the last few turns",
+  "output-budget": "nothing fits the output budget",
   "over-budget": "building it took longer than hook.budgetMs",
 };
+
+const PREVIOUS_TURN_WORDING: Record<HookPayload["previousTurn"], string> = {
+  used: "Previous turn: searched alongside the prompt",
+  none: "Previous turn: none given, prompt only",
+  "transcript-unavailable": "Previous turn: transcript-unavailable, prompt only",
+};
+
+const formatHookExclusion = (item: HookPayload["excluded"][number]) =>
+  `- ${quoted(item.statement)} (${item.kindLabel}): ${item.exclusion}  [${item.id}]`;
 
 export const renderHookPreviewText = (payload: HookPayload) =>
   [
     formatContextLine(payload.context),
+    PREVIOUS_TURN_WORDING[payload.previousTurn],
+    ...(payload.touchedPlaces.length === 0 ? [] : [`Touched files added: ${payload.touchedPlaces.join(", ")}`]),
+    "",
     payload.additionalContext ??
       `(the hook would inject nothing: ${payload.silence === undefined ? "no matches" : HOOK_SILENCE_WORDING[payload.silence]})`,
+    ...(payload.excluded.length === 0
+      ? []
+      : ["", section("Selected but not sent", payload.excluded.map(formatHookExclusion))]),
   ].join("\n");

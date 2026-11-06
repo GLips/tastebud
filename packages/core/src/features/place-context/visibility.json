@@ -3,7 +3,7 @@
   "operation-registry": "declares this feature's operations in the registry",
   "places-audit": "resolves the operation context (resolveOperationContext)",
   "proposals": "resolves the operation context (resolveOperationContext)",
-  "recall": "resolves the operation context (resolveOperationContext)",
+  "recall": "resolves the operation context, and the places of files the hook's previous turn touched (resolveOperationContext, resolvePlacesForDirectory)",
   "store-catalog": "resolves the operation context (resolveOperationContext)",
   "store-setup": "resolves config-check's probes under the candidate config (resolvePlacesForDirectory)"
 }

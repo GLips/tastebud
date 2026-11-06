@@ -11,6 +11,7 @@
     "./decisions": "./src/features/decisions/index.server.ts",
     "./derivation-lifecycle": "./src/domains/derivation-lifecycle/index.ts",
     "./derivation-scope": "./src/domains/derivation-scope/index.ts",
+    "./hook-evidence": "./src/domains/hook-evidence/index.ts",
     "./host": "./src/features/store-host/index.server.ts",
     "./inbox": "./src/features/inbox/index.server.ts",
     "./kind-catalog": "./src/domains/kind-catalog/index.ts",
