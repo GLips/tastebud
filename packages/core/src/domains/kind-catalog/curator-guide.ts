@@ -34,7 +34,7 @@ tastebud propose --kind belief --statement "Use named exports, never default exp
 - \`--supports\` every source it rests on; \`--contradicts\` the ones that cut the other way.
 - To revise an accepted derivation, \`--supersedes <id>\` and cite the new words.
 
-Scope conservatively. With no scope it defaults to where you are, which suits words said there. For words from elsewhere, pass \`--place <key>\` for the places they name (\`tastebud places\` lists the ones in use). \`--global\` only when the owner's words say it holds for all their work. Never widen a scope beyond what the words say; the owner can widen it when they accept.
+Scope from where the words were said, not from where you are. A store-wide review reads words captured all over, so check each cited source's \`captured in\` line (\`tastebud show <id>\`, its \`captured_in\`) and pass \`--place <key>\` for those places (\`tastebud places\` lists the ones in use). With no scope a proposal defaults to your current checkout, which is right only when every cited source was captured there. \`--global\` only when the owner's words say it holds for all their work. Never widen a scope beyond what the words say; the owner can widen it when they accept.
 
 Refused as a near repeat (exit 3): something close exists in an overlapping scope. Usually stop. Re-propose only when something genuinely changed: \`--despite <id>\` for every match and \`--despite-case\` saying what changed. Never reword a statement to slip past the check.
 

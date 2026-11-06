@@ -56,7 +56,7 @@ const chooseSourceKind = (catalog: TasteCatalog, kind: string | undefined) => {
   return Effect.fail(
     new InvalidTasteInput({
       problems: [
-        `kind is required (the config names no conversationSourceKind): one of ${catalog.sourceKinds.map((known) => known.key).join(", ")}`,
+        `kind is required: this store has several source kinds (${catalog.sourceKinds.map((known) => known.key).join(", ")}) and its config doesn't say which one words heard in conversation are. Ask the owner to set conversationSourceKind in tastebud.config.ts, once for every capture: \`tastebud config-show --guide\` walks the change, \`tastebud config-write\` saves it.`,
       ],
     }),
   );

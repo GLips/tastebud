@@ -81,10 +81,10 @@ A config may import relative files and \`node:\` builtins only; no packages. Tas
 
 ## 7. Wire up their agents
 
-Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain what each one gets, because recall happens only where the prompt hook runs:
+Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explain what each one gets, because Tastebud currently installs automatic recall only for Claude Code:
 - **Claude Code**: the Tastebud plugin brings the prompt hook, the MCP server (its one tool is \`capture\`) and \`/tastebud:review\`, and puts \`tastebud\` on the agent's shell PATH. The hook is the automatic recall: before each message it adds the accepted derivations of \`inject\` kinds that match the message and the turn before it, so the agent never has to look anything up.
 - **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. With it off, nothing they accepted reaches the agent on its own; capture still works.
-- **Hosts without a prompt hook** (Codex, Cursor, VS Code and other MCP clients) only capture. Their agents save the owner's words through \`capture\`, but nothing the owner accepted reaches them automatically. Say this plainly. Some of them, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to \`capture\`.
+- **Codex, Cursor, VS Code and other MCP clients** get the MCP-only setup, which provides capture only. Their agents save the owner's words through \`capture\`, but nothing the owner accepted reaches them automatically. Say this plainly. Some of them, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to \`capture\`.
 - A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session.
 
 Suggest the lines for each host, and never edit their agent settings or run an install without a yes. If the store isn't \`~/.tastebud\`, use the actual root from \`config-show\` for \`<root>\`:

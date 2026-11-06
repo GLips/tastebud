@@ -8,14 +8,30 @@ import { Option, Schema } from "effect";
 const TextBlockSchema = Schema.Struct({ type: Schema.Literal("text"), text: Schema.String });
 
 const toolUse = <Name extends string, Input extends Schema.Struct.Fields>(name: Name, input: Input) =>
-  Schema.Struct({ type: Schema.Literal("tool_use"), name: Schema.Literal(name), input: Schema.Struct(input) });
+  Schema.Struct({
+    type: Schema.Literal("tool_use"),
+    id: Schema.String,
+    name: Schema.Literal(name),
+    input: Schema.Struct(input),
+  });
+
+/**
+ * The `user`-record block answering a tool call. Claude Code sets `is_error` when the call failed
+ * or was denied (seen in 2.1.319); a success leaves it out or false.
+ */
+const ToolResultBlockSchema = Schema.Struct({
+  type: Schema.Literal("tool_result"),
+  tool_use_id: Schema.String,
+  is_error: Schema.optionalKey(Schema.Boolean),
+});
 
 /**
  * Content blocks by what the hook does with them. A tool call it doesn't read, or whose input has
- * another shape, lands in `OtherBlock` with thinking, images and tool results.
+ * another shape, lands in the last member with thinking and images.
  */
 const ContentBlockSchema = Schema.Union([
   TextBlockSchema,
+  ToolResultBlockSchema,
   toolUse("Edit", { file_path: Schema.String, new_string: Schema.String }),
   toolUse("Write", { file_path: Schema.String, content: Schema.String }),
   toolUse("MultiEdit", {
@@ -80,9 +96,23 @@ export const transcriptRecordOf = (line: string): TranscriptRecord | undefined =
 export const textOfBlock = (block: ContentBlock): string | undefined =>
   Schema.is(TextBlockSchema)(block) ? block.text : undefined;
 
-export const isToolResultBlock = (block: ContentBlock) => block.type === "tool_result";
+export const isToolResultBlock = Schema.is(ToolResultBlockSchema);
+
+/** Ids of the tool calls in `records` whose result came back without an error. */
+export const succeededToolUseIdsOf = (records: ReadonlyArray<TranscriptRecord>): ReadonlySet<string> =>
+  new Set(
+    records.flatMap((record) =>
+      record.type === "user" && typeof record.message.content !== "string"
+        ? record.message.content
+            .filter(isToolResultBlock)
+            .filter((block) => block.is_error !== true)
+            .map((block) => block.tool_use_id)
+        : [],
+    ),
+  );
 
 export interface ToolTouch {
+  readonly toolUseId: string;
   readonly path: string;
   readonly access: "modified" | "read";
   /** What an edit wrote; empty for a read. */
@@ -94,18 +124,24 @@ export const toolTouchOf = (block: ContentBlock): ToolTouch | undefined => {
   if (!("name" in block)) return undefined;
   switch (block.name) {
     case "Edit":
-      return { path: block.input.file_path, access: "modified", written: block.input.new_string };
+      return { toolUseId: block.id, path: block.input.file_path, access: "modified", written: block.input.new_string };
     case "Write":
-      return { path: block.input.file_path, access: "modified", written: block.input.content };
+      return { toolUseId: block.id, path: block.input.file_path, access: "modified", written: block.input.content };
     case "MultiEdit":
       return {
+        toolUseId: block.id,
         path: block.input.file_path,
         access: "modified",
         written: block.input.edits.map((edit) => edit.new_string).join("\n"),
       };
     case "NotebookEdit":
-      return { path: block.input.notebook_path, access: "modified", written: block.input.new_source ?? "" };
+      return {
+        toolUseId: block.id,
+        path: block.input.notebook_path,
+        access: "modified",
+        written: block.input.new_source ?? "",
+      };
     case "Read":
-      return { path: block.input.file_path, access: "read", written: "" };
+      return { toolUseId: block.id, path: block.input.file_path, access: "read", written: "" };
   }
 };

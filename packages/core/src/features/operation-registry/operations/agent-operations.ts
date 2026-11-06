@@ -73,7 +73,7 @@ export const AGENT_TASTE_OPERATIONS = {
     audience: "agent",
     kind: "query",
     description:
-      "Read first: the kinds this store holds, how to propose each (its prompt), where you are, and the store root. With guide, also how to turn the owner's saved words into proposals.",
+      "The curator's reference: the kinds this store holds, how to propose each (its prompt), where you are, and the store root. With guide, also how to turn the owner's saved words into proposals.",
     input: StoreCatalogInput,
     output: StoreCatalogResultSchema,
     run: readStoreCatalog,
@@ -106,7 +106,7 @@ export const AGENT_TASTE_OPERATIONS = {
     audience: "agent",
     kind: "query",
     description:
-      "Before a judgment call: accepted derivations that apply here, rejections (not accepted), and matching sources, each explained.",
+      "For debugging and curation, what a search finds here: accepted derivations that apply (what the prompt hook could send), rejections (not accepted) and matching sources, each explained.",
     input: RecallDerivationsInput,
     output: RecallResultSchema,
     run: recallDerivations,

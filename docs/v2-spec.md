@@ -292,7 +292,7 @@ declareTasteOperation({
 | Name | Audience | What it does |
 |---|---|---|
 | `catalog` | agent | Kinds, prompts, the resolved context and the store root. This is what an agent reads first. With `guide`, also the curator procedure (`TASTEBUD_CURATOR_GUIDE`): read saved sources, check related derivations including rejected ones, propose with citations and conservative scope, hand the owner the review link. |
-| `capture` | agent | Append a source. With no kind it uses the config's `conversationSourceKind`; `said_by: "owner"` is the configured owner, labelled `ownerName`. `captured_in` defaults to the context. |
+| `capture` | agent | Append a source. With no kind it uses the config's `conversationSourceKind`, or the store's only source kind when it has one; with several and none named it fails, asking the owner to set `conversationSourceKind`; `said_by: "owner"` is the configured owner, labelled `ownerName`. `captured_in` defaults to the context. |
 | `propose` | agent | Append a derivation of a given kind, with a scope (§2.4) and the repeat check. |
 | `recall` | agent | Eligible derivations of `inject` and `pull` kinds ranked by text, then rejections ("not accepted"), then matching sources. Takes `--kind` and `--history`. Each hit carries an explanation: policy, status, which place matched, and score. |
 | `list` | agent | Derivations filtered by kind, status, place, subject or text. Sources too, with `--sources`. |

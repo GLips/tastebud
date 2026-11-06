@@ -6,7 +6,6 @@
 import { Predicate, Result, Schema } from "effect";
 
 import {
-  DEFAULT_CONVERSATION_SOURCE_KIND,
   DEFAULT_DERIVED_KINDS,
   DEFAULT_HOOK_SETTINGS,
   DEFAULT_SOURCE_KINDS,
@@ -159,9 +158,10 @@ const buildCatalog = (file: TastebudConfigFile): Result.Result<TasteCatalog, Rea
       ? DEFAULT_DERIVED_KINDS
       : Object.entries(file.derivedKinds).map(([key, kind]) => Object.assign({ key }, kind));
   const sourceKeys = new Set(sourceKinds.map((kind) => kind.key));
-  // The built-in kinds name their own conversation kind; a config that replaces them names it itself.
+  // A store with one source kind has nothing to choose between; with several, only the owner can say
+  // which one conversation is, so capture without a kind fails until the config names it.
   const conversationSourceKind =
-    file.conversationSourceKind ?? (file.sourceKinds === undefined ? DEFAULT_CONVERSATION_SOURCE_KIND : undefined);
+    file.conversationSourceKind ?? (sourceKinds.length === 1 ? sourceKinds[0]?.key : undefined);
   const problems = [
     ...(conversationSourceKind === undefined || sourceKeys.has(conversationSourceKind)
       ? []

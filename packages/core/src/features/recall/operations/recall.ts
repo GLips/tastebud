@@ -36,7 +36,7 @@ export const recallFields = {
 };
 
 export const RecallDerivationsInput = Schema.Struct({
-  query: TrimmedText.annotate({ description: "What you are about to decide, in plain words" }),
+  query: TrimmedText.annotate({ description: "The topic or text to search for, in plain words" }),
   ...recallFields,
   history: Schema.optionalKey(Schema.Boolean).annotate({ description: "Also return superseded and retracted" }),
   limit: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThan(0))).annotate({ description: "Per section" }),

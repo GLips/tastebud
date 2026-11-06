@@ -30,7 +30,10 @@ export interface DerivedKindDefinition extends SourceKindDefinition {
 export interface TasteCatalog {
   readonly sourceKinds: ReadonlyArray<SourceKindDefinition>;
   readonly derivedKinds: ReadonlyArray<DerivedKindDefinition>;
-  /** The source kind `capture` uses when no kind is named: words heard in an agent conversation. */
+  /**
+   * The source kind `capture` uses when no kind is named: words heard in an agent conversation.
+   * Absent when a store has several source kinds and its config names none of them.
+   */
   readonly conversationSourceKind?: string;
 }
 
@@ -45,8 +48,6 @@ export const DEFAULT_SOURCE_KINDS: ReadonlyArray<SourceKindDefinition> = [
     description: "A person's exact words, verbatim and attributed.",
   },
 ];
-
-export const DEFAULT_CONVERSATION_SOURCE_KIND = "memory";
 
 export const DEFAULT_DERIVED_KINDS: ReadonlyArray<DerivedKindDefinition> = [
   {

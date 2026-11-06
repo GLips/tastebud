@@ -106,6 +106,43 @@ export const selectHookItems = (
 /** Splits `camelCase` and `snake_case` identifiers, so code an edit wrote matches words in a statement. */
 const splitIdentifiers = (text: string) => text.replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2").replace(/[_$]+/g, " ");
 
-/** The words the previous turn is searched by: what the agent said, and what its edits wrote. */
+/**
+ * How much of a touched path names it: the file and its nearest directories. Segments further up
+ * (a home directory, a checkout's parent) say where the machine keeps code, not what the work is.
+ */
+const PATH_SEGMENTS_PER_FILE = 3;
+
+/** At most this many path terms join the search, so a wide turn can't drown its own prose. */
+const PATH_TERM_LIMIT = 24;
+
+/** Shorter terms prefix-match almost anything (`ts*`, `js*`), so they are left out. */
+const PATH_TERM_MIN_LENGTH = 3;
+
+/**
+ * Words from the names of files the turn touched, read ones included, so a file the agent only
+ * looked at still says what the work was about. The file's extension is dropped.
+ */
+const touchedPathTerms = (touchedPaths: PreviousTurnEvidence["touchedPaths"]): Array<string> => {
+  const terms = touchedPaths.flatMap(({ path }) => {
+    const segments = path.split(/[\\/]+/).filter((segment) => segment !== "");
+    const [file = "", ...directories] = segments.slice(-PATH_SEGMENTS_PER_FILE).toReversed();
+    const stem = file.includes(".", 1) ? file.slice(0, file.lastIndexOf(".")) : file;
+    return [stem, ...directories].flatMap((segment) =>
+      splitIdentifiers(segment)
+        .split(/[^\p{L}\p{N}]+/u)
+        .map((term) => term.toLowerCase())
+        .filter((term) => term.length >= PATH_TERM_MIN_LENGTH),
+    );
+  });
+  return [...new Set(terms)].slice(0, PATH_TERM_LIMIT);
+};
+
+/**
+ * The words the previous turn is searched by: what the agent said, what its edits wrote, and the
+ * names of the files it touched.
+ */
 export const previousTurnSearchText = (evidence: PreviousTurnEvidence): string =>
-  splitIdentifiers(`${evidence.assistantProse}\n${evidence.changedText}`);
+  [
+    splitIdentifiers(`${evidence.assistantProse}\n${evidence.changedText}`),
+    ...touchedPathTerms(evidence.touchedPaths),
+  ].join("\n");

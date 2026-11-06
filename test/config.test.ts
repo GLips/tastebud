@@ -66,12 +66,22 @@ describe("tastebud.config.ts", () => {
     expect(refused.message).toContain("--global");
   });
 
+  test("a store with one source kind captures into it with no kind named", async () => {
+    const root = await makeTestStore(
+      `export default { owner: "${OWNER}", sourceKinds: { note: { singular: "note", plural: "notes" } }, derivedKinds: { rule: { singular: "rule", plural: "rules", sources: ["note"], recall: "inject", acceptLabel: "Keep", proposalPrompt: "…" } } };`,
+    );
+    const { source } = await runOperation(root, "capture", { said_by: "owner", quote: "Short forms." }, unknownCaller);
+    expect(source.source.kind).toBe("note");
+  });
+
   test("capture takes just the words once the config names the owner's name and the conversation kind", async () => {
-    // The demo kinds replace the built-ins, so until the config names a conversation kind there is none.
+    // The demo config has several source kinds, so until it names a conversation kind the owner must choose.
     const root = await makeTestStore(demoConfigText(`"git"`));
     const words = { said_by: "owner", quote: "Our forms stay short." };
     const unnamed = await failOperation(root, "capture", words, unknownCaller);
     expect(unnamed.message).toContain("kind is required");
+    expect(unnamed.message).toContain("set conversationSourceKind in tastebud.config.ts");
+    expect(unnamed.message).toContain("tastebud config-show --guide");
 
     const named = demoConfigText(`"git"`).replace(
       "place:",

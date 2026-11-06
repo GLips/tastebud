@@ -34,7 +34,7 @@ export const catalogCommand = Command.make(
 export const recallCommand = Command.make(
   "recall",
   {
-    query: Argument.String("query").pipe(Argument.withDescription("What you are about to decide, in plain words")),
+    query: Argument.String("query").pipe(Argument.withDescription("The topic or text to search for, in plain words")),
     kind: kindsFlag("A derived kind to search (default: every inject and pull kind)"),
     history: Flag.Boolean("history").pipe(
       Flag.withDescription("Also return superseded and retracted derivations"),

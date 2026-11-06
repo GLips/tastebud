@@ -15,6 +15,7 @@ import {
 
 import {
   isToolResultBlock,
+  succeededToolUseIdsOf,
   textOfBlock,
   type ToolTouch,
   toolTouchOf,
@@ -69,7 +70,12 @@ const touchedPathsOf = (touches: ReadonlyArray<ToolTouch>): Array<TouchedPath> =
   ].slice(0, PREVIOUS_TURN_LIMITS.touchedPaths);
 };
 
+/**
+ * A tool call counts only once its result came back without an error, so a denied or failed edit
+ * neither marks its file modified nor lends its text; one with no result yet counts as failed.
+ */
 const previousTurnOf = (records: ReadonlyArray<TranscriptRecord>): PreviousTurnEvidence | undefined => {
+  const succeeded = succeededToolUseIdsOf(records);
   const prose: Array<string> = [];
   const touches: Array<ToolTouch> = [];
   for (const record of records) {
@@ -78,7 +84,7 @@ const previousTurnOf = (records: ReadonlyArray<TranscriptRecord>): PreviousTurnE
       const text = textOfBlock(block);
       if (text !== undefined) prose.push(text);
       const touch = toolTouchOf(block);
-      if (touch !== undefined) touches.push(touch);
+      if (touch !== undefined && succeeded.has(touch.toolUseId)) touches.push(touch);
     }
   }
   const written = touches.map((touch) => touch.written).filter((text) => text !== "");

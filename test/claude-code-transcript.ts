@@ -40,15 +40,35 @@ export const assistantSays = (text: string) => assistantRecord({ type: "text", t
 
 export const assistantThinks = (thinking: string) => assistantRecord({ type: "thinking", thinking, signature: "sig" });
 
-/** A tool call and the `user` record carrying its result, which is never the owner speaking. */
-export const toolCall = (name: string, input: Record<string, unknown>, result: string) => {
+/**
+ * A tool call and the `user` record carrying its result, which is never the owner speaking. A
+ * `failed` call is recorded as Claude Code records a refused or denied one: `is_error`, the reason
+ * wrapped in `<tool_use_error>`, and the reason again as a string `toolUseResult`.
+ */
+export const toolCall = (
+  name: string,
+  input: Record<string, unknown>,
+  result: string,
+  outcome: "succeeded" | "failed" = "succeeded",
+) => {
   const id = `toolu_${crypto.randomUUID().replaceAll("-", "")}`;
+  const failed = outcome === "failed";
   return [
     assistantRecord({ type: "tool_use", id, name, input, caller: { type: "direct" } }),
     {
       ...common("user"),
-      message: { role: "user", content: [{ tool_use_id: id, type: "tool_result", content: result, is_error: false }] },
-      toolUseResult: { type: "text" },
+      message: {
+        role: "user",
+        content: [
+          {
+            tool_use_id: id,
+            type: "tool_result",
+            content: failed ? `<tool_use_error>${result}</tool_use_error>` : result,
+            is_error: failed,
+          },
+        ],
+      },
+      toolUseResult: failed ? `Error: ${result}` : { type: "text" },
     },
   ];
 };

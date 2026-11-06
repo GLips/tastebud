@@ -190,6 +190,44 @@ test("the previous turn's edit brings up a belief the prompt alone misses, and o
   expect(injected).not.toContain(billing);
 });
 
+test("an edit that failed adds nothing to the previous turn: not its file, not its text", async () => {
+  const { store, repo, inRepo, sessionDirectory } = await hookWorld(["packages/api/src"]);
+  const fallbacks = await acceptedDerivation(store, inRepo, "belief", "No silent fallbacks for a missing value");
+  const editTurn = (outcome: "succeeded" | "failed") => [
+    ownerTurn("make the client cope"),
+    toolCall(
+      "Edit",
+      {
+        file_path: join(repo, "packages/api/src/client.ts"),
+        old_string: "x",
+        new_string: "x ?? fallbackForMissingValue",
+      },
+      outcome === "failed" ? "File has not been read yet. Read it first before writing to it." : "ok",
+      outcome,
+    ),
+    assistantSays("Done."),
+  ];
+  const hookFor = async (records: ReadonlyArray<unknown>) =>
+    previewHook(store, repo, "ok", writeTranscript(sessionDirectory, records));
+
+  expect((await hookFor(editTurn("succeeded"))).items.map((item) => item.id)).toEqual([fallbacks]);
+  const failed = await hookFor(editTurn("failed"));
+  expect([failed.silence, failed.touchedPlaces]).toEqual(["no-matches", []]);
+});
+
+test("a file the previous turn only read still lends its name to the search", async () => {
+  const { store, repo, inRepo, sessionDirectory } = await hookWorld(["docs"]);
+  const changelog = await acceptedDerivation(store, inRepo, "belief", "Changelog entries speak to users");
+  const transcript = writeTranscript(sessionDirectory, [
+    ownerTurn("have a look"),
+    toolCall("Read", { file_path: join(repo, "docs/CHANGELOG.md") }, "## 0.1.1"),
+    assistantSays("Done."),
+  ]);
+  expect((await previewHook(store, repo, "ok")).silence).toBe("no-matches");
+  const preview = await previewHook(store, repo, "ok", transcript);
+  expect(preview.items.map((item) => [item.id, item.matchedBy])).toEqual([[changelog, "previous-turn"]]);
+});
+
 test("a belief the hook sent within the last three owner turns is not sent again unless its state changed", async () => {
   const { store, repo, inRepo, sessionDirectory } = await hookWorld();
   const exports = await acceptedDerivation(store, inRepo, "belief", "Named exports for every module export");

@@ -34,7 +34,7 @@ claude plugin install tastebud --marketplace GLips/tastebud --config prompt_hook
 
 Inside Claude Code that is `/plugin install tastebud --marketplace GLips/tastebud`, or on releases before 2.1.275, `/plugin marketplace add GLips/tastebud` then `/plugin install tastebud@tastebud`; those may note that `prompt_hook` is not yet set, and unset means on. The prompt hook is on: before each prompt it adds up to three accepted derivations of the `inject` kinds that match the prompt or the turn before it, and nothing without a store; `/config` (the plugin's "Prompt hook" row) turns it off, as does `echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin`. To use a store other than `~/.tastebud`, add `{"env":{"TASTEBUD_STORE":"<root>"}}` to `~/.claude/settings.json`; the hook and the MCP server both read it. The first session downloads the binary while the MCP server starts, inside Claude Code's 30-second MCP timeout; on a slow connection, reconnect with `/mcp` once it finishes, or raise `MCP_TIMEOUT` (milliseconds) in that `env`.
 
-**Other hosts** get capture only: they have no prompt hook, so their agents save your words but nothing you accepted reaches them on its own. They run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`, and later runs download nothing more. Run this once before registering, so the download happens here, where a failure shows, not during the host's first connection:
+**Other hosts** get capture only: Tastebud currently installs automatic recall only for Claude Code, and the MCP-only setup for Codex and other hosts provides capture, so their agents save your words but nothing you accepted reaches them on its own. They run the npm package through `npx`, so they need Node. Like the plugin, its first run downloads the release binary into `~/.cache/tastebud`, and later runs download nothing more. Run this once before registering, so the download happens here, where a failure shows, not during the host's first connection:
 
 ```bash
 npx -y tastebud@0.1.1 --version
@@ -67,7 +67,7 @@ In Claude Code with the plugin, three things happen, and only the last needs you
 - **The agent captures your words.** When you correct it or state a preference, it saves your exact words with `capture`. A saved source is evidence, not a belief: what agents are shown doesn't change yet.
 - **You review.** Now and then, ask your agent to review your saved words. It runs `tastebud catalog --guide`, checks what you already accepted and rejected, and proposes beliefs that cite your words. `/tastebud:review` opens the review UI, where you accept or reject each one, narrowing its scope if you like. Once you accept one, the hook brings it back wherever it applies.
 
-Hosts without a prompt hook (Codex, Cursor, VS Code, other MCP clients) are capture only. Their agents save your words into the same store, and you review them from Claude Code or the CLI, but nothing you accept reaches those agents automatically.
+Tastebud currently installs automatic recall only for Claude Code. The MCP-only setup for Codex, Cursor, VS Code and other MCP clients provides capture only. Their agents save your words into the same store, and you review them from Claude Code or the CLI, but nothing you accept reaches those agents automatically.
 
 ## Try the demo
 
@@ -144,7 +144,7 @@ Each store has one editable file. Setup writes it; you can also edit it by hand.
 export default {
   owner: "human:dana",
   ownerName: "Dana", // the label on the owner's captured words (default: the id after human:)
-  conversationSourceKind: "memory", // where capture puts words heard in conversation, when given no kind
+  conversationSourceKind: "memory", // where capture puts words heard in conversation, when given no kind; needed only with several source kinds
 
   // "git" (the default): a repo place from the origin remote, else the directory.
   // "directories": always the directory. Or a function, which replaces both:
