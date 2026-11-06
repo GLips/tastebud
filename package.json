@@ -11,7 +11,7 @@
   ],
   "type": "module",
   "scripts": {
-    "test": "bun test",
+    "test": "bun test --timeout 30000",
     "typecheck": "bun scripts/check.ts typecheck",
     "check": "bun scripts/check.ts",
     "check:rules": "./lint/with-real-node.sh --test --test-isolation=none 'lint/**/*.test.ts'",

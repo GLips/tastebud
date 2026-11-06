@@ -1,4 +1,5 @@
 # `bun test` discovers only the behavioural suites. The lint rule specs (lint/**/*.test.ts) run
 # under real Node via `bun run check:rules`: oxlint's RuleTester cannot run under Bun.
+# Bun ignores a timeout here: the suites spawn the CLI, so package.json and release.yml pass --timeout.
 [test]
 root = "test"

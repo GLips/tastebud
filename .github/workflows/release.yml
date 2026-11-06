@@ -46,7 +46,7 @@ jobs:
           smoke="${RUNNER_TEMP}/tastebud-smoke"
           mkdir -p "$smoke"
           cp dist/bin/${{ matrix.platform }}/tastebud "$smoke/tastebud"
-          TASTEBUD_TEST_BINARY="$smoke/tastebud" bun test test/review.test.ts test/mcp.test.ts test/places.test.ts test/claude-code-plugin.test.ts
+          TASTEBUD_TEST_BINARY="$smoke/tastebud" bun test --timeout 30000 test/review.test.ts test/mcp.test.ts test/places.test.ts test/claude-code-plugin.test.ts
       - name: Archive
         run: tar -czf tastebud-${{ matrix.platform }}.tar.gz -C dist/bin/${{ matrix.platform }} tastebud
       - uses: actions/upload-artifact@v4
