@@ -222,8 +222,12 @@ export default {
   //   a function     ({ cwd, source, env }) => ["clients/acme"]; must be deterministic, [] means unknown
   place: "git",
 
-  // Kinds replace the defaults whole when given. The defaults are one source kind and one derived kind:
-  // sourceKinds: { memory: { singular: "memory", plural: "memories" } },
+  // Kinds replace the defaults whole when given. The defaults are one source kind and one derived kind.
+  // A source kind's description says whose words and when to save them; agents are told it as written.
+  // sourceKinds: {
+  //   memory: { singular: "memory", plural: "memories",
+  //             description: "My own words to an agent, when I ask it to remember something or state a rule." },
+  // },
   // derivedKinds: {
   //   belief: { singular: "belief", plural: "beliefs", sources: ["memory"], recall: "inject",
   //             acceptLabel: "Believe", proposalPrompt: "…" },

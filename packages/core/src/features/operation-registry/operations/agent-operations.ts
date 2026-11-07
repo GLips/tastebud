@@ -95,7 +95,7 @@ export const AGENT_TASTE_OPERATIONS = {
     audience: "agent",
     kind: "command",
     description:
-      'Save a person\'s exact words for the owner to review later. Call it when the owner states a durable preference, corrects your approach, or asks you to remember something: their words verbatim (never yours) with said_by "owner", and enough of what they were reacting to in `before` to keep the meaning. Anyone else is named by account and label.',
+      "Save a person's exact words for the owner to review later. Call it only when the owner asks you to remember something or plainly states a lasting rule for how they want work done; don't go looking for things to save. Their words verbatim (never yours) with said_by \"owner\", and enough of what they were reacting to in `before` to keep the meaning. Anyone else is named by account and label.",
     input: CaptureSourceInput,
     output: CaptureResultSchema,
     run: captureSource,

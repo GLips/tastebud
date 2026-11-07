@@ -45,7 +45,7 @@ export const DEFAULT_SOURCE_KINDS: ReadonlyArray<SourceKindDefinition> = [
     key: "memory",
     singular: "memory",
     plural: "memories",
-    description: "A person's exact words, verbatim and attributed.",
+    description: "A person's exact words said to an agent, verbatim and attributed.",
   },
 ];
 

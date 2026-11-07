@@ -36,22 +36,17 @@ Ask who they are as \`human:<id>\`, suggesting one from what you know (their log
 
 When you can infer these instead (the name from \`git config user.name\`, the id from their login), you may skip the questions, but say each inferred value and where it came from in step 6's confirmation ("I'll call you Graham, from your git config"), so they can correct it before the write rather than learn of it after.
 
-## 3. Whose words count: source kinds
+## 3. What agents should know: derived kinds
 
-Sources are people's exact words, verbatim and attributed. Ask what they want remembered, and from whom:
-- their own corrections and preferences while working with agents;
-- customers on calls, users in support tickets or interviews;
-- teammates in code reviews or design docs.
+Start from outcomes, not sources: someone asked "whose words count?" has to list sources in the abstract, but each outcome they name points at its own evidence. Ask what they want agents to know or keep, in their words: "how I build things", "what each client prefers", "ideas worth trying". Each outcome becomes a derived kind: a one-line conclusion an agent proposes from sources and only the owner ratifies.
 
-Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Recommend the default, just \`memory\`, unless they name another population. Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` of whose words and from where. Set \`conversationSourceKind\` to the kind for words an agent hears in conversation (recommend \`memory\`): it is what \`capture\` uses when given no kind, which is how agents capture over MCP.
+Ask this and the questions below as separate questions, each with your recommendation, even when the answer is "keep the default". Never fold them into one "write the defaults?" choice: these questions are where the owner decides what the store is for, and a one-click default skips that conversation.
 
-## 4. What conclusions they want: derived kinds
-
-Derivations are one-line conclusions an agent proposes from sources and only the owner ratifies. Ask what they'd want agents to conclude from those words. The default is \`belief\` ("how I work"), fed by \`memory\` and recalled automatically by the prompt hook. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try).
+Recommend from what you know of them. The default is \`belief\` ("how I work"), recalled automatically. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try), \`skill-idea\` (requests they repeat across sessions). A preference about a client usually needs no kind of its own: it is a belief whose subject is that client, scoped to that client's repos.
 
 For each kind, settle, one at a time:
 - \`singular\`, \`plural\`, and a \`description\` in their words.
-- \`sources\`: which source kinds it may cite.
+- **Whose words are the evidence** (step 4 turns these into source kinds): their own, customers on calls, teammates in reviews.
 - \`recall\`: \`inject\` (the prompt hook adds matching accepted ones to the agent's context on each message), \`pull\` (an agent sees it only when it runs \`tastebud recall\`), or \`never\` (a review-only backlog). Recommend \`inject\` for things that should steer every session; \`pull\` kinds are seldom seen, since agents rarely recall unprompted.
 - \`acceptLabel\`: the button the owner presses to ratify ("Believe", "Accept", "Worth doing").
 - \`proposalPrompt\`: the instruction agents follow when proposing this kind. Ask the owner what makes a good one and a bad one, then draft it with these sections, in this order:
@@ -63,6 +58,14 @@ For each kind, settle, one at a time:
   - **When refused as a near repeat**: stop, unless something genuinely changed; then \`--despite <id>\` for every match and \`--despite-case\` saying what changed.
   - **Never**: what an agent must not do with this kind.
   Prompts spell inputs as CLI flags, since proposing runs only through the CLI. Keeping the default \`belief\` with its shipped prompt means leaving \`derivedKinds\` out, but giving \`derivedKinds\` at all replaces the defaults whole, so write \`belief\` out too if they want it alongside new kinds.
+
+## 4. Whose words are the evidence: source kinds
+
+Sources are people's exact words, verbatim and attributed. Gather the evidence each kind from step 3 named, then merge: a population two kinds share becomes one source kind (the owner's own words often feed both "how I build" and "what this client prefers"). Each distinct speaker population or medium, with its own provenance, is its own source kind: \`memory\` for the owner's words, \`call-quote\` for customers on recorded calls, \`review-comment\` for teammates. Don't split by topic; topics are what derivations are for. Each derived kind's \`sources\` lists the source kinds it may cite.
+
+Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` saying whose words, from where, and when an agent should save them ("A client's exact words in call notes or transcripts, said_by the client"). Write it in the owner's words: Tastebud's MCP server lists each source kind to agents with its description as the instruction for when to capture, so this line is what agents listen for. Set \`conversationSourceKind\` to the kind for words an agent hears in conversation (recommend \`memory\`): it is what \`capture\` uses when given no kind.
+
+Agents capture in a session only when the owner asks them to remember something or states a lasting rule; most of what's worth keeping is found later, by mining past sessions (see step 8). Say so, so the owner doesn't expect agents to save everything they say.
 
 ## 5. Where work happens: place
 
@@ -87,7 +90,7 @@ Ask which agent hosts they use (Claude Code, Codex, Cursor, others), then explai
 - **Claude Code**: the Tastebud plugin brings the prompt hook, the MCP server (its one tool is \`capture\`) and \`/tastebud:review\`, and puts \`tastebud\` on the agent's shell PATH. The hook is the automatic recall: before each message it adds the accepted derivations of \`inject\` kinds that match the message and the turn before it, so the agent never has to look anything up.
 - **The prompt hook is on** once the plugin is installed. It does nothing without a store or an \`inject\` kind. Tell the owner how to turn it off: \`/config\` in Claude Code (the Tastebud plugin's "Prompt hook" row), or in a shell \`echo '{"prompt_hook":"false"}' | claude plugin configure tastebud@tastebud --values-stdin\`, then a restart. With it off, nothing they accepted reaches the agent on its own; capture still works.
 - **Codex, Cursor, VS Code and other MCP clients** get the MCP-only setup, which provides capture only. Their agents save the owner's words through \`capture\`, but nothing the owner accepted reaches them automatically. Say this plainly. Some of them, Codex among them, tell the server nothing about where the agent is working, so the agent passes \`in\` (its working directory) to \`capture\`.
-- A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session.
+- A newly registered MCP server or plugin needs the host restarted or the server reconnected; a new hook takes effect in a new session. The MCP server reads the store's source kinds as it starts, so after changing them, reconnect it (\`/mcp\` in Claude Code) for agents to hear the new ones.
 
 Suggest the lines for each host, and never edit their agent settings or run an install without a yes. If the store isn't \`~/.tastebud\`, use the actual root from \`config-show\` for \`<root>\`:
 - Claude Code: \`${templateLines.claudeCodePlugin}\` in a shell, or \`/plugin install tastebud --marketplace GLips/tastebud\` inside Claude Code. For a store other than \`~/.tastebud\`, add \`${templateLines.claudeCodeStoreSettings}\` to \`~/.claude/settings.json\`: the hook and the MCP server both read it.
@@ -116,5 +119,5 @@ After a capture, tell them plainly: saving words doesn't create an active belief
 - Then the hook itself, in Claude Code: in a new session there, a message on that topic should arrive with a block that starts "These are previously accepted preferences". Ask them to try it, or try it yourself if you are in a new session. If the preview shows it and the session doesn't, the hook isn't running: the plugin isn't installed, the prompt hook is off, or the store isn't \`~/.tastebud\` and \`TASTEBUD_STORE\` isn't in \`~/.claude/settings.json\`.
 If the preview doesn't show it, explain why from \`recall-explain\` (scope, kind policy, status).
 
-Finish by naming anything still not installed for their hosts and what it would add, and tell them what happens next: agents capture their words as they work, and when they want those turned into proposals, they can ask an agent with a shell to review their saved words (it runs \`tastebud catalog --guide\`), then accept or reject in the review UI.
+Finish by naming anything still not installed for their hosts and what it would add, and tell them what happens next: agents capture their words when they ask them to remember something or state a lasting rule; for the rest, they can ask an agent with a shell to mine their recent sessions and propose from their saved words (it runs \`tastebud catalog --guide\`), then accept or reject in the review UI.
 `;

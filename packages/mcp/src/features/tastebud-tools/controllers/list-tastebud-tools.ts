@@ -1,3 +1,4 @@
+import { type CaptureGuidanceCatalog, renderCaptureKindLines } from "#mcp/domains/capture-guidance/index.ts";
 import { buildTastebudToolInputSchema } from "#mcp/domains/tool-input-schema/index.ts";
 import {
   type AgentTasteOperationName,
@@ -19,11 +20,14 @@ const EXPOSED_OPERATION_BY_TOOL_NAME: ReadonlyMap<string, TasteOperationListing>
     .map((operation) => [operation.name, operation] as const),
 );
 
-/** The exposed operations as MCP tools, in registry order. */
-export const listTastebudMcpTools = () =>
+/** The exposed operations as MCP tools, in registry order; capture's description lists the store's kinds. */
+export const listTastebudMcpTools = (catalog: CaptureGuidanceCatalog | undefined) =>
   [...EXPOSED_OPERATION_BY_TOOL_NAME].map(([name, operation]) => ({
     name,
-    description: operation.description,
+    description:
+      name === "capture" && catalog !== undefined
+        ? `${operation.description}\n\n${renderCaptureKindLines(catalog)}`
+        : operation.description,
     inputSchema: buildTastebudToolInputSchema(operation),
     annotations: {
       readOnlyHint: operation.kind === "query",

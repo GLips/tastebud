@@ -119,5 +119,18 @@ test("with no store, capture sends the agent to setup through the CLI", async ()
   const missing = await client.callTool({ name: "capture", arguments: { said_by: "owner", quote: "Tabs." } });
   expect(missing.isError).toBe(true);
   expect(JSON.stringify(missing.content)).toContain("`tastebud config-show --guide`");
+  expect(client.getInstructions()).toContain("There is no store yet");
   expect(existsSync(store)).toBe(false);
+});
+
+test("the owner's source kinds, with when to save each, reach agents in the instructions and capture's description", async () => {
+  const callQuote = "A client's exact words in call notes, said_by the client";
+  const store = await makeTestStore(
+    `export default { owner: "${OWNER}", conversationSourceKind: "memory", sourceKinds: { memory: { singular: "memory", plural: "memories" }, "call-quote": { singular: "call quote", plural: "call quotes", description: "${callQuote}" } }, derivedKinds: { belief: { singular: "belief", plural: "beliefs", sources: ["memory", "call-quote"], recall: "inject", acceptLabel: "Believe", proposalPrompt: "…" } } };`,
+  );
+  const client = await connectTastebudMcp(store);
+  const { tools } = await client.listTools();
+  for (const text of [client.getInstructions() ?? "", tools[0]?.description ?? ""])
+    expect(text).toContain(`- call-quote: ${callQuote}`);
+  expect(client.getInstructions()).toContain("- memory (words said to you; leave `kind` out)");
 });

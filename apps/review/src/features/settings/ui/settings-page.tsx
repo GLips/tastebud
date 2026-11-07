@@ -210,8 +210,9 @@ export function SettingsPage() {
       <Stack gap="3xs">
         <Title order={3}>Settings</Title>
         <Text size="xs" c="dimmed">
-          Read-only. The config is code: ask an agent to run Tastebud's setup, or edit <code>tastebud.config.ts</code>{" "}
-          in the store. This page picks it up on save.
+          To change anything here, ask an agent to change your Tastebud setup (it runs{" "}
+          <code>tastebud config-show --guide</code>), or edit <code>tastebud.config.ts</code> in the store. This page
+          picks it up on save.
         </Text>
       </Stack>
 
@@ -247,14 +248,24 @@ export function SettingsPage() {
       </Paper>
 
       <Stack gap="sm">
-        <Text fw={600}>Derived kinds</Text>
+        <Stack gap="3xs">
+          <Text fw={600}>Derived kinds</Text>
+          <Text size="xs" c="dimmed">
+            What agents propose for you to accept. Ask an agent to add a kind or change one.
+          </Text>
+        </Stack>
         {catalog.derivedKinds.map((kind) => (
           <DerivedKindCard key={kind.key} kind={kind} />
         ))}
       </Stack>
 
       <Stack gap="sm">
-        <Text fw={600}>Source kinds</Text>
+        <Stack gap="3xs">
+          <Text fw={600}>Source kinds</Text>
+          <Text size="xs" c="dimmed">
+            Whose words the store keeps. Agents are told each description as when to save those words.
+          </Text>
+        </Stack>
         <Paper p="md">
           <Box {...stylex.props(styles.facts)}>
             {catalog.sourceKinds.map((kind) => (
