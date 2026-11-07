@@ -9,7 +9,7 @@ This is the owner's catch-up: read what they said since the last one, propose wh
 
 ## Catch up
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/tastebud" catalog --guide` and follow its "Catch up" section, using `"${CLAUDE_PLUGIN_ROOT}/bin/tastebud"` for every `tastebud` command. Its last step, handing over, is the next section. When no session messages or sources wait, still check each other origin you can reach (or name the ones you can't) before saying there's nothing new.
+Run `"${CLAUDE_PLUGIN_ROOT}/bin/tastebud" catalog --guide` and follow its "Catch up" section, using `"${CLAUDE_PLUGIN_ROOT}/bin/tastebud"` for every `tastebud` command. Session batches go to Sonnet subagents (the Agent tool with `model: "sonnet"`), one per batch in parallel; give each its batch command with that same absolute path in place of `tastebud`. Its last step, handing over, is the next section. When no session messages or sources wait, still check each other origin you can reach (or name the ones you can't) before saying there's nothing new.
 
 ## Open the review UI
 

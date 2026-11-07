@@ -34,13 +34,13 @@ export const inCliStore = Effect.fn("cli-operations.inCliStore")(function* <A, E
   return yield* provideTasteStore(resolveCliStoreRoot(store))(effect);
 });
 
-/** One result, as pretty JSON under `--json` and as `renderText` otherwise. */
+/** One result, as compact JSON under `--json` (agents read it, and indentation is tokens) and as `renderText` otherwise. */
 export const emitCliResult = Effect.fn("cli-operations.emitCliResult")(function* <A>(
   json: boolean,
   value: A,
   renderText: (value: A) => string,
 ) {
-  yield* printLine(json ? JSON.stringify(value, null, 2) : renderText(value));
+  yield* printLine(json ? JSON.stringify(value) : renderText(value));
 });
 
 /**

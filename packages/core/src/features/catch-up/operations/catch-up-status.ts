@@ -1,7 +1,8 @@
 /**
  * `catch-up`: what a catch-up has to read and weigh. Each source kind is an origin with its own
  * reading, so one the agent can't reach from here waits without holding the others back. Claude Code
- * sessions are the one origin Tastebud reads itself; their backlog is cut to the evidence budget.
+ * sessions are the one origin Tastebud reads itself; their backlog is cut to the evidence budget and
+ * split into batches, each one subagent's reading, so the agent running the catch-up never reads it.
  */
 import { Clock, Effect, Schema } from "effect";
 
@@ -17,8 +18,13 @@ import {
 import { OptionalTrimmedText } from "#core/shared/input-text.ts";
 import { formatLocalIsoTime } from "#core/shared/iso-times.ts";
 
-/** About one ordinary agent task of reading, and few enough proposals to decide over a coffee. */
-const CATCH_UP_EVIDENCE_TOKENS = 60_000;
+/**
+ * What subagents read in one catch-up, about ten batches: a normal week of the owner's typing. The
+ * proposal cap, not this, keeps the review short.
+ */
+const CATCH_UP_SUBAGENT_TOKENS = 300_000;
+/** One subagent's reading. */
+const CATCH_UP_BATCH_TOKENS = 30_000;
 const CATCH_UP_PROPOSALS = 5;
 /** A first catch-up reads this far back; later ones read from where the last stopped. */
 const FIRST_CATCH_UP_DAYS = 7;
@@ -27,13 +33,20 @@ const FIRST_CATCH_UP_DAYS = 7;
  * session's, say) is read whole by the next one rather than skipped behind the reading.
  */
 const SETTLE_MS = 2 * 60 * 1000;
-/** Rough tokens per character of English, for budgeting what to read. */
+/** Rough characters per token of English, for budgeting what to read. */
 const CHARS_PER_TOKEN = 4;
 /** How many due sources each kind lists by id; the count says how many more. */
 const DUE_IDS_SHOWN = 40;
 
 export const CatchUpStatusInput = Schema.Struct({
   in: OptionalTrimmedText.annotate({ description: "Where the catch-up runs, for its receipts" }),
+});
+
+const SessionBatchSchema = Schema.Struct({
+  /** A ready-to-run `transcript-candidates` command for one subagent. */
+  command: Schema.String,
+  messages: Schema.Int,
+  tokens: Schema.Int,
 });
 
 const SessionBacklogSchema = Schema.Struct({
@@ -47,6 +60,8 @@ const SessionBacklogSchema = Schema.Struct({
   read_until: Schema.String,
   /** Messages past the budget, left for the next catch-up. */
   left_for_next: Schema.Int,
+  /** What fits the budget, split in time order so no batch splits messages sent at one instant. */
+  batches: Schema.Array(SessionBatchSchema),
   /**
    * Messages sent from a directory that resolves to no place now (a deleted worktree, say). They
    * can't be placed or captured, so the reading passes them.
@@ -79,7 +94,7 @@ export const CatchUpStatusResultSchema = Schema.Struct({
   first: Schema.Boolean,
   now: Schema.String,
   run_in: Schema.Array(Schema.String),
-  budget: Schema.Struct({ evidence_tokens: Schema.Int, proposals: Schema.Int }),
+  budget: Schema.Struct({ subagent_tokens: Schema.Int, batch_tokens: Schema.Int, proposals: Schema.Int }),
   origins: Schema.Array(OriginStatusSchema),
   /** Per derived kind, sources no catch-up has weighed under its current proposal prompt. */
   kinds: Schema.Array(KindDueSchema),
@@ -88,25 +103,24 @@ export type CatchUpStatusResult = typeof CatchUpStatusResultSchema.Type;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** What a subagent reads for one candidate: its row in `transcript-candidates --json`, reference and all. */
 const candidateTokens = (candidate: TranscriptCandidate) =>
-  Math.ceil(
-    [...candidate.parts, candidate.replying_to ?? ""].reduce((total, text) => total + text.length, 0) / CHARS_PER_TOKEN,
-  );
+  Math.ceil(JSON.stringify(candidate).length / CHARS_PER_TOKEN);
 
 const sameTime = (left: TranscriptCandidate | undefined, right: TranscriptCandidate | undefined) =>
   left !== undefined && right !== undefined && Date.parse(left.said_at) === Date.parse(right.said_at);
 
 /**
- * How many of the oldest candidates fit the budget. The cut is a time, so messages sent at the same
- * instant stay together: the cut backs off before them, or takes them all when they come first. At
- * least one message is always taken, so a huge one can't stall every catch-up.
+ * How many of the oldest candidates fit `limit` tokens. The cut is a time, so messages sent at the
+ * same instant stay together: the cut backs off before them, or takes them all when they come first.
+ * At least one message is always taken, so a huge one can't stall every catch-up.
  */
-const takenWithinBudget = (candidates: ReadonlyArray<TranscriptCandidate>) => {
+const takenWithinTokens = (candidates: ReadonlyArray<TranscriptCandidate>, limit: number) => {
   let tokens = 0;
   let taken = 0;
   for (const candidate of candidates) {
     const cost = candidateTokens(candidate);
-    if (taken > 0 && tokens + cost > CATCH_UP_EVIDENCE_TOKENS) break;
+    if (taken > 0 && tokens + cost > limit) break;
     tokens += cost;
     taken += 1;
   }
@@ -118,23 +132,53 @@ const takenWithinBudget = (candidates: ReadonlyArray<TranscriptCandidate>) => {
   return cut;
 };
 
+type SessionWindow = { readonly days: number } | { readonly after: string };
+
+const windowFlags = (window: SessionWindow) =>
+  "days" in window ? `--days ${String(window.days)}` : `--after ${window.after}`;
+
+/**
+ * Each batch ends at its last message and the next starts after it, so together they read exactly
+ * the budgeted stretch; the last ends at read_until, which also takes in anything said since listing.
+ */
+const sessionBatches = (taken: ReadonlyArray<TranscriptCandidate>, first: SessionWindow, readUntil: string) => {
+  const batches = [];
+  let window: SessionWindow = first;
+  let rest = taken;
+  while (rest.length > 0) {
+    const count = takenWithinTokens(rest, CATCH_UP_BATCH_TOKENS);
+    const batch = rest.slice(0, count);
+    rest = rest.slice(count);
+    const before = rest.length === 0 ? readUntil : (batch.at(-1)?.said_at ?? readUntil);
+    batches.push({
+      command: `tastebud transcript-candidates ${windowFlags(window)} --before ${before} --json`,
+      messages: batch.length,
+      tokens: batch.reduce((total, candidate) => total + candidateTokens(candidate), 0),
+    });
+    window = { after: before };
+  }
+  return batches;
+};
+
 const sessionBacklog = Effect.fn("catch-up.sessionBacklog")(function* (readThrough: string | undefined, nowMs: number) {
   const settled = formatLocalIsoTime(new Date(nowMs - SETTLE_MS));
   const lookbackStart = nowMs - TRANSCRIPT_LOOKBACK_DAYS * DAY_MS;
-  const window =
+  const window: SessionWindow =
     readThrough === undefined
       ? { days: FIRST_CATCH_UP_DAYS }
       : { after: Date.parse(readThrough) < lookbackStart ? formatLocalIsoTime(new Date(lookbackStart)) : readThrough };
   const listed = yield* listTranscriptCandidates({ ...window, before: settled });
-  const taken = takenWithinBudget(listed.candidates);
+  const taken = takenWithinTokens(listed.candidates, CATCH_UP_SUBAGENT_TOKENS);
   const leftForNext = listed.candidates.length - taken;
   const lastTaken = listed.candidates[taken - 1];
+  const readUntil = leftForNext > 0 && lastTaken !== undefined ? lastTaken.said_at : settled;
   return {
     messages: listed.candidates.length,
     tokens: listed.candidates.reduce((total, candidate) => total + candidateTokens(candidate), 0),
     ...window,
-    read_until: leftForNext > 0 && lastTaken !== undefined ? lastTaken.said_at : settled,
+    read_until: readUntil,
     left_for_next: leftForNext,
+    batches: sessionBatches(listed.candidates.slice(0, taken), window, readUntil),
     unplaced: listed.unresolved,
     ...(readThrough !== undefined &&
       Date.parse(readThrough) < lookbackStart && { gap_before: formatLocalIsoTime(new Date(lookbackStart)) }),
@@ -168,7 +212,11 @@ export const readCatchUpStatus = Effect.fn("catch-up.readCatchUpStatus")(functio
     first: snapshot.catchUps.length === 0,
     now: formatLocalIsoTime(new Date(nowMs)),
     run_in: context.places,
-    budget: { evidence_tokens: CATCH_UP_EVIDENCE_TOKENS, proposals: CATCH_UP_PROPOSALS },
+    budget: {
+      subagent_tokens: CATCH_UP_SUBAGENT_TOKENS,
+      batch_tokens: CATCH_UP_BATCH_TOKENS,
+      proposals: CATCH_UP_PROPOSALS,
+    },
     origins,
     kinds: sourcesDueForKinds(catalog, snapshot.sources, snapshot.catchUps).map(({ kind, tag, due }) => ({
       kind: kind.key,

@@ -11,14 +11,17 @@ const originLines = (origin: CatchUpStatusResult["origins"][number]) => {
   const lines = [`${origin.kind}: ${read}`, ...(origin.description === undefined ? [] : [`  ${origin.description}`])];
   const { sessions } = origin;
   if (sessions === undefined) return [...lines, "  Read it with your own tools if you can reach it from here."];
-  const window = sessions.after === undefined ? `--days ${String(sessions.days ?? 7)}` : `--after ${sessions.after}`;
   return [
     ...lines,
     `  Claude Code sessions: ${String(sessions.messages)} of the owner's messages waiting, about ${String(sessions.tokens)} tokens.`,
     ...(sessions.gap_before === undefined
       ? []
       : [`  Words before ${sessions.gap_before} were never read and are past the look-back.`]),
-    `  Read: tastebud transcript-candidates ${window} --before ${sessions.read_until} --json`,
+    `  ${String(sessions.batches.length)} batches, one Sonnet subagent each (don't read them yourself):`,
+    ...sessions.batches.map(
+      (batch, index) =>
+        `    ${String(index + 1)}. ${batch.command}  (${String(batch.messages)} messages, ~${String(batch.tokens)} tokens)`,
+    ),
     `  Then record: --origin ${origin.kind} --read-through ${sessions.read_until}`,
     ...(sessions.unplaced > 0
       ? [`  ${String(sessions.unplaced)} sent from directories that no longer resolve to a place are passed over.`]
@@ -31,7 +34,7 @@ const originLines = (origin: CatchUpStatusResult["origins"][number]) => {
 
 export const renderCatchUpStatusText = (result: CatchUpStatusResult) =>
   [
-    `${result.first ? "First catch-up" : "Catch-up"} at ${result.now}${result.run_in.length > 0 ? ` in ${result.run_in.join(", ")}` : ""}. Budget: about ${String(result.budget.evidence_tokens)} tokens of evidence, at most ${String(result.budget.proposals)} proposals.`,
+    `${result.first ? "First catch-up" : "Catch-up"} at ${result.now}${result.run_in.length > 0 ? ` in ${result.run_in.join(", ")}` : ""}. Budget: subagents read up to about ${String(result.budget.subagent_tokens)} tokens in batches of ~${String(result.budget.batch_tokens)}; at most ${String(result.budget.proposals)} proposals.`,
     "",
     "Origins:",
     ...result.origins.flatMap(originLines),

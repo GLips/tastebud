@@ -25,7 +25,12 @@ const StatusJson = Schema.fromJsonString(
         read_through: Schema.optionalKey(Schema.String),
         last_run_in: Schema.Array(Schema.String),
         sessions: Schema.optionalKey(
-          Schema.Struct({ messages: Schema.Int, read_until: Schema.String, left_for_next: Schema.Int }),
+          Schema.Struct({
+            messages: Schema.Int,
+            read_until: Schema.String,
+            left_for_next: Schema.Int,
+            batches: Schema.Array(Schema.Struct({ command: Schema.String })),
+          }),
         ),
       }),
     ),
@@ -125,18 +130,29 @@ test("a catch-up advances only the origins it read, and the next one starts from
   ]);
 });
 
-test("a backlog past the evidence budget is read up to where it ran out", async () => {
-  const { configDir, web, origin } = await catchingUp();
-  const long = "word ".repeat(40_000);
+test("a backlog is split into subagent batches that together read up to where the budget ran out", async () => {
+  const { configDir, web, origin, run } = await catchingUp();
+  // ~88k tokens each at 4 characters a token: three fit the 300k budget, one batch apiece; the fourth waits.
+  const long = "word ".repeat(70_000);
   writeSessionTranscript(configDir, "-acme-web", "33333333-aaaa-4aaa-8aaa-333333333333", [
-    ...sentFrom(web, minutesAgo(20), [ownerTurn(`First ${long}`)]),
-    ...sentFrom(web, minutesAgo(10), [ownerTurn(`Second ${long}`)]),
+    ...sentFrom(web, minutesAgo(40), [ownerTurn(`First ${long}`)]),
+    ...sentFrom(web, minutesAgo(30), [ownerTurn(`Second ${long}`)]),
+    ...sentFrom(web, minutesAgo(20), [ownerTurn(`Third ${long}`)]),
+    ...sentFrom(web, minutesAgo(10), [ownerTurn(`Fourth ${long}`)]),
   ]);
 
   const sessions = (await origin("memory"))?.sessions;
 
-  expect([sessions?.messages, sessions?.left_for_next]).toEqual([2, 1]);
+  expect([sessions?.messages, sessions?.left_for_next, sessions?.batches.length]).toEqual([4, 1, 3]);
   expect(Date.parse(sessions?.read_until ?? "")).toBeLessThan(Date.now() - 15 * 60_000);
+  // Each batch command reads exactly its own message.
+  const firstWords = await Promise.all(
+    (sessions?.batches ?? []).map(async (batch) => {
+      const listed = Schema.decodeUnknownSync(CandidatesJson)(await run(batch.command.split(" ").slice(1)));
+      return listed.candidates.map((candidate) => candidate.parts[0]?.split(" ")[0]);
+    }),
+  );
+  expect(firstWords).toEqual([["First"], ["Second"], ["Third"]]);
 });
 
 test("similar-to finds a request repeated across sessions, once per message however often a fork copies it", async () => {

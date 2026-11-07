@@ -4,7 +4,7 @@ import { quoted } from "#core/domains/record-text/index.ts";
 import type { TranscriptCandidate, TranscriptCandidatesResult } from "./transcript-candidates.ts";
 
 const candidateLines = (candidate: TranscriptCandidate) => [
-  `${candidate.said_at}  ${candidate.places.join(", ")}  (${candidate.because}${candidate.similarity === undefined ? "" : `, ${String(candidate.similarity)} alike`})`,
+  `${candidate.said_at}  ${candidate.places.join(", ")}${candidate.similarity === undefined ? "" : `  (${String(candidate.similarity)} alike)`}`,
   `  --transcript-session ${candidate.reference.session} --transcript-message ${candidate.reference.message}`,
   ...(candidate.replying_to === undefined ? [] : [`  replying to: ${quoted(candidate.replying_to)}`]),
   ...candidate.parts.map((part) => `  ${quoted(part)}`),
