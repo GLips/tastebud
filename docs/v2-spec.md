@@ -373,7 +373,7 @@ A resolver can't prove that a place will never come back, so the audit only comp
   - Cards show the scope as place chips. Global is an explicit orange chip, and a defaulted scope says "from <place>". The scope editor is inline.
   - Accept uses the kind's `acceptLabel`. When the scope was edited, or the effective scope overlaps blocking matches, accept first opens an **acceptance preview**. It shows the statement, the effective places, and any newly overlapping rejections or near repeats, which must be acknowledged before the decision is sent.
   - Batch accept stays within one kind and one scope group.
-- **Detail:** as in v1, plus scope chips (proposed and effective), an "edit scope → propose revision" action once accepted, and the kind label everywhere.
+- **Detail:** as in v1, plus scope chips (proposed and effective), an "edit scope" action once accepted that moves it in place, and the kind label everywhere.
 - **Recall inspector:**
   - The context origin and its places.
   - A "pretend I'm in <dir>" input, and a kind filter.

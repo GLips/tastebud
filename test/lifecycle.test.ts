@@ -262,26 +262,48 @@ describe("lifecycle", () => {
     expect(blocked.blocked[0]?.matches.map((match) => match.id)).toEqual([twin.id]);
   });
 
-  test("the owner's scope revision lands pending, with the same words and evidence", async () => {
+  test("the owner moves an accepted derivation to a new scope in place, with one decision", async () => {
     const { root, inWeb } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "No default exports, ever.");
     const original = await propose(root, inWeb, { statement: "Use named exports only", supports: [memory] });
     await decide(root, { ref: original.id, outcome: "accept" });
 
     const CLIENTS = "clients/acme";
-    const input = { ref: original.id, scope: "places", places: [WEB, CLIENTS] };
-    expect((await failOperation(root, "revise-scope", input, inWeb))._tag).toBe("OperationNotAllowed");
-    const { derivation } = await runOperation(root, "revise-scope", input, reviewer);
-    expect(derivation.status).toBe("pending");
-    expect(derivation.derivation.proposed_by).toBe("process:review");
-    expect(derivation.derivation.supersedes).toBe(original.id);
-    expect([derivation.statement, derivation.derivation.supports]).toEqual([original.statement, [memory]]);
-    expect([derivation.proposedScope, derivation.scopeSource]).toEqual([
+    const before = (await runOperation(root, "list", {}, inWeb)).derivations.length;
+    const { derivation } = await decide(root, {
+      ref: original.id,
+      outcome: "accept",
+      scope: "places",
+      places: [WEB, CLIENTS],
+    });
+    expect([derivation.status, derivation.effectiveScope]).toEqual([
+      "accepted",
       { scope: "places", places: [WEB, CLIENTS] },
-      "explicit",
     ]);
-    const inbox = await runOperation(root, "inbox", {}, reviewer);
-    expect(JSON.stringify(inbox)).toContain(derivation.id);
+    expect((await runOperation(root, "list", {}, inWeb)).derivations.length).toBe(before);
+    const again = await failOperation(
+      root,
+      "decide",
+      { ref: original.id, outcome: "accept", scope: "places", places: [CLIENTS, WEB] },
+      reviewer,
+    );
+    expect(again._tag).toBe("DecisionNotAllowed");
+  });
+
+  test("a revision of a derivation retracted after it was proposed can still be accepted", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Merge duplicate code paths.");
+    const original = await propose(root, inWeb, { statement: "Merge duplicate code paths", supports: [memory] });
+    await decide(root, { ref: original.id, outcome: "accept" });
+    const revision = await propose(root, inWeb, {
+      statement: "Merge duplicate code paths into one",
+      supports: [memory],
+      supersedes: original.id,
+    });
+    await decide(root, { ref: original.id, outcome: "retract" });
+    const { derivation } = await decide(root, { ref: revision.id, outcome: "accept" });
+    expect(derivation.status).toBe("accepted");
+    expect((await runOperation(root, "show", { ref: original.id }, inWeb)).derivation?.status).toBe("retracted");
   });
 
   test("widening at accept needs every newly overlapping near repeat acknowledged", async () => {

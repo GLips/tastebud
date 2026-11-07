@@ -1,4 +1,4 @@
-/** The text `propose`, `revise-scope`, `repoint` and `repoint-preview` print. */
+/** The text `propose`, `repoint` and `repoint-preview` print. */
 import {
   formatDerivationSummary,
   formatRepeatMatches,

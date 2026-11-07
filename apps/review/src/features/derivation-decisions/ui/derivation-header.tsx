@@ -130,7 +130,7 @@ export function DerivationScopeFacts({ view, known }: { view: DerivationView; kn
             <Group gap="xs">
               <ScopeChips scope={view.proposedScope} labels={known.labels} wrap="wrap" />
               <Text size="xs" c="dimmed">
-                amended when accepted
+                changed by you
               </Text>
             </Group>
           </FactRow>

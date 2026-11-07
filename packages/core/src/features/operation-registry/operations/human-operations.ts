@@ -14,12 +14,6 @@ import {
 } from "#core/features/decisions/index.server.ts";
 import { InboxResultSchema, listInboxGroups, renderInboxText } from "#core/features/inbox/index.server.ts";
 import {
-  ProposalResultSchema,
-  renderProposeText,
-  reviseDerivationScope,
-  ReviseScopeInput,
-} from "#core/features/proposals/index.server.ts";
-import {
   appendOwnerThreadNote,
   ListenerHeartbeatSchema,
   listListenerHeartbeats,
@@ -59,7 +53,8 @@ export const HUMAN_TASTE_OPERATIONS = {
     name: "decide",
     audience: "human",
     kind: "command",
-    description: "Accept (optionally with a scope and acknowledgements), reject or retract a derivation.",
+    description:
+      "Accept (optionally with a scope and acknowledgements), reject or retract a derivation. Accepting an accepted one again moves it to the new scope.",
     input: DecideDerivationInput,
     output: Schema.Struct({ decision: DecisionRecordSchema, derivation: DerivationViewSchema }),
     run: (input, caller) => decideDerivation(input, { writtenBy: caller.actor }),
@@ -74,17 +69,6 @@ export const HUMAN_TASTE_OPERATIONS = {
     output: Schema.Struct({ entry: ThreadEntryRecordSchema }),
     run: (input) => appendOwnerThreadNote(input),
     renderText: renderThreadEntryText,
-  }),
-  "revise-scope": declareTasteOperation({
-    name: "revise-scope",
-    audience: "human",
-    kind: "command",
-    description:
-      "The owner's new scope for an accepted derivation: a pending revision with the same statement and evidence, proposed by the owner.",
-    input: ReviseScopeInput,
-    output: ProposalResultSchema,
-    run: (input) => reviseDerivationScope(input),
-    renderText: renderProposeText,
   }),
   listeners: declareTasteOperation({
     name: "listeners",

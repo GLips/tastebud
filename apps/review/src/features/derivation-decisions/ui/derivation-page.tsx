@@ -82,7 +82,7 @@ function DerivationDetail({
         kind={kind}
         catalog={catalog}
         owner={owner}
-        actions={<DerivationActions review={review} acceptLabel={acceptLabel} />}
+        actions={<DerivationActions review={review} acceptLabel={acceptLabel} known={known} />}
       />
       <DerivationScopeFacts view={view} known={known} />
       <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />

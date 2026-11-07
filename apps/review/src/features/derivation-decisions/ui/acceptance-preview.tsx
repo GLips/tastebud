@@ -1,13 +1,13 @@
 /**
  * The acceptance preview, inside the card: the statement, the scope it would settle on, and each
- * blocking near repeat as its own row to acknowledge. There is no "acknowledge all" on purpose:
+ * blocking near repeat as its own row to acknowledge. The confirm button names that scope. There is no "acknowledge all" on purpose:
  * each earlier no deserves its own look.
  */
 import { Box, Alert, Button, Checkbox, Group, Kbd, Loader, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import type { DerivationScope } from "@tastebud/core/places";
+import { type DerivationScope, formatPlaceLabel } from "@tastebud/core/places";
 import type { RepeatMatch } from "@tastebud/core/record-views";
 import { TriangleAlert } from "lucide-react";
 
@@ -17,6 +17,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 import { acceptPreviewQuery } from "./decision-queries.ts";
+import { scopeButtonPhrase } from "./scope-draft.ts";
 
 const styles = stylex.create({
   panel: {
@@ -50,7 +51,7 @@ const acknowledgementWording = (match: RepeatMatch): string => {
   }
 };
 
-export function BlockingMatchRow({
+function BlockingMatchRow({
   match,
   checked,
   onChange,
@@ -158,9 +159,7 @@ export function AcceptancePreview({
   override,
   proposedScope,
   changes,
-  acceptLabel,
-  confirmLabel = acceptLabel,
-  backLabel = "Back",
+  verb,
   active,
   acknowledged,
   onAcknowledge,
@@ -176,10 +175,8 @@ export function AcceptancePreview({
   override: DerivationScope | undefined;
   proposedScope: DerivationScope;
   changes: ReadonlyArray<string>;
-  acceptLabel: string;
-  /** The confirm button's words; the kind's accept label unless the flow names its own. */
-  confirmLabel?: string;
-  backLabel?: string;
+  /** What confirming does, before the scope: the kind's accept label, or "Apply" when moving an accepted one. */
+  verb: string;
   /** Only the preview on the selected card listens for ⌘↵ and Esc; other cards' previews stay put. */
   active: boolean;
   acknowledged: ReadonlySet<string>;
@@ -212,7 +209,7 @@ export function AcceptancePreview({
       <Stack gap={10}>
         <Box {...stylex.props(styles.label)}>
           <Text size="xs" c="dimmed">
-            {acceptLabel}
+            {verb}
           </Text>
           <Text {...stylex.props(styles.statement)}>{statement}</Text>
         </Box>
@@ -247,13 +244,13 @@ export function AcceptancePreview({
 
         <Group justify="flex-end" gap="xxs">
           <Button size="xs" variant="default" onClick={back} disabled={pending}>
-            {backLabel}
+            Back
             <Kbd size="xs" ml="xxs">
               Esc
             </Kbd>
           </Button>
           <Button size="xs" onClick={confirm} disabled={!ready} loading={pending}>
-            {confirmLabel}
+            {verb} {scopeButtonPhrase(finalScope, (place) => labels.get(place) ?? formatPlaceLabel(place))}
             <Kbd size="xs" ml="xxs">
               ⌘↵
             </Kbd>

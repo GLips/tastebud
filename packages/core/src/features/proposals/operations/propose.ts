@@ -266,7 +266,7 @@ export const proposeDerivation = Effect.fn("proposals.proposeDerivation")(functi
   );
 });
 
-/** What `propose` and `revise-scope` return: the pending derivation and what it resembles. */
+/** What `propose` returns: the pending derivation and what it resembles. */
 export const ProposalResultSchema = Schema.Struct({
   derivation: DerivationViewSchema,
   path: Schema.String,

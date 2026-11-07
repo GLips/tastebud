@@ -34,7 +34,7 @@ tastebud propose --kind belief --statement "Use named exports, never default exp
 - \`--supports\` every source it rests on; \`--contradicts\` the ones that cut the other way.
 - To revise an accepted derivation, \`--supersedes <id>\` and cite the new words.
 
-Scope from where the words were said, not from where you are. A store-wide review reads words captured all over, so check each cited source's \`captured in\` line (\`tastebud show <id>\`, its \`captured_in\`) and pass \`--place <key>\` for those places (\`tastebud places\` lists the ones in use). With no scope a proposal defaults to your current checkout, which is right only when every cited source was captured there. \`--global\` only when the owner's words say it holds for all their work. Never widen a scope beyond what the words say; the owner can widen it when they accept.
+Scope from where the words were said, not from where you are. A store-wide review reads words captured all over, so check each cited source's \`captured in\` line (\`tastebud show <id>\`, its \`captured_in\`) and pass \`--place <key>\` for those places (\`tastebud places\` lists the ones in use). With no scope a proposal defaults to your current checkout, which is right only when every cited source was captured there. \`--global\` only when the owner's words say it holds for all their work. Never widen a scope beyond what the words say; the owner can widen it when they accept, or move an accepted one in the review UI. Don't propose a revision just to change where something applies: hand the owner its review page.
 
 Refused as a near repeat (exit 3): something close exists in an overlapping scope. Usually stop. Re-propose only when something genuinely changed: \`--despite <id>\` for every match and \`--despite-case\` saying what changed. Never reword a statement to slip past the check.
 
@@ -42,7 +42,7 @@ Refused as a near repeat (exit 3): something close exists in an overlapping scop
 
 When you're done, tell the owner what you proposed and what you skipped and why, then give them \`tastebud review-url\` (the inbox). They accept in the review UI: \`/tastebud:review\` in Claude Code, or \`tastebud review --open\`. Never say a proposal is accepted before they decide.
 
-As you hand it over, start \`tastebud review listen --as <your-name>\`, not after a first note: it prints each note they leave, and any still unanswered, as a JSON line, and never exits. In Claude Code run it under the Monitor tool (each line becomes an event; re-arm it when it expires); a \`run_in_background\` shell reports only on exit and would miss every note. Answer with \`tastebud thread-reply <id> "<text>" --by <you>\`, and propose a revision rather than argue when a note asks for a change.
+As you hand it over, start \`tastebud review listen --as <your-name>\`, not after a first note: it prints each note they leave, and any still unanswered, as a JSON line, and never exits. In Claude Code run it under the Monitor tool with its longest timeout (30 minutes) and no \`2>&1\`, so each note is an event and the startup line on stderr isn't; re-arm it on every expiry until the owner says they're done, since a note left between runs arrives when it restarts; a \`run_in_background\` shell reports only on exit and would miss every note. Answer with \`tastebud thread-reply <id> "<text>" --by <you>\`, and propose a revision rather than argue when a note asks for a change.
 
 ## Mine recent sessions, only when the owner asks
 

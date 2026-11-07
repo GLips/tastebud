@@ -20,4 +20,3 @@ export {
   repointTastePlace,
 } from "./operations/repoint.ts";
 export type { RepointPlaceResult } from "./operations/repoint.ts";
-export { ReviseScopeInput, reviseDerivationScope } from "./operations/revise-scope.ts";

@@ -1,154 +1,40 @@
 /**
  * Deciding from the derivation page. A pending derivation is accepted (its scope optionally amended
- * first) or rejected; an accepted one is retracted, or gets "Edit scope → propose revision", which
- * starts from where it applies now and then offers to accept that revision on the spot.
+ * first) or rejected. An accepted one is retracted, or moved to a new scope in place: one decision,
+ * through the same preview and acknowledgements as an accept.
  * `useDerivationReview` holds the state; the buttons sit in the header and the panels below the facts.
  */
-import { Alert, Button, Group, Stack, Text, Tooltip } from "@mantine/core";
-import * as stylex from "@stylexjs/stylex";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DerivationSummary, DerivationView } from "@tastebud/core/record-views";
+import { Alert, Button, Group, Tooltip } from "@mantine/core";
+import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, SquarePen, Undo2, X } from "lucide-react";
 import { useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
-import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
-import type { ReviewFailure } from "#review/shared/review-outcome.ts";
-import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
-import { proposeScopeRevision } from "../controllers/revise-scope.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
-import { RevisionRepeatResolution } from "./revision-repeat-resolution.tsx";
-import { describeScopeChange, isSameScope, type ScopeDraft, scopeOverrideOf } from "./scope-draft.ts";
+import {
+  describeScopeChange,
+  isCompleteScope,
+  isSameScope,
+  type ScopeDraft,
+  scopeButtonPhrase,
+  scopeOverrideOf,
+} from "./scope-draft.ts";
 import { ScopeEditor } from "./scope-editor.tsx";
 import { useReviewDecision } from "./use-review-decision.ts";
 
-const styles = stylex.create({
-  preWrap: { whiteSpace: "pre-wrap" },
-});
-
-type DerivationReviewMode = "idle" | "rejecting" | "editing" | "previewing" | "revising" | "accepting-revision";
-
-/** A revision always proposes; an edit before accepting says whether the scope changed. */
-const scopeEditorContinueLabel = (mode: DerivationReviewMode, edited: boolean, acceptLabel: string): string => {
-  if (mode === "revising") return "Propose revision";
-  return edited ? `${acceptLabel} with this scope` : acceptLabel;
-};
-
-interface ScopeRevisionRequest {
-  readonly scope: { scope: "global" } | { scope: "places"; places: Array<string> };
-  readonly despite?: { readonly ids: ReadonlyArray<string>; readonly why: string };
-}
-
-/** "Edit scope → propose revision": a pending revision with the same words and a new scope. */
-function useScopeRevision(ref: string) {
-  const queryClient = useQueryClient();
-  const [failure, setFailure] = useState<ReviewFailure | undefined>(undefined);
-  const mutation = useMutation({
-    mutationFn: (request: ScopeRevisionRequest) =>
-      proposeScopeRevision({
-        data: {
-          ref,
-          ...request.scope,
-          ...(request.despite !== undefined && {
-            despite: [...request.despite.ids],
-            despite_case: request.despite.why,
-          }),
-        },
-      }),
-    onMutate: () => setFailure(undefined),
-    onSuccess: (outcome) => setFailure(outcome.ok ? undefined : outcome.failure),
-    onSettled: () => refreshReviewQueriesAfterWrite(queryClient, STORE_WRITE_STALES),
-  });
-  return {
-    propose: mutation.mutateAsync,
-    pending: mutation.isPending,
-    failure,
-    clearFailure: () => setFailure(undefined),
-    revision: mutation.data,
-  };
-}
-
-/**
- * The owner's own revision, accepted without a trip to the inbox. It is still two records: the
- * revision proposed by `process:review`, and the owner's separate decision on it, made through the
- * same preview (and acknowledgements) as any accept.
- */
-function OwnRevisionAcceptance({
-  current,
-  revision,
-  acceptLabel,
-  known,
-  onLeave,
-  onAccepted,
-}: {
-  current: DerivationView;
-  revision: DerivationSummary;
-  acceptLabel: string;
-  known: KnownPlaces;
-  onLeave: () => void;
-  onAccepted: () => void;
-}) {
-  const decision = useReviewDecision(revision.id);
-  const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
-  const [conflict, setConflict] = useState(false);
-  const confirm = async (acknowledges: ReadonlyArray<string>) => {
-    const outcome = await decision.decide({ outcome: "accept", acknowledges });
-    if (outcome.ok) onAccepted();
-    else if (outcome.failure.tag === "WideningNeedsAcknowledgement") setConflict(true);
-  };
-  return (
-    <Stack gap="xs">
-      <Text size="sm">
-        <Text span fw={600}>
-          Revision proposed.
-        </Text>{" "}
-        Accept it now to replace this one, or leave it in the inbox for later.
-      </Text>
-      {decision.failure !== undefined && decision.failure.tag !== "WideningNeedsAcknowledgement" && (
-        <Alert color="red" variant="light" withCloseButton onClose={decision.clearFailure} title="Not accepted">
-          {decision.failure.sentence}
-        </Alert>
-      )}
-      <AcceptancePreview
-        target={revision.id}
-        statement={revision.statement}
-        override={undefined}
-        proposedScope={revision.proposedScope}
-        changes={describeScopeChange(current.effectiveScope, revision.proposedScope, known.labelOf)}
-        acceptLabel={acceptLabel}
-        confirmLabel="Accept now"
-        backLabel="Leave in inbox"
-        active
-        acknowledged={acknowledged}
-        onAcknowledge={(matchId, checked) => {
-          const next = new Set(acknowledged);
-          if (checked) next.add(matchId);
-          else next.delete(matchId);
-          setAcknowledged(next);
-        }}
-        conflict={conflict}
-        pending={decision.pending}
-        labels={known.labels}
-        onConfirm={(acknowledges) => void confirm(acknowledges)}
-        onBack={onLeave}
-      />
-    </Stack>
-  );
-}
+type DerivationReviewMode = "idle" | "rejecting" | "editing" | "previewing";
 
 export function useDerivationReview(view: DerivationView) {
   const decision = useReviewDecision(view.id);
-  const revision = useScopeRevision(view.id);
   const [mode, setModeState] = useState<DerivationReviewMode>("idle");
   const [draft, setDraft] = useState<ScopeDraft | undefined>(undefined);
   const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
   const [conflict, setConflict] = useState(false);
-  const [acceptedRevision, setAcceptedRevision] = useState<DerivationSummary | undefined>(undefined);
-  // Pending: the draft amends the proposed scope. Accepted: a revision starts from where it applies now.
-  const baseScope = mode === "revising" ? view.effectiveScope : view.proposedScope;
+  const accepted = view.status === "accepted";
+  // Pending: the draft amends the proposed scope. Accepted: it starts from where it applies now.
+  const baseScope = accepted ? view.effectiveScope : view.proposedScope;
   const setMode = (next: DerivationReviewMode) => {
     setConflict(false);
     setModeState(next);
@@ -160,10 +46,10 @@ export function useDerivationReview(view: DerivationView) {
   };
   return {
     view,
+    accepted,
     mode,
     setMode,
     decision,
-    revision,
     draft,
     changeDraft,
     baseScope,
@@ -171,17 +57,24 @@ export function useDerivationReview(view: DerivationView) {
     setAcknowledged,
     conflict,
     setConflict,
-    acceptedRevision,
-    setAcceptedRevision,
   };
 }
 
 type DerivationReview = ReturnType<typeof useDerivationReview>;
 
-export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
-  const { view, mode, setMode, decision } = review;
+export function DerivationActions({
+  review,
+  acceptLabel,
+  known,
+}: {
+  review: DerivationReview;
+  acceptLabel: string;
+  known: KnownPlaces;
+}) {
+  const { view, mode, setMode, decision, draft } = review;
   if (mode !== "idle" || view.retired) return null;
-  if (view.status === "pending")
+  if (view.status === "pending") {
+    const shown = draft ?? view.proposedScope;
     return (
       <Group gap="xxs" wrap="nowrap">
         <Button variant="default" leftSection={<X size={14} />} onClick={() => setMode("rejecting")}>
@@ -190,16 +83,21 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
         <Button variant="default" leftSection={<SquarePen size={14} />} onClick={() => setMode("editing")}>
           Edit scope
         </Button>
-        <Button leftSection={<Check size={14} />} loading={decision.pending} onClick={() => setMode("previewing")}>
-          {acceptLabel}…
+        <Button
+          leftSection={<Check size={14} />}
+          loading={decision.pending}
+          onClick={() => setMode(isCompleteScope(shown) ? "previewing" : "editing")}
+        >
+          {isCompleteScope(shown) ? `${acceptLabel} ${scopeButtonPhrase(shown, known.labelOf)}…` : `${acceptLabel}…`}
         </Button>
       </Group>
     );
+  }
   if (view.status === "accepted")
     return (
       <Group gap="xxs" wrap="nowrap">
-        <Tooltip label="Proposes a revision with a new scope; it replaces this one once you accept it" withArrow>
-          <Button variant="default" leftSection={<SquarePen size={14} />} onClick={() => setMode("revising")}>
+        <Tooltip label="Change where it applies; it stays accepted" withArrow>
+          <Button variant="default" leftSection={<SquarePen size={14} />} onClick={() => setMode("editing")}>
             Edit scope
           </Button>
         </Tooltip>
@@ -218,7 +116,7 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
   return null;
 }
 
-/** The outcome alerts and whichever panel the mode opened: reject form, scope editor or preview. */
+/** The outcome alert and whichever panel the mode opened: reject form, scope editor or preview. */
 export function DerivationReviewPanels({
   review,
   acceptLabel,
@@ -228,22 +126,14 @@ export function DerivationReviewPanels({
   acceptLabel: string;
   known: KnownPlaces;
 }) {
-  const { view, mode, setMode, decision, revision, draft, changeDraft, baseScope, acknowledged, acceptedRevision } =
-    review;
+  const { view, accepted, mode, setMode, decision, draft, changeDraft, baseScope, acknowledged } = review;
   const shownDraft = draft ?? baseScope;
-  const override = scopeOverrideOf(view.proposedScope, mode === "revising" ? undefined : draft);
+  // The decision's scope is always against the proposed one: no override means "as proposed".
+  const override = scopeOverrideOf(view.proposedScope, draft);
   const changes = describeScopeChange(baseScope, shownDraft, known.labelOf);
-  const revisionScope = mode === "revising" ? scopeOverrideOf(baseScope, draft) : undefined;
-  const revisionRepeats = revision.failure?.tag === "NearRepeat" ? revision.failure.matches : undefined;
-  const latestRevision = revision.revision?.ok === true ? revision.revision.value.derivation : undefined;
+  // Moving an accepted one is "Apply"; the kind's accept label would read as accepting it twice.
+  const verb = accepted ? "Apply" : acceptLabel;
 
-  const proposeRevision = async (request: ScopeRevisionRequest) => {
-    const outcome = await revision.propose(request);
-    if (outcome.ok) {
-      setMode("accepting-revision");
-      changeDraft(undefined);
-    }
-  };
   const confirmReject = async (reason: string) => {
     if (decision.pending) return;
     const outcome = await decision.decide({ outcome: "reject", reason });
@@ -264,49 +154,6 @@ export function DerivationReviewPanels({
           {decision.failure.sentence}
         </Alert>
       )}
-      {revision.failure !== undefined && revisionRepeats === undefined && (
-        <Alert color="red" variant="light" title="No revision proposed">
-          <Text size="sm" {...stylex.props(styles.preWrap)}>
-            {revision.failure.sentence}
-          </Text>
-        </Alert>
-      )}
-      {acceptedRevision !== undefined && (
-        <Alert color="tastebud" variant="light" title="Revision accepted">
-          It applies in the new scope now, and replaces this one.{" "}
-          <AnchorLink to="/derivations/$id" params={{ id: acceptedRevision.id }}>
-            Open the revision
-          </AnchorLink>
-          .
-        </Alert>
-      )}
-      {latestRevision !== undefined && mode === "accepting-revision" && (
-        <OwnRevisionAcceptance
-          current={view}
-          revision={latestRevision}
-          acceptLabel={acceptLabel}
-          known={known}
-          onLeave={() => setMode("idle")}
-          onAccepted={() => {
-            review.setAcceptedRevision(latestRevision);
-            setMode("idle");
-          }}
-        />
-      )}
-      {latestRevision !== undefined && mode !== "accepting-revision" && acceptedRevision === undefined && (
-        <Alert color="tastebud" variant="light" title="Revision proposed">
-          It applies in the new scope once you accept it.{" "}
-          <AnchorLink to="/derivations/$id" params={{ id: latestRevision.id }}>
-            Review the revision
-          </AnchorLink>{" "}
-          or{" "}
-          <AnchorLink to="/" search={{ kind: view.kind }}>
-            open the inbox
-          </AnchorLink>
-          .
-        </Alert>
-      )}
-
       {mode === "rejecting" && (
         <RejectReasonForm
           pending={decision.pending}
@@ -314,36 +161,20 @@ export function DerivationReviewPanels({
           onSubmit={(reason) => void confirmReject(reason)}
         />
       )}
-      {mode === "revising" && revisionRepeats !== undefined && revisionScope !== undefined && (
-        <RevisionRepeatResolution
-          scope={revisionScope}
-          matches={revisionRepeats}
-          labels={known.labels}
-          pending={revision.pending}
-          onCancel={revision.clearFailure}
-          onPropose={(ids, why) => void proposeRevision({ scope: revisionScope, despite: { ids, why } })}
-        />
-      )}
-      {(mode === "editing" || (mode === "revising" && revisionRepeats === undefined)) && (
+      {mode === "editing" && (
         <ScopeEditor
           proposed={baseScope}
           draft={shownDraft}
           known={known}
           active
-          requireChange={mode === "revising"}
-          continueLabel={(edited) => scopeEditorContinueLabel(mode, edited, acceptLabel)}
+          requireChange={accepted}
+          continueLabel={(scope) => `${verb} ${scopeButtonPhrase(scope, known.labelOf)}…`}
           onDraftChange={changeDraft}
           onClose={() => {
             setMode("idle");
-            if (mode === "revising") changeDraft(undefined);
+            if (accepted) changeDraft(undefined);
           }}
-          onContinue={() => {
-            if (mode === "editing") {
-              setMode("previewing");
-              return;
-            }
-            if (revisionScope !== undefined) void proposeRevision({ scope: revisionScope });
-          }}
+          onContinue={() => setMode("previewing")}
         />
       )}
       {mode === "previewing" && (
@@ -353,7 +184,7 @@ export function DerivationReviewPanels({
           override={override}
           proposedScope={view.proposedScope}
           changes={changes}
-          acceptLabel={acceptLabel}
+          verb={verb}
           active
           acknowledged={acknowledged}
           onAcknowledge={(matchId, checked) => {

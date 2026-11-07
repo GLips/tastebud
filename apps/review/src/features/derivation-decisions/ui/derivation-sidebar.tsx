@@ -43,6 +43,10 @@ function ChainLink({ summary, current }: { summary: DerivationSummary; current: 
   );
 }
 
+/** An accept after an earlier accept moved an accepted one: an accept can't follow a retract. */
+const isScopeMove = (decisions: ReadonlyArray<DecisionRecord>, index: number): boolean =>
+  decisions[index]?.outcome === "accept" && decisions.slice(0, index).some((earlier) => earlier.outcome === "accept");
+
 // Timeline marks items active by cloning its direct children, so the Timeline.Item stays at the call site.
 function DecisionEntryBody({ entry, owner, known }: { entry: DecisionRecord; owner: string; known: KnownPlaces }) {
   return (
@@ -110,13 +114,13 @@ export function DerivationSidebar({
             Decisions
           </Text>
           <Timeline bulletSize={10} lineWidth={2} active={view.decisions.length - 1}>
-            {view.decisions.map((entry) => (
+            {view.decisions.map((entry, index) => (
               <Timeline.Item
                 key={entry.id}
                 color={DECISION_BULLET_COLORS[entry.outcome]}
                 title={
                   <Text size="sm" fw={600} tt="capitalize">
-                    {entry.outcome}
+                    {isScopeMove(view.decisions, index) ? "Scope changed" : entry.outcome}
                   </Text>
                 }
               >

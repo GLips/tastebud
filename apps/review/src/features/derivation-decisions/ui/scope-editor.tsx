@@ -175,10 +175,11 @@ export function ScopeEditor({
   proposed: DerivationScope;
   draft: ScopeDraft;
   known: KnownPlaces;
-  continueLabel: (edited: boolean) => string;
+  /** The continue button's words for the scope it would continue with. */
+  continueLabel: (scope: DerivationScope) => string;
   /** Only the editor on the selected card listens for Esc. */
   active: boolean;
-  /** A revision of an unchanged scope would be a no-op, so its button waits for a change. */
+  /** Moving an accepted one to the scope it already has would be a no-op, so its button waits for a change. */
   requireChange?: boolean;
   onDraftChange: (draft: ScopeDraft) => void;
   onContinue: () => void;
@@ -213,7 +214,7 @@ export function ScopeEditor({
                 leftSection={<Globe size={12} />}
                 onClick={() => onDraftChange({ scope: "global" })}
               >
-                Apply everywhere
+                Everywhere instead
               </Button>
             </Tooltip>
           )}
@@ -333,7 +334,7 @@ export function ScopeEditor({
               rightSection={<ArrowRight size={13} />}
               onClick={onContinue}
             >
-              {continueLabel(edited)}
+              {complete ? continueLabel(draft) : "Choose a place"}
             </Button>
           </Group>
         </Group>

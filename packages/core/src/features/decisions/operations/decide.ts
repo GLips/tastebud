@@ -1,13 +1,14 @@
 /**
  * `decide`: a human's accept, reject or retract. Reached only through the review server and the
  * seed. An accept may amend the scope, and re-runs the repeat check against the scope it settles on.
+ * Accepting an accepted derivation again moves it to a new scope in place, under the same checks.
  */
 import { Effect, Schema } from "effect";
 
 import { decisionInvalidReason, type DerivationLookup } from "#core/domains/derivation-lifecycle/index.ts";
 import { readScopeOverride } from "#core/domains/derivation-scope/index.ts";
 import { requireLiveDerivedKind } from "#core/domains/kind-catalog/index.ts";
-import { scopePlacesOf } from "#core/domains/places/index.ts";
+import { scopeGroupKey, scopePlacesOf } from "#core/domains/places/index.ts";
 import {
   derivationById,
   derivationStateOf,
@@ -90,7 +91,16 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
         resolveDerivationRef(snapshot, ref),
       );
       if (input.outcome === "accept") {
-        const pending = unacknowledgedMatches(view, derivation, override ?? proposedScopeOf(derivation));
+        const settled = override ?? proposedScopeOf(derivation);
+        const state = derivationStateOf(snapshot, derivation);
+        if (state.status === "accepted" && scopeGroupKey(settled) === scopeGroupKey(state.effectiveScope))
+          return yield* new DecisionNotAllowed({
+            target: derivation.id,
+            outcome: input.outcome,
+            status: state.status,
+            problem: "it is already accepted with this scope",
+          });
+        const pending = unacknowledgedMatches(view, derivation, settled);
         const acknowledged = new Set(acknowledges.map((record) => record.id));
         const missing = pending.filter((match) => !acknowledged.has(match.id));
         if (missing.length > 0)

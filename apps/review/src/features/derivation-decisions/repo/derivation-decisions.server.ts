@@ -8,5 +8,3 @@ export const readAcceptPreview = (input: TasteOperationInput<"accept-preview">) 
 export const writeDecision = (input: TasteOperationInput<"decide">) => runReviewOperation("decide", input);
 export const writeOwnerThreadNote = (input: TasteOperationInput<"thread-note">) =>
   runReviewOperation("thread-note", input);
-export const writeScopeRevision = (input: TasteOperationInput<"revise-scope">) =>
-  runReviewOperation("revise-scope", input);

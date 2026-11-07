@@ -39,7 +39,14 @@ import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
-import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft, scopeOverrideOf } from "./scope-draft.ts";
+import {
+  describeScopeChange,
+  isCompleteScope,
+  isSameScope,
+  type ScopeDraft,
+  scopeButtonPhrase,
+  scopeOverrideOf,
+} from "./scope-draft.ts";
 import { ScopeEditor } from "./scope-editor.tsx";
 import { useReviewClockMs } from "./use-review-clock.ts";
 import { useReviewDecision } from "./use-review-decision.ts";
@@ -255,7 +262,8 @@ export function InboxProposalCard({
                 withArrow
               >
                 <Button size="xs" loading={decision.pending} onClick={accept}>
-                  {needsPreview ? `${kind.acceptLabel}…` : kind.acceptLabel}
+                  {`${kind.acceptLabel} ${isCompleteScope(shownScope) ? scopeButtonPhrase(shownScope, known.labelOf) : ""}`.trim()}
+                  {needsPreview && "…"}
                 </Button>
               </Tooltip>
             </Group>
@@ -334,7 +342,7 @@ export function InboxProposalCard({
             draft={shownScope}
             known={known}
             active={selected}
-            continueLabel={(changed) => (changed ? `${kind.acceptLabel} with this scope` : kind.acceptLabel)}
+            continueLabel={(scope) => `${kind.acceptLabel} ${scopeButtonPhrase(scope, known.labelOf)}…`}
             onDraftChange={changeDraft}
             onClose={() => setMode("idle")}
             onContinue={() => {
@@ -351,7 +359,7 @@ export function InboxProposalCard({
             override={override}
             proposedScope={proposed}
             changes={changes}
-            acceptLabel={kind.acceptLabel}
+            verb={kind.acceptLabel}
             active={selected}
             acknowledged={acknowledged}
             onAcknowledge={(id, checked) => {

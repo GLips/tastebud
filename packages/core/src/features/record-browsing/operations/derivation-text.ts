@@ -25,7 +25,7 @@ const renderDerivationViewText = (view: DerivationView) => {
     `  ${derivation.statement}`,
     `  status: ${view.status}${view.decidedAt === undefined ? "" : ` (${view.decidedAt.slice(0, 10)})`}${view.reason === undefined ? "" : `, reason: ${view.reason}`}`,
     `  scope: ${proposedScope}`,
-    ...(scopeChanged ? [`  effective scope: ${formatScopeLabel(view.effectiveScope)} (amended at accept)`] : []),
+    ...(scopeChanged ? [`  effective scope: ${formatScopeLabel(view.effectiveScope)} (set by the owner)`] : []),
     ...(view.subject === undefined ? [] : [`  subject: ${view.subject}`]),
     `  proposed by ${derivation.proposed_by} at ${minute(derivation.proposed_at)}`,
     ...block("Reasoning", derivation.reasoning === "" ? [] : [indent(derivation.reasoning, "  ")]),

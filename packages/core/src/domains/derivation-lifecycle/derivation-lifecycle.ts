@@ -18,9 +18,9 @@ export interface DerivationState {
   readonly decisions: ReadonlyArray<DecisionRecord>;
   /** The decision that produced the current base status (accept, reject or retract). */
   readonly decidingDecision: DecisionRecord | undefined;
-  /** The accept that ratified it, kept after a retraction or supersession. */
+  /** The latest accept, kept after a retraction or supersession; a later accept moves its scope. */
   readonly acceptingDecision: DecisionRecord | undefined;
-  /** The accepting decision's scope override when it has one, otherwise the proposed scope. */
+  /** The latest accept's scope override when it has one, otherwise the proposed scope. */
   readonly effectiveScope: DerivationScope;
   /** Ids of accepted derivations whose `supersedes` names this one. */
   readonly supersededBy: ReadonlyArray<string>;
@@ -58,12 +58,16 @@ export const decisionInvalidReason = (
   const status = lookup.statusOf(derivation.id);
   if (outcome === "retract")
     return status === "accepted" ? undefined : `only an accepted ${derivation.kind} can be retracted (it is ${status})`;
+  // Accepting an accepted derivation again is the owner moving it: the latest accept's scope governs.
+  if (outcome === "accept" && status === "accepted") return undefined;
   if (status !== "pending") return `only a pending ${derivation.kind} can be decided (it is ${status})`;
   if (outcome === "accept" && derivation.supersedes !== undefined) {
     if (lookup.kindOf(derivation.supersedes) !== derivation.kind)
       return `it supersedes ${derivation.supersedes}, which is not a ${derivation.kind}`;
+    // A retracted target has nothing left to replace, so accepting its revision stands on its own.
     const replaced = lookup.statusOf(derivation.supersedes);
-    if (replaced !== "accepted") return `it supersedes ${derivation.supersedes}, which is ${replaced}, not accepted`;
+    if (replaced !== "accepted" && replaced !== "retracted")
+      return `it supersedes ${derivation.supersedes}, which is ${replaced}, not accepted`;
   }
   return undefined;
 };

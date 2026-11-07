@@ -1,6 +1,6 @@
 /**
  * The scope fields operations take: `scope: "global" | "places"` plus `places`, the same shape the
- * Derivation record stores. `propose`, `decide`, `accept-preview` and `revise-scope` all read it here.
+ * Derivation record stores. `propose`, `decide` and `accept-preview` all read it here.
  */
 import { Effect, Result, Schema } from "effect";
 
