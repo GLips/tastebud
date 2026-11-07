@@ -17,7 +17,9 @@ const originLines = (origin: CatchUpStatusResult["origins"][number]) => {
     ...(sessions.gap_before === undefined
       ? []
       : [`  Words before ${sessions.gap_before} were never read and are past the look-back.`]),
-    `  ${String(sessions.batches.length)} batches, one Sonnet subagent each (don't read them yourself):`,
+    sessions.batches.length === 1
+      ? "  1 batch, for one Sonnet subagent that reads every session together (don't read it yourself):"
+      : `  ${String(sessions.batches.length)} batches, one Sonnet subagent each (don't read them yourself):`,
     ...sessions.batches.map(
       (batch, index) =>
         `    ${String(index + 1)}. ${batch.command}  (${String(batch.messages)} messages, ~${String(batch.tokens)} tokens)`,

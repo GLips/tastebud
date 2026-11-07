@@ -19,12 +19,15 @@ import { OptionalTrimmedText } from "#core/shared/input-text.ts";
 import { formatLocalIsoTime } from "#core/shared/iso-times.ts";
 
 /**
- * What subagents read in one catch-up, about ten batches: a normal week of the owner's typing. The
- * proposal cap, not this, keeps the review short.
+ * What subagents read in one catch-up: two readers, comfortably more than a normal week of the owner's
+ * typing. The proposal cap, not this, keeps the review short.
  */
 const CATCH_UP_SUBAGENT_TOKENS = 300_000;
-/** One subagent's reading. */
-const CATCH_UP_BATCH_TOKENS = 30_000;
+/**
+ * One reader's share, sized so a normal week is one batch: repeats across sessions show only to a
+ * reader that sees them together. Leaves a 200k context room for the guide and the reader's answer.
+ */
+const CATCH_UP_BATCH_TOKENS = 150_000;
 const CATCH_UP_PROPOSALS = 5;
 /** A first catch-up reads this far back; later ones read from where the last stopped. */
 const FIRST_CATCH_UP_DAYS = 7;
