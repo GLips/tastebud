@@ -10,7 +10,7 @@ import type { FrontmatterMapping, FrontmatterValue } from "#core/shared/frontmat
 import { type TasteRecord, TasteRecordSchema } from "./record-schemas.ts";
 
 /** Fields that live in the markdown body, not the frontmatter. */
-const BODY_FIELD_NAMES = ["quote", "before", "after", "reasoning", "despite_case", "text"] as const;
+const BODY_FIELD_NAMES = ["quote", "before", "after", "reasoning", "despite_case", "text", "note"] as const;
 type RecordBodyField = (typeof BODY_FIELD_NAMES)[number];
 const BODY_FIELDS: ReadonlySet<string> = new Set(BODY_FIELD_NAMES);
 
@@ -48,6 +48,8 @@ const renderBody = (record: TasteRecord): string => {
       return "";
     case "ThreadEntry":
       return `${escapeBodyText(record.text)}\n`;
+    case "CatchUp":
+      return record.note === undefined ? "" : `${escapeBodyText(record.note)}\n`;
   }
 };
 
@@ -113,6 +115,10 @@ const bodyFields = (frontmatter: FrontmatterMapping, body: string): Partial<Reco
     }
     case "ThreadEntry":
       return { text: chunkText(body, false) };
+    case "CatchUp": {
+      const note = chunkText(body, false);
+      return note === "" ? {} : { note };
+    }
     default:
       return {};
   }

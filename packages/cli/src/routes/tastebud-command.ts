@@ -6,6 +6,8 @@ import { Command } from "effect/cli";
 import {
   captureCommand,
   catalogCommand,
+  catchUpCommand,
+  catchUpDoneCommand,
   configCheckCommand,
   configShowCommand,
   configWriteCommand,
@@ -42,6 +44,8 @@ const tastebudCommand = Command.make("tastebud").pipe(
     recallExplainCommand,
     captureCommand,
     transcriptCandidatesCommand,
+    catchUpCommand,
+    catchUpDoneCommand,
     proposeCommand,
     listCommand,
     showCommand,

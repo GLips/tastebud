@@ -28,5 +28,7 @@ export const buildReviewUrl = Effect.fn("record-browsing.buildReviewUrl")(functi
       return { url: `${base}/derivations/${record.target}` };
     case "ThreadEntry":
       return { url: `${base}/derivations/${record.thread}` };
+    case "CatchUp":
+      return { url: `${base}/` };
   }
 });

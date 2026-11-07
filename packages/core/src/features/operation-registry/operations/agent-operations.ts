@@ -10,6 +10,16 @@ import {
   renderCaptureText,
 } from "#core/features/capture/index.server.ts";
 import {
+  CatchUpStatusInput,
+  CatchUpStatusResultSchema,
+  readCatchUpStatus,
+  RecordCatchUpInput,
+  RecordCatchUpResultSchema,
+  recordCatchUp,
+  renderCatchUpStatusText,
+  renderRecordCatchUpText,
+} from "#core/features/catch-up/index.server.ts";
+import {
   AuditPlacesInput,
   AuditPlacesResultSchema,
   auditTastePlaces,
@@ -111,6 +121,28 @@ export const AGENT_TASTE_OPERATIONS = {
     output: TranscriptCandidatesResultSchema,
     run: listTranscriptCandidates,
     renderText: renderTranscriptCandidatesText,
+  }),
+  "catch-up": declareTasteOperation({
+    name: "catch-up",
+    audience: "agent",
+    kind: "query",
+    description:
+      "What a catch-up has to read and weigh: each source kind's last reading and where it ran, the owner's Claude Code messages waiting (cut to the evidence budget, with the read_until to record), and per derived kind the sources not yet weighed. The procedure is in `catalog --guide`.",
+    input: CatchUpStatusInput,
+    output: CatchUpStatusResultSchema,
+    run: readCatchUpStatus,
+    renderText: renderCatchUpStatusText,
+  }),
+  "catch-up-done": declareTasteOperation({
+    name: "catch-up-done",
+    audience: "agent",
+    kind: "command",
+    description:
+      "Record a finished stretch of a catch-up, after its proposals are in: an origin read in full up to read_through, and the sources weighed. Leave out an origin you couldn't reach, so the next catch-up reads it.",
+    input: RecordCatchUpInput,
+    output: RecordCatchUpResultSchema,
+    run: recordCatchUp,
+    renderText: renderRecordCatchUpText,
   }),
   propose: declareTasteOperation({
     name: "propose",

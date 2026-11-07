@@ -1,4 +1,5 @@
 {
   "capture": "reads the transcript message a capture by reference quotes (readEligibleTranscriptMessage)",
+  "catch-up": "counts and cuts the transcript backlog since the last catch-up (listTranscriptCandidates)",
   "operation-registry": "declares this feature's operations in the registry"
 }

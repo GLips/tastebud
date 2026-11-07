@@ -1,5 +1,6 @@
 {
   "capture": "opens the store: TasteStore and its config",
+  "catch-up": "opens the store: TasteStore and its config",
   "decisions": "opens the store: TasteStore and its config",
   "inbox": "opens the store: TasteStore and its config",
   "operation-registry": "declares this feature's operations in the registry",

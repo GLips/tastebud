@@ -1,4 +1,5 @@
 export {
+  CatchUpRecordSchema,
   DecisionRecordSchema,
   DerivationRecordSchema,
   HumanAccountSchema,
@@ -12,6 +13,7 @@ export {
   scopeFromFields,
 } from "./record-schemas.ts";
 export type {
+  CatchUpRecord,
   DecisionRecord,
   DerivationRecord,
   SourceRecord,

@@ -1,5 +1,5 @@
 /**
- * The four record types at schema "2". These schemas check files as they are read and records before
+ * The five record types at schema "2". These schemas check files as they are read and records before
  * they are written. Every value is a string or a list of strings, because frontmatter is read with
  * YAML's failsafe schema and nothing is coerced.
  */
@@ -146,11 +146,54 @@ export const ThreadEntryRecordSchema = Schema.Struct({
 });
 export type ThreadEntryRecord = typeof ThreadEntryRecordSchema.Type;
 
+/**
+ * A catch-up's receipt for one finished batch. `origin` is the source kind whose words it read in full
+ * up to `read_through`; each origin keeps its own receipts, since one catch-up may not reach every
+ * origin. `considered` lists sources weighed for proposals, under the `<kind>@<policy>` tags of
+ * `considered_for`, so a changed proposal prompt makes them due again.
+ */
+export const CatchUpRecordSchema = Schema.Struct({
+  ...recordBase,
+  type: Schema.Literal("CatchUp"),
+  by: ActorSchema,
+  at: IsoTime,
+  /** Where the catch-up ran: an origin reachable only from some checkout is read from there again. */
+  run_in: Schema.optionalKey(Places),
+  origin: Schema.optionalKey(KindKey),
+  read_through: Schema.optionalKey(IsoTime),
+  considered: Schema.optionalKey(Ids),
+  considered_for: Schema.optionalKey(
+    Schema.Array(
+      Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]*@[0-9a-f]{8}$/, { message: "expected <kind>@<policy>" })),
+    ),
+  ),
+  // Body: the agent's note on the batch, e.g. what it proposed or why nothing.
+  note: Schema.optionalKey(NonEmpty),
+}).check(
+  Schema.makeFilter((record) =>
+    (record.origin === undefined) !== (record.read_through === undefined)
+      ? { path: ["read_through"], issue: "origin and read_through go together" }
+      : undefined,
+  ),
+  Schema.makeFilter((record) =>
+    (record.considered === undefined) !== (record.considered_for === undefined)
+      ? { path: ["considered_for"], issue: "considered and considered_for go together" }
+      : undefined,
+  ),
+  Schema.makeFilter((record) =>
+    record.origin === undefined && record.considered === undefined
+      ? { path: ["origin"], issue: "a catch-up records an origin read, sources considered, or both" }
+      : undefined,
+  ),
+);
+export type CatchUpRecord = typeof CatchUpRecordSchema.Type;
+
 export const TasteRecordSchema = Schema.Union([
   SourceRecordSchema,
   DerivationRecordSchema,
   DecisionRecordSchema,
   ThreadEntryRecordSchema,
+  CatchUpRecordSchema,
 ]);
 export type TasteRecord = typeof TasteRecordSchema.Type;
 
@@ -173,6 +216,7 @@ export const recordCreatedAt = (record: TasteRecord): string => {
       return record.proposed_at;
     case "Decision":
     case "ThreadEntry":
+    case "CatchUp":
       return record.at;
   }
 };

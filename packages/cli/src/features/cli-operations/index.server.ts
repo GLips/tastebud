@@ -22,4 +22,5 @@ export {
 } from "./controllers/query-commands.ts";
 export { captureCommand, proposeCommand, repointCommand, threadReplyCommand } from "./controllers/write-commands.ts";
 export { transcriptCandidatesCommand } from "./controllers/transcript-commands.ts";
+export { catchUpCommand, catchUpDoneCommand } from "./controllers/catch-up-commands.ts";
 export { hookCommand, mcpCommand } from "./controllers/hook-commands.ts";

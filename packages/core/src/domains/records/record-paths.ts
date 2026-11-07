@@ -9,6 +9,7 @@ export const RECORD_FOLDERS: Readonly<Record<TasteRecordType, string>> = {
   Derivation: "derivations",
   Decision: "decisions",
   ThreadEntry: "threads",
+  CatchUp: "catch-ups",
 };
 
 export const slugify = (text: string, maxWords = 6): string =>
@@ -36,6 +37,8 @@ const recordSlug = (record: TasteRecord): string => {
       return slugify(record.statement);
     case "Decision":
       return record.outcome;
+    case "CatchUp":
+      return record.origin ?? "";
   }
 };
 

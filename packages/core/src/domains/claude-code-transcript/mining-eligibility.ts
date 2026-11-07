@@ -32,6 +32,11 @@ export interface EligibleTranscriptMessage {
   /** The owner's text with wrappers cut out, one entry per stretch between them. */
   readonly parts: ReadonlyArray<string>;
   readonly because: TranscriptEligibilityReason;
+  /**
+   * The end of what the main agent said since the owner's previous message, which a reply like "yes,
+   * do that" needs to mean anything. Absent when the agent said nothing in between.
+   */
+  readonly replyingTo?: string;
 }
 
 /** Where a record says it was sent, as far as it says. */
@@ -220,10 +225,33 @@ const mineTranscriptRecord = (record: TranscriptRecord): MinedTranscriptMessage 
   return undefined;
 };
 
+/** How much of the agent's preceding prose a message keeps: the end, where a turn sums up or asks. */
+const REPLYING_TO_CHARS = 600;
+
+const replyingToOf = (prose: ReadonlyArray<string>) => {
+  const text = prose.join("\n\n").trim();
+  if (text === "") return undefined;
+  return text.length <= REPLYING_TO_CHARS ? text : `…${text.slice(text.length - REPLYING_TO_CHARS)}`;
+};
+
 /** Every message in a transcript's JSONL lines, judged by the mining rule. */
-export const mineClaudeCodeTranscriptLines = (lines: ReadonlyArray<string>): ReadonlyArray<MinedTranscriptMessage> =>
-  lines.flatMap((line) => {
+export const mineClaudeCodeTranscriptLines = (lines: ReadonlyArray<string>): ReadonlyArray<MinedTranscriptMessage> => {
+  const mined: Array<MinedTranscriptMessage> = [];
+  let prose: Array<string> = [];
+  for (const line of lines) {
     const record = transcriptRecordOf(line);
-    const mined = record === undefined ? undefined : mineTranscriptRecord(record);
-    return mined === undefined ? [] : [mined];
-  });
+    if (record === undefined) continue;
+    if (record.type === "assistant") {
+      if (record.isSidechain !== true)
+        prose.push(...record.message.content.map(textOfBlock).filter((text) => text !== undefined));
+      continue;
+    }
+    const message = mineTranscriptRecord(record);
+    if (message === undefined) continue;
+    const replyingTo = message.status === "eligible" ? replyingToOf(prose) : undefined;
+    mined.push(message.status === "eligible" && replyingTo !== undefined ? { ...message, replyingTo } : message);
+    // Only the owner's own message closes a turn; the tail kept is the latest prose either way.
+    if (message.status === "eligible") prose = [];
+  }
+  return mined;
+};

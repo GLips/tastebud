@@ -11,7 +11,7 @@ export type CaptureGuidanceCatalog = Pick<CatalogView, "sourceKinds" | "conversa
 // In-session capture is for explicit asks only: a later pass over the owner's transcripts finds the
 // rest, and an agent nudged to save will save things that aren't there.
 const WHEN_TO_CAPTURE =
-  "Call capture only when the owner asks you to remember something or plainly states a lasting rule for how they want work done. Don't go looking for things to save: the rest is found by mining their past sessions, on their request.";
+  "Call capture only when the owner asks you to remember something or plainly states a lasting rule for how they want work done. Don't go looking for things to save: the rest is found when they catch up with /tastebud:review, which reads their past sessions.";
 
 const kindLine = (catalog: CaptureGuidanceCatalog, kind: CaptureGuidanceCatalog["sourceKinds"][number]) => {
   const conversation = kind.key === catalog.conversationSourceKind ? " (words said to you; leave `kind` out)" : "";

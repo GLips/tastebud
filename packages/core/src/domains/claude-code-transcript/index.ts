@@ -13,3 +13,4 @@ export {
   claudeCodeTranscriptSessionOf,
   quoteFitsTranscriptParts,
 } from "./transcript-reference.ts";
+export { ownerTextSimilarity, SIMILAR_OWNER_TEXT_THRESHOLD } from "./owner-text-similarity.ts";

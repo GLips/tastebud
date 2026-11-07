@@ -42,7 +42,7 @@ Start from outcomes, not sources: someone asked "whose words count?" has to list
 
 Ask this and the questions below as separate questions, each with your recommendation, even when the answer is "keep the default". Never fold them into one "write the defaults?" choice: these questions are where the owner decides what the store is for, and a one-click default skips that conversation.
 
-Recommend from what you know of them. The default is \`belief\` ("how I work"), recalled automatically. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try), \`skill-idea\` (requests they repeat across sessions). A preference about a client usually needs no kind of its own: it is a belief whose subject is that client, scoped to that client's repos.
+Recommend from what you know of them. The default is \`belief\` ("how I work"), recalled automatically. Others: \`insight\` ("what customers keep telling us"), \`idea\` (a backlog of things to try), \`skill-idea\` (requests they repeat across sessions, never recalled, accepted as "Worth building"; the catch-up guide in \`tastebud catalog --guide\` has its definition). A preference about a client usually needs no kind of its own: it is a belief whose subject is that client, scoped to that client's repos.
 
 For each kind, settle, one at a time:
 - \`singular\`, \`plural\`, and a \`description\` in their words.
@@ -65,7 +65,7 @@ Sources are people's exact words, verbatim and attributed. Gather the evidence e
 
 Each kind needs a key (\`^[a-z][a-z0-9-]*$\`), \`singular\`, \`plural\`, and a one-line \`description\` saying whose words, from where, and when an agent should save them ("A client's exact words in call notes or transcripts, said_by the client"). Write it in the owner's words: Tastebud's MCP server lists each source kind to agents with its description as the instruction for when to capture, so this line is what agents listen for. Set \`conversationSourceKind\` to the kind for words an agent hears in conversation (recommend \`memory\`): it is what \`capture\` uses when given no kind.
 
-Agents capture in a session only when the owner asks them to remember something or states a lasting rule; most of what's worth keeping is found later, by mining past sessions (see step 8). Say so, so the owner doesn't expect agents to save everything they say.
+Agents capture in a session only when the owner asks them to remember something or states a lasting rule; most of what's worth keeping is found later, by a catch-up over their past sessions (see step 8). Say so, so the owner doesn't expect agents to save everything they say.
 
 ## 5. Where work happens: place
 
@@ -108,7 +108,7 @@ Capturing and recalling are separate paths, so check each on its own: "capture w
 
 **Capture.** Pick something the owner said during this interview, or before it if a preference is what led here, that is a real preference of theirs, quote it back exactly, and ask if you may capture it. With their yes, save it verbatim, said by the owner: over MCP, \`capture\` with \`said_by: "owner"\`; on the CLI, \`tastebud capture --said-by owner --quote "<their words>" --by <you>\`.
 
-If nothing in this chat qualifies, don't ask them to come up with a preference cold. If you have a shell (mining can't run over MCP alone), offer a small mining pass instead: "I could look through what you typed to Claude Code in <project> over the last week and show you up to 3 things worth keeping. Those messages would enter my context. Want me to?" With a yes, follow "Mine recent sessions" in \`tastebud catalog --guide\`, kept small: the projects and days they agreed to, at most 3 candidates shown, read by you or by subagents as its "Read in batches" step says. Capture the ones they pick by reference (MCP \`capture\` with \`transcript\` and \`quote\`, else \`tastebud capture --transcript-session <session> --transcript-message <message> --quote "<exact words>" --by <you>\`), and propose from the strongest. If they decline or nothing qualifies, say so and carry on: setup may end with recall untested, but never invent a belief, or capture your own words, to finish the demo.
+If nothing in this chat qualifies, don't ask them to come up with a preference cold. If you have a shell (a catch-up can't run over MCP alone), offer a first catch-up instead: "I could look through what you typed to Claude Code this past week, in every project, and propose what's worth keeping. Those messages would enter my context. Want me to?" With a yes, follow "Catch up" in \`tastebud catalog --guide\`, kept to at most 3 proposals; capture over MCP (\`capture\` with \`transcript\` and \`quote\`) so it proves the connection. If they decline or nothing qualifies, say so and carry on: setup may end with recall untested, but never invent a belief, or capture your own words, to finish the demo.
 
 After a capture, tell them plainly: saving words doesn't create an active belief. It is a source waiting in the store, and nothing reaches an agent until a derivation citing it is proposed and they accept it.
 
@@ -119,5 +119,5 @@ After a capture, tell them plainly: saving words doesn't create an active belief
 - Then the hook itself, in Claude Code: in a new session there, a message on that topic should arrive with a block that starts "These are previously accepted preferences". Ask them to try it, or try it yourself if you are in a new session. If the preview shows it and the session doesn't, the hook isn't running: the plugin isn't installed, the prompt hook is off, or the store isn't \`~/.tastebud\` and \`TASTEBUD_STORE\` isn't in \`~/.claude/settings.json\`.
 If the preview doesn't show it, explain why from \`recall-explain\` (scope, kind policy, status).
 
-Finish by naming anything still not installed for their hosts and what it would add, and tell them what happens next: agents capture their words when they ask them to remember something or state a lasting rule; for the rest, they can ask an agent with a shell to mine their recent sessions and propose from their saved words (it runs \`tastebud catalog --guide\`), then accept or reject in the review UI.
+Finish by naming anything still not installed for their hosts and what it would add, and tell them what happens next: agents capture their words when they ask them to remember something or state a lasting rule; for the rest, \`/tastebud:review\` in a fresh Claude Code session is their catch-up. It reads what they typed since the last one, in every project, saves only the words its proposals cite, proposes at most 5 things (skill ideas too, if they keep that kind), and opens the review UI for them to accept or reject. Nothing runs on a schedule; it happens when they ask.
 `;

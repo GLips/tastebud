@@ -9,7 +9,7 @@ import {
   quoted,
 } from "#core/domains/record-text/index.ts";
 import type { DerivationView, ShowResult } from "#core/domains/record-views/index.ts";
-import type { ThreadEntryRecord } from "#core/domains/records/index.ts";
+import type { CatchUpRecord, ThreadEntryRecord } from "#core/domains/records/index.ts";
 
 const formatThread = (thread: ReadonlyArray<ThreadEntryRecord>) =>
   thread.map((entry) => `  ${entry.author} · ${minute(entry.at)}\n${indent(entry.text)}`);
@@ -119,5 +119,16 @@ export const renderShowText = (result: ShowResult) => {
         indent(record.text),
         ...reverse,
       ].join("\n");
+    case "CatchUp":
+      return [...catchUpLines(record), ...reverse].join("\n");
   }
 };
+
+const catchUpLines = (record: CatchUpRecord) => [
+  `Catch-up ${record.id} by ${record.by} at ${minute(record.at)}`,
+  ...(record.origin === undefined ? [] : [`  read ${record.origin} through ${minute(record.read_through ?? "")}`]),
+  ...(record.considered === undefined
+    ? []
+    : [`  weighed ${String(record.considered.length)} sources for ${(record.considered_for ?? []).join(", ")}`]),
+  ...(record.note === undefined ? [] : [indent(record.note)]),
+];

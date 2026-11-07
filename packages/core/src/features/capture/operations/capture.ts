@@ -6,6 +6,7 @@
  */
 import { Effect, Schema } from "effect";
 
+import { claudeCodeTranscriptSessionOf } from "#core/domains/claude-code-transcript/index.ts";
 import { requireSourceKind, type TasteCatalog } from "#core/domains/kind-catalog/index.ts";
 import { resolveSourceRef } from "#core/domains/record-snapshot/index.ts";
 import { SourceViewSchema, viewSource } from "#core/domains/record-views/index.ts";
@@ -113,6 +114,7 @@ const readCallerCapture = Effect.fn("capture.readCallerCapture")(function* (
     precision: input.said_at_precision,
     address: input.address,
     places: context.places,
+    replyingTo: undefined,
   };
 });
 
@@ -129,17 +131,21 @@ export const captureSource = Effect.fn("capture.captureSource")(function* (
     input.transcript === undefined
       ? yield* readCallerCapture(store.config, input, caller, kind.key)
       : yield* readTranscriptCapture(store.config, input, input.transcript, caller, kind.key);
-  // A transcript capture's address names its message, so the same words captured from it again find
-  // the first. Other words from that message are a source of their own.
+  // The same words from the same message find the first capture, even through a fork or resume's copy
+  // of it: same message id, or the same transcript time. Other words from it are a source of their own.
+  const transcript = input.transcript;
   const earlier =
-    input.transcript === undefined
+    transcript === undefined
       ? undefined
       : snapshot.records.find(
           ({ record }) =>
             record.type === "Source" &&
-            record.address === said.address &&
             record.quote === input.quote &&
-            record.kind === kind.key,
+            record.kind === kind.key &&
+            record.address !== undefined &&
+            claudeCodeTranscriptSessionOf(record.address) !== undefined &&
+            (record.address.endsWith(`/${transcript.message}`) ||
+              Date.parse(record.said_at) === Date.parse(said.saidAt ?? "")),
         );
   if (earlier?.record.type === "Source")
     return { source: view(earlier.record), path: earlier.path, already_captured: true };
@@ -148,6 +154,7 @@ export const captureSource = Effect.fn("capture.captureSource")(function* (
     return yield* new InvalidTasteInput({
       problems: [`revises: ${revised.id} is a ${revised.kind}, not a ${kind.key}`],
     });
+  const before = input.before ?? said.replyingTo;
   const stamp = yield* stampNewRecord;
   const now = stamp.at;
   const saidAt = said.saidAt ?? now;
@@ -166,7 +173,7 @@ export const captureSource = Effect.fn("capture.captureSource")(function* (
     ...(said.places.length > 0 && { captured_in: said.places }),
     ...(revised !== undefined && { revises: revised.id }),
     quote: input.quote,
-    ...(input.before !== undefined && { before: input.before }),
+    ...(before !== undefined && { before }),
     ...(input.after !== undefined && { after: input.after }),
   };
   const written = yield* store.write(source);

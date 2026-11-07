@@ -1,7 +1,8 @@
 /**
  * A capture by transcript reference: the quote must be an exact stretch of one eligible part of the
  * message, and the speaker, time, place and address come from the transcript. A caller value that
- * disagrees is refused rather than overridden.
+ * disagrees is refused rather than overridden. What the agent said just before becomes `before`
+ * unless the caller gives one.
  */
 import { Effect } from "effect";
 
@@ -101,5 +102,6 @@ export const readTranscriptCapture = Effect.fn("capture.readTranscriptCapture")(
     precision: "second" as const,
     address,
     places: context.places,
+    replyingTo: message.replyingTo,
   };
 });

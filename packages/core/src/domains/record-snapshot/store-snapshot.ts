@@ -4,6 +4,7 @@
  */
 import { type DerivationState, deriveDerivationStates } from "#core/domains/derivation-lifecycle/index.ts";
 import {
+  type CatchUpRecord,
   type DecisionRecord,
   type DerivationRecord,
   proposedScopeOf,
@@ -19,6 +20,7 @@ export interface StoreSnapshot {
   readonly derivations: ReadonlyArray<DerivationRecord>;
   readonly decisions: ReadonlyArray<DecisionRecord>;
   readonly threadEntries: ReadonlyArray<ThreadEntryRecord>;
+  readonly catchUps: ReadonlyArray<CatchUpRecord>;
   /** Every derivation's status and effective scope, retired kinds included. */
   readonly derivationStates: ReadonlyMap<string, DerivationState>;
 }
@@ -28,11 +30,13 @@ export const buildStoreSnapshot = (records: ReadonlyArray<StoredRecord>): StoreS
   const derivations: Array<DerivationRecord> = [];
   const decisions: Array<DecisionRecord> = [];
   const threadEntries: Array<ThreadEntryRecord> = [];
+  const catchUps: Array<CatchUpRecord> = [];
   for (const { record } of records) {
     if (record.type === "Source") sources.push(record);
     else if (record.type === "Derivation") derivations.push(record);
     else if (record.type === "Decision") decisions.push(record);
-    else threadEntries.push(record);
+    else if (record.type === "ThreadEntry") threadEntries.push(record);
+    else catchUps.push(record);
   }
   return {
     records,
@@ -41,6 +45,7 @@ export const buildStoreSnapshot = (records: ReadonlyArray<StoredRecord>): StoreS
     derivations,
     decisions,
     threadEntries,
+    catchUps,
     derivationStates: deriveDerivationStates(derivations, decisions),
   };
 };
