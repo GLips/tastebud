@@ -11,6 +11,7 @@ import {
   mineClaudeCodeTranscriptLines,
   ownerTextSimilarity,
   SIMILAR_OWNER_TEXT_THRESHOLD,
+  TranscriptEligibilityReasonSchema,
 } from "#core/domains/claude-code-transcript/index.ts";
 import { canonicalInputPlaces } from "#core/domains/derivation-scope/index.ts";
 import { placeCovers, type PlaceKey } from "#core/domains/places/index.ts";
@@ -54,13 +55,12 @@ export type TranscriptCandidatesInput = typeof TranscriptCandidatesInput.Type;
 const TranscriptCandidateSchema = Schema.Struct({
   reference: TranscriptReferenceSchema,
   said_at: Schema.String,
+  cwd: Schema.String,
   places: Schema.Array(Schema.String),
+  because: TranscriptEligibilityReasonSchema,
   /** The owner's text with Claude Code's wrappers cut out; a quote must sit inside one part. */
   parts: Schema.Array(Schema.String),
-  /**
-   * The end of what the agent said just before, which the owner may be answering: a short tail, or
-   * the longer one capture keeps when the owner's message is short enough to need it ("yes, do that").
-   */
+  /** The end of what the agent said just before, which the owner may be answering. */
   replying_to: Schema.optionalKey(Schema.String),
   /** With `similar_to`: how alike, 0 to 1. */
   similarity: Schema.optionalKey(Schema.Number),
@@ -156,16 +156,6 @@ const readingWindowOf = Effect.fn("transcript-mining.readingWindowOf")(function*
   return { sinceMs, inWindow };
 });
 
-/** Owner messages up to this long lean on what they answer, so they get the agent's full kept tail. */
-const SHORT_OWNER_MESSAGE_CHARS = 120;
-/** The tail a longer message gets: enough to see what it answers, at a fraction of a batch's reading. */
-const REPLYING_TO_TAIL_CHARS = 300;
-
-const listedReplyingTo = (replyingTo: string, parts: ReadonlyArray<string>) =>
-  parts.join("\n").length <= SHORT_OWNER_MESSAGE_CHARS || replyingTo.length <= REPLYING_TO_TAIL_CHARS
-    ? replyingTo
-    : `…${replyingTo.slice(replyingTo.length - REPLYING_TO_TAIL_CHARS)}`;
-
 /** A candidate for an eligible message, or undefined when `similar_to` finds it unlike the request. */
 const candidateOf = (
   input: TranscriptCandidatesInput,
@@ -179,9 +169,11 @@ const candidateOf = (
   return {
     reference: { session, message: mined.uuid },
     said_at: formatLocalIsoTime(new Date(mined.timestamp)),
+    cwd: mined.cwd,
     places,
+    because: mined.because,
     parts: mined.parts,
-    ...(mined.replyingTo !== undefined && { replying_to: listedReplyingTo(mined.replyingTo, mined.parts) }),
+    ...(mined.replyingTo !== undefined && { replying_to: mined.replyingTo }),
     ...(similarity !== undefined && { similarity: Math.round(similarity * 100) / 100 }),
   };
 };

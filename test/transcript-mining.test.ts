@@ -34,6 +34,7 @@ const CandidatesJson = Schema.fromJsonString(
       Schema.Struct({
         reference: Schema.Struct({ session: Schema.String, message: Schema.String }),
         places: Schema.Array(Schema.String),
+        because: Schema.String,
         parts: Schema.Array(Schema.String),
       }),
     ),
@@ -102,12 +103,11 @@ test("transcript-candidates keeps only what the owner typed, without Claude Code
 
   const result = await candidates();
 
-  // Typed, queued, mid-turn and a slash command's arguments each count.
-  expect(result.candidates.map((candidate) => candidate.parts)).toEqual([
-    ["Keep the reducers pure.", "And no default exports."],
-    ["Also sort the imports."],
-    ["Use tabs in the fixtures."],
-    ["focus on the reducers"],
+  expect(result.candidates.map((candidate) => [candidate.because, candidate.parts])).toEqual([
+    ["typed", ["Keep the reducers pure.", "And no default exports."]],
+    ["queued", ["Also sort the imports."]],
+    ["mid-turn", ["Use tabs in the fixtures."]],
+    ["command-args", ["focus on the reducers"]],
   ]);
   expect(result.candidates[0]?.places).toEqual(["github.com/acme/web::"]);
   // Task notification (attachment and record), two skill bodies, an empty slash command, sdk, sidechain.
