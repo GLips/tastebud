@@ -16,9 +16,9 @@ export interface DerivationState {
   readonly status: DerivationStatus;
   /** Every decision targeting the derivation, oldest first, including ones that had no effect. */
   readonly decisions: ReadonlyArray<DecisionRecord>;
-  /** The decision that produced the current base status (accept, reject or retract). */
+  /** The decision that produced the current base status. */
   readonly decidingDecision: DecisionRecord | undefined;
-  /** The latest accept, kept after a retraction or supersession; a later accept moves its scope. */
+  /** The latest accept, kept after a rejection, retraction or supersession; a reopen drops it. */
   readonly acceptingDecision: DecisionRecord | undefined;
   /** The latest accept's scope override when it has one, otherwise the proposed scope. */
   readonly effectiveScope: DerivationScope;
@@ -61,6 +61,7 @@ export const decisionInvalidReason = (
   if (outcome === "retract")
     return status === "accepted" ? undefined : `only an accepted ${derivation.kind} can be retracted (it is ${status})`;
   if (outcome === "reject") return status === "rejected" ? `this ${derivation.kind} is already rejected` : undefined;
+  if (outcome === "reopen") return status === "pending" ? `this ${derivation.kind} is already pending` : undefined;
   // Accepting an accepted derivation again is the owner moving it: the latest accept's scope governs.
   if (status === "accepted" || derivation.supersedes === undefined) return undefined;
   if (lookup.kindOf(derivation.supersedes) !== derivation.kind)
@@ -79,6 +80,7 @@ const BASE_STATUS_BY_OUTCOME: Record<DecisionOutcome, BaseStatus> = {
   accept: "accepted",
   reject: "rejected",
   retract: "retracted",
+  reopen: "pending",
 };
 
 /** Replays every decision in time order. Decisions on missing targets are ignored. */
@@ -117,6 +119,8 @@ export const deriveDerivationStates = (
     base.set(derivation.id, BASE_STATUS_BY_OUTCOME[decision.outcome]);
     deciding.set(derivation.id, decision);
     if (decision.outcome === "accept") accepting.set(derivation.id, decision);
+    // Back in the inbox, it is decided afresh against what was proposed.
+    if (decision.outcome === "reopen") accepting.delete(derivation.id);
   }
 
   return new Map(

@@ -12,10 +12,11 @@ import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 import { DerivationEvidence, DerivationHeader, useDerivationBack } from "./derivation-header.tsx";
-import { useDerivationPageHotkeys, useDerivationReview } from "./derivation-review.tsx";
+import { useDerivationPageHotkeys } from "./derivation-review.tsx";
 import { DerivationSidebar } from "./derivation-sidebar.tsx";
 import { DerivationStatusCard } from "./derivation-status.tsx";
 import { DerivationThread } from "./derivation-thread.tsx";
+import { useDerivationReview } from "./use-derivation-review.ts";
 
 const Route = getRouteApi("/derivations/$id");
 

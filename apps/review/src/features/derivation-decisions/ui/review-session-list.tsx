@@ -15,6 +15,7 @@ const OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly 
   accept: { word: "Accepted", color: "teal" },
   reject: { word: "Rejected", color: "red" },
   retract: { word: "Retracted", color: "gray" },
+  reopen: { word: "Put back", color: "blue" },
 };
 
 const styles = stylex.create({
@@ -31,7 +32,7 @@ const styles = stylex.create({
   },
 });
 
-/** What this tab decided, newest first. Decisions are final, so each row links to its decision. */
+/** What this tab decided, newest first. Each row links to its page, where the decision can be changed. */
 export function ReviewSessionList() {
   const nowMs = useReviewClockMs();
   const decisions = useReviewSessionLog();

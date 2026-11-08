@@ -14,7 +14,8 @@ export const DERIVATION_STATUSES = ["pending", "accepted", "rejected", "retracte
 export const DerivationStatusSchema = Schema.Literals(DERIVATION_STATUSES);
 export type DerivationStatus = (typeof DERIVATION_STATUSES)[number];
 
-export const DECISION_OUTCOMES = ["accept", "reject", "retract"] as const;
+/** `reopen` puts a decided derivation back to pending, as if the owner had not decided yet. */
+export const DECISION_OUTCOMES = ["accept", "reject", "retract", "reopen"] as const;
 export const DecisionOutcomeSchema = Schema.Literals(DECISION_OUTCOMES);
 export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number];
 
