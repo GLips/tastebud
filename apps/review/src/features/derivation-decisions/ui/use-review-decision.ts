@@ -68,6 +68,7 @@ export const sendReviewDecision = async (target: string, input: ReviewDecisionIn
   if (outcome.ok) {
     const { derivation, decision } = outcome.value;
     recordSessionDecision({
+      decisionId: decision.id,
       derivationId: derivation.id,
       kind: derivation.kind,
       statement: derivation.statement,

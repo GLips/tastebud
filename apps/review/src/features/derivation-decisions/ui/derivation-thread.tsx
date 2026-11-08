@@ -1,10 +1,10 @@
-import { Box, ActionIcon, Alert, Badge, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import { Box, ActionIcon, Alert, Badge, Code, CopyButton, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ThreadEntryRecord } from "@tastebud/core/records";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
-import { SendHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, SendHorizontal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { describeAuthor, formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
 import { THREAD_NOTE_STALES } from "#review/shared/query-keys.ts";
@@ -49,35 +49,62 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
     );
   }
   return (
-    <Tooltip
-      label="Your notes are saved. Ask an agent to run `tastebud review listen --as <name>` and it gets every unanswered one"
-      withArrow
-      multiline
-      w={260}
-    >
-      <Group gap="xs">
-        <Box component="span" {...stylex.props(styles.dot, styles.dotIdle)} />
-        <Text size="xs" c="dimmed">
-          No agent listening now · notes wait here
-        </Text>
-      </Group>
-    </Tooltip>
+    <Group gap="xs">
+      <Box component="span" {...stylex.props(styles.dot, styles.dotIdle)} />
+      <Text size="xs" c="dimmed">
+        No agent listening now · notes wait here
+      </Text>
+    </Group>
   );
 }
 
-/** One derivation's discussion, oldest first, with a composer that always writes as the store owner. */
+const LISTEN_COMMAND = "tastebud review listen --as <name>";
+
+/** How to get an answer when nobody is listening: the command an agent runs, shown and copyable. */
+function StartListenerHint() {
+  return (
+    <Group gap="2xs" wrap="nowrap">
+      <Text size="xs" c="dimmed">
+        For an answer, ask an agent to run
+      </Text>
+      <Code fz="xs">{LISTEN_COMMAND}</Code>
+      <CopyButton value={LISTEN_COMMAND}>
+        {({ copied, copy }) => (
+          <Tooltip label={copied ? "Copied" : "Copy the command"} withArrow>
+            <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the listen command" onClick={copy}>
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </CopyButton>
+    </Group>
+  );
+}
+
+/**
+ * One derivation's discussion, oldest first, with a composer that always writes as the store owner.
+ * Arriving to discuss focuses the composer, so what the owner types is a note, never a page key.
+ */
 export function DerivationThread({
   derivationId,
   thread,
   owner,
   listeners,
+  focusComposer,
 }: {
   derivationId: string;
   thread: ReadonlyArray<ThreadEntryRecord>;
   owner: string;
   listeners: ReadonlyArray<ListenerHeartbeat>;
+  focusComposer: boolean;
 }) {
   const nowMs = useReviewClockMs();
+  // A wrapper, because the shared textarea takes no ref.
+  const composer = useRef<HTMLDivElement>(null);
+  const composerField = () => composer.current?.querySelector("textarea");
+  useEffect(() => {
+    if (focusComposer) composer.current?.querySelector("textarea")?.focus();
+  }, [focusComposer]);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const post = useMutation({
@@ -97,6 +124,7 @@ export function DerivationThread({
         </Text>
         <AgentListeningIndicator listeners={listeners} />
       </Group>
+      {!listeners.some((listener) => listener.listening) && <StartListenerHint />}
       {thread.map((entry) => {
         const isOwner = entry.author === owner;
         return (
@@ -113,31 +141,35 @@ export function DerivationThread({
           </Paper>
         );
       })}
-      <ReviewTextarea
-        aria-label="Note to the agent"
-        placeholder={
-          thread.length === 0
-            ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send"
-            : "Reply  ·  ⌘↵ to send"
-        }
-        minRows={1}
-        value={draft}
-        onChange={(event) => setDraft(event.currentTarget.value)}
-        onSubmitShortcut={submit}
-        rightSection={
-          <Tooltip label={`Post as ${owner} · ⌘↵`} withArrow>
-            <ActionIcon
-              variant="subtle"
-              aria-label="Post note"
-              onClick={submit}
-              loading={post.isPending}
-              disabled={draft.trim() === ""}
-            >
-              <SendHorizontal size={15} />
-            </ActionIcon>
-          </Tooltip>
-        }
-      />
+      <Box ref={composer}>
+        <ReviewTextarea
+          aria-label="Note to the agent"
+          placeholder={
+            thread.length === 0
+              ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send"
+              : "Reply  ·  ⌘↵ to send"
+          }
+          minRows={1}
+          value={draft}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          onSubmitShortcut={submit}
+          // The first Esc leaves the box, keeping the draft; the page's Esc then goes back.
+          onCancelShortcut={() => composerField()?.blur()}
+          rightSection={
+            <Tooltip label={`Post as ${owner} · ⌘↵`} withArrow>
+              <ActionIcon
+                variant="subtle"
+                aria-label="Post note"
+                onClick={submit}
+                loading={post.isPending}
+                disabled={draft.trim() === ""}
+              >
+                <SendHorizontal size={15} />
+              </ActionIcon>
+            </Tooltip>
+          }
+        />
+      </Box>
       {post.error && (
         <Alert color="red" variant="light" title="Note not saved">
           {post.error.message}

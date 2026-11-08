@@ -54,7 +54,7 @@ export function ReviewSessionList() {
         {decisions.map((entry) => {
           const outcome = DECISION_OUTCOME_LABELS[entry.outcome];
           return (
-            <Box key={entry.derivationId} {...stylex.props(styles.row)}>
+            <Box key={entry.decisionId} {...stylex.props(styles.row)}>
               <KindGlyph catalog={catalog} kind={entry.kind} />
               <Badge size="xs" color={outcome.color} variant="light">
                 {outcome.word}
@@ -68,7 +68,7 @@ export function ReviewSessionList() {
                   {formatTimeAgo(entry.at, nowMs)}
                 </Text>
                 <AnchorLink to="/derivations/$id" params={{ id: entry.derivationId }} size="xs">
-                  View decision
+                  Open
                 </AnchorLink>
               </Group>
             </Box>

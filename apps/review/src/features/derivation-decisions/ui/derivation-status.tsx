@@ -3,15 +3,16 @@
  * and what the owner can do next. Every decision is a new record, so the copy keeps changing one's
  * mind cheap, and the decision just made here can be undone in place.
  */
-import { Button, Group, Paper, Stack, Text } from "@mantine/core";
+import { Button, Group, Kbd, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
-import type { DerivationView } from "@tastebud/core/record-views";
-import { Undo2 } from "lucide-react";
+import type { DerivationSummary, DerivationView } from "@tastebud/core/record-views";
+import { ArrowRight, Undo2 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { formatReviewDate, formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 import { DerivationActions, DerivationReviewPanels, DerivationScopeRow } from "./derivation-review.tsx";
@@ -77,27 +78,80 @@ function StatusSentence({ view }: { view: DerivationView }) {
   );
 }
 
+/** A pending proposal that came after this one, and how the card leads with it. */
+interface NewerPendingVersion {
+  readonly summary: DerivationSummary;
+  readonly headline: string;
+  readonly action: string;
+}
+
+const isPending = (summary: DerivationSummary) => summary.status === "pending";
+
+/**
+ * The pending proposal to lead with: a revision, or one proposed despite this one. On a rejected or
+ * retracted one it is usually the next step, ahead of accepting this after all; once this is accepted,
+ * a pending near-duplicate still needs its own decision.
+ */
+export const newerPendingVersionOf = (
+  view: DerivationView,
+  despitedBy: ReadonlyArray<DerivationSummary>,
+): NewerPendingVersion | undefined => {
+  if (view.status === "rejected" || view.status === "retracted") {
+    const summary = [...view.revisions, ...despitedBy].find(isPending);
+    return summary && { summary, headline: "A newer version is waiting", action: "Review it" };
+  }
+  if (view.status !== "accepted") return undefined;
+  const revision = view.revisions.find(isPending);
+  if (revision !== undefined)
+    return { summary: revision, headline: "A revision of it is waiting", action: "Review it" };
+  const duplicate = despitedBy.find(isPending);
+  return duplicate && { summary: duplicate, headline: "A near-duplicate is still waiting", action: "Decide it too" };
+};
+
+function NewerVersionHeadline({ newer }: { newer: NewerPendingVersion }) {
+  return (
+    <Group gap="xs" wrap="nowrap" justify="space-between">
+      <Text fw={600} {...stylex.props(styles.shrinkable)}>
+        {newer.headline}: “{newer.summary.statement}”
+      </Text>
+      <ButtonLink
+        to="/derivations/$id"
+        params={{ id: newer.summary.id }}
+        rightSection={<ArrowRight size={14} />}
+        data-primary-action
+      >
+        {newer.action}
+      </ButtonLink>
+    </Group>
+  );
+}
+
 export function DerivationStatusCard({
   review,
   kind,
   acceptLabel,
   known,
+  newer,
+  focusPrimary,
 }: {
   review: DerivationReview;
   kind: DerivedKindView | undefined;
   acceptLabel: string;
   known: KnownPlaces;
+  newer: NewerPendingVersion | undefined;
+  focusPrimary: boolean;
 }) {
-  const { view, decision } = review;
-  // Undo only while the decision made here is still the latest one on record.
-  const undoable =
-    decision.undoable !== undefined && view.decisions.at(-1)?.id === decision.undoable.decisionId
-      ? decision.undoable
-      : undefined;
+  const { view, decision, undoable } = review;
   const panelsOpen = review.mode !== "idle" || decision.failure !== undefined;
+  const card = useRef<HTMLDivElement>(null);
+  // Arriving lands on the primary action, so Enter takes the next step.
+  useEffect(() => {
+    if (focusPrimary) card.current?.querySelector<HTMLElement>("[data-primary-action]")?.focus({ preventScroll: true });
+  }, [focusPrimary]);
   return (
-    <Paper px="md" py="sm">
+    <Paper ref={card} px="md" py="sm">
       <Stack gap="sm">
+        {newer !== undefined && <NewerVersionHeadline newer={newer} />}
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
           <Group gap="xs" wrap="nowrap">
             <DerivationStatusDot status={view.status} />
@@ -109,7 +163,8 @@ export function DerivationStatusCard({
                 color="gray"
                 leftSection={<Undo2 size={12} />}
                 loading={decision.pending}
-                onClick={() => void review.undo()}
+                rightSection={<Kbd size="xs">U</Kbd>}
+                onClick={review.undo}
               >
                 Undo
               </Button>
@@ -126,7 +181,12 @@ export function DerivationStatusCard({
         {canDecideDerivation(view) && (
           <Group justify="space-between" align="center" gap="sm">
             <DerivationScopeRow review={review} known={known} />
-            <DerivationActions review={review} acceptLabel={acceptLabel} known={known} />
+            <DerivationActions
+              review={review}
+              acceptLabel={acceptLabel}
+              known={known}
+              acceptIsPrimary={newer === undefined}
+            />
           </Group>
         )}
         {canDecideDerivation(view) && panelsOpen && (
