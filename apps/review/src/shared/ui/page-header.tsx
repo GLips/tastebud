@@ -20,7 +20,7 @@ export function ReviewPageHeader({
   icon?: ReactNode;
   /** A link back up, above the title, on detail pages. */
   crumb?: ReactNode;
-  /** Quieter facts under the purpose: a kind's description, how it reaches agents. */
+  /** Rare: a quieter line under the purpose, only when a page has a fact the purpose cannot carry. */
   details?: ReactNode;
   /** Controls aligned to the header's right edge. */
   actions?: ReactNode;
