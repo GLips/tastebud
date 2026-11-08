@@ -11,6 +11,7 @@ import {
   relativePlacePath,
   repoRootPlace,
   type ScopeDraft,
+  type ScopePick,
   scopePlacesOf,
   typedPlaceChoicesOf,
 } from "@tastebud/core/places";
@@ -146,4 +147,15 @@ export const scopePickerGroupsOf = ({
     { heading: "Named places", options: flatOptions("named") },
     { heading: needle === "" ? undefined : "Use a new place", options: typed },
   ].filter((group) => group.options.length > 0);
+};
+
+/**
+ * The pick a row's value stands for, read from the value alone so the list can unmount (and forget
+ * its search) without the submit handler needing its rows. The type-path hint picks nothing.
+ */
+export const scopePickOfOptionValue = (value: string): ScopePick | undefined => {
+  if (value === "everywhere" || value === "earlier") return { pick: value };
+  if (value.startsWith("place:")) return { pick: "only", place: value.slice("place:".length) };
+  if (value.startsWith("typed:")) return { pick: "add", place: value.slice("typed:".length) };
+  return undefined;
 };
