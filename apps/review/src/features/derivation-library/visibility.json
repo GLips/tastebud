@@ -1,3 +1,4 @@
 {
-  "places": "lists the derivations scoped to the selected place"
+  "places": "lists the derivations that reach the selected place",
+  "recall-inspector": "lists what applies where the inspector stands, prompt or not"
 }

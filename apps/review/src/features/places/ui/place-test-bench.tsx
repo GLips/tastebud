@@ -1,6 +1,6 @@
 /**
- * Places' location tools: "Where am I?" beside the resolver it runs, and "Test these working
- * locations", the probes the audit checks scopes against, kept in this browser.
+ * Places' "Check a folder" tools: which place one folder resolves to, and the folders you work in
+ * (the probes the audit checks scopes against), kept in this browser.
  */
 import { Box, ActionIcon, Button, Code, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -68,7 +68,7 @@ export function WhereAmIPanel({ onKeep }: { onKeep: (directory: string) => void 
       <Stack gap="xs">
         <Stack gap="3xs">
           <Text size="sm" fw={600}>
-            Where am I?
+            Which place is this folder?
           </Text>
           {catalog !== undefined && (
             <Text size="xs" c="dark.4">
@@ -119,7 +119,7 @@ export function WhereAmIPanel({ onKeep }: { onKeep: (directory: string) => void 
               <PlaceChip key={place} place={place} label={known.labelOf(place)} />
             ))}
             <Button size="compact-xs" variant="subtle" onClick={() => onKeep(asked)}>
-              Add to probes
+              Keep checking it
             </Button>
           </Group>
         )}
@@ -147,28 +147,21 @@ export function PlaceTestBench({
     <Paper p="sm">
       <Stack gap="xs">
         <Group justify="space-between">
-          <Tooltip
-            label="Places you work in: any place key, or a working directory the resolver turns into one. The audit flags accepted scope places none of them reach. Kept in this browser."
-            withArrow
-            multiline
-            w={300}
-            position="top-start"
-          >
-            <Text size="sm" fw={600} w="fit-content">
-              Test these working locations
-            </Text>
-          </Tooltip>
+          <Text size="sm" fw={600}>
+            Folders you work in
+          </Text>
           {probes.length > 0 && audit !== undefined && (
             <Text size="xs" c={unmatchedCount > 0 ? "orange.8" : "tastebud.8"}>
               {unmatchedCount === 0
-                ? `Every accepted scope place is matched by ${probes.length === 1 ? "this probe" : `these ${probes.length} probes`}`
-                : `${unmatchedCount} ${unmatchedCount === 1 ? "place" : "places"} unmatched by ${probes.length === 1 ? "this probe" : `these ${probes.length} probes`}`}
+                ? "Every place you've accepted items for is reached"
+                : `${unmatchedCount} ${unmatchedCount === 1 ? "place" : "places"} with accepted items none of these reach`}
             </Text>
           )}
         </Group>
         {probes.length === 0 ? (
           <Text size="xs" c="dimmed">
-            No probes yet. Add the places you work in to see which scope places none of them reach.
+            Add the folders (or place keys) you work in. Places with accepted items that none of them reach get a
+            warning in the list, kept in this browser.
           </Text>
         ) : (
           <Box>
@@ -185,7 +178,7 @@ export function PlaceTestBench({
                   <Group gap="2xs">
                     <ProbeResolutionChips resolution={resolution} known={known} />
                   </Group>
-                  <Tooltip label="Remove this probe" withArrow>
+                  <Tooltip label="Stop checking this" withArrow>
                     <ActionIcon
                       size="sm"
                       variant="subtle"
@@ -219,7 +212,7 @@ export function PlaceTestBench({
               {...stylex.props(styles.grow)}
             />
             <Button size="xs" variant="default" type="submit" disabled={draft.trim() === ""}>
-              Add probe
+              Add
             </Button>
           </Group>
         </form>
