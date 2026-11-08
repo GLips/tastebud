@@ -70,11 +70,12 @@ const styles = stylex.create({
   quoteGroupLabel: { letterSpacing: "0.02em" },
 });
 
-type QuoteGroup = { label: string; role: SourceQuoteRole; sources: ReadonlyArray<SourceView> };
+type QuoteGroup = { label?: string; role: SourceQuoteRole; sources: ReadonlyArray<SourceView> };
 
 /**
- * The quotes under a word label, so supporting and contradicting read apart without relying on the
- * quote mark's colour. A backlog kind's quotes only prompted it, so they share one label.
+ * The quotes in word-labelled groups, so supporting and contradicting read apart without relying on
+ * the quote mark's colour. Contradicting quotes get no heading because `SourceQuote` already says
+ * "Says the opposite" on each one. A backlog kind's quotes only prompted it, so they share one label.
  */
 function InboxCardQuotes({ view, backlog }: { view: InboxCard["derivation"]; backlog: boolean }) {
   const groups: ReadonlyArray<QuoteGroup> = backlog
@@ -87,15 +88,17 @@ function InboxCardQuotes({ view, backlog }: { view: InboxCard["derivation"]; bac
       ]
     : [
         { label: "Supports this", role: "supports", sources: view.supportingSources },
-        { label: "Says the opposite", role: "contradicts", sources: view.contradictingSources },
+        { role: "contradicts", sources: view.contradictingSources },
       ];
   return groups
     .filter((group) => group.sources.length > 0)
     .map((group) => (
-      <Stack key={group.label} gap="xxs" {...stylex.props(styles.quotes)}>
-        <Text size="xs" c="dimmed" fw={600} tt="uppercase" {...stylex.props(styles.quoteGroupLabel)}>
-          {group.label}
-        </Text>
+      <Stack key={group.role} gap="xxs" {...stylex.props(styles.quotes)}>
+        {group.label !== undefined && (
+          <Text size="xs" c="dimmed" fw={600} tt="uppercase" {...stylex.props(styles.quoteGroupLabel)}>
+            {group.label}
+          </Text>
+        )}
         {group.sources.map((source) => (
           <SourceQuote key={source.source.id} view={source} role={group.role} />
         ))}

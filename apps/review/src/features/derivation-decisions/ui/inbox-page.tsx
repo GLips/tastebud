@@ -1,16 +1,17 @@
-import { Box, Button, Center, Group, Kbd, Loader, Popover, SegmentedControl, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Center, Group, Loader, SegmentedControl, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Schema } from "effect";
-import { ArrowDown, History, Keyboard, PartyPopper } from "lucide-react";
+import { ArrowDown, PartyPopper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { reviewShellQuery, useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { readRememberedBrowserText, rememberBrowserText } from "#review/infrastructure/browser-storage.ts";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
@@ -18,8 +19,7 @@ import { inboxGroupsQuery } from "./decision-queries.ts";
 import { InboxProposalCard } from "./inbox-card.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
-import { ReviewSessionList } from "./review-session-list.tsx";
-import { useReviewSessionLog } from "./review-session-log.ts";
+import { InboxNarrowActions, InboxRail } from "./inbox-rail.tsx";
 import type { ScopeDraft } from "./scope-draft.ts";
 
 /** `card` selects one proposal on arrival, for links that name a specific pending item. */
@@ -38,20 +38,11 @@ let leftSelectedCard: string | undefined;
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
   alignCenter: { alignSelf: "center" },
-  screen: { maxWidth: "820px", marginInline: "auto" },
-  keys: { display: "grid", gridTemplateColumns: "auto auto", columnGap: "10px", rowGap: "4px", alignItems: "center" },
+  // The queue keeps a readable measure; the rail beside it takes the rest of the shell's width.
+  queue: { flex: 1, minWidth: 0 },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
 });
-
-const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
-  ["j / k", "Next / previous"],
-  ["a", "Accept, or review first if needed"],
-  ["s", "Edit where it applies"],
-  ["r", "Reject with a reason"],
-  ["d", "Discuss with an agent"],
-  ["⌘↵ / Esc", "Confirm / back, in a preview"],
-];
 
 /** What accepting does for the selected kind, finishing the page's one-line job. */
 const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
@@ -62,24 +53,6 @@ const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall"
   };
   return outcomes[kind.recall];
 };
-
-/** What this tab decided, one click from the top of the page wherever the reviewer has scrolled to. */
-function SessionDecisionsButton() {
-  const decided = useReviewSessionLog().length;
-  if (decided === 0) return null;
-  return (
-    <Popover withArrow position="bottom-end" shadow="md" width={720}>
-      <Popover.Target>
-        <Button variant="subtle" color="gray" leftSection={<History size={14} />}>
-          Decided this session · {decided}
-        </Button>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <ReviewSessionList />
-      </Popover.Dropdown>
-    </Popover>
-  );
-}
 
 function KindTabLabel({ kind, count }: { kind: DerivedKindView; count: number }) {
   const catalog = useQuery(reviewShellQuery).data?.catalog;
@@ -205,107 +178,88 @@ export function InboxPage() {
     );
 
   return (
-    <Stack gap="md" {...stylex.props(styles.screen)}>
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Stack gap="2xs">
-          <Title order={3}>Inbox</Title>
-          <Text c="dimmed">Proposals waiting on you. {describeAcceptedOutcome(kind)}</Text>
+    <Stack gap="lg">
+      <ReviewPageHeader
+        title="Inbox"
+        purpose={`Proposals waiting on you. ${describeAcceptedOutcome(kind)}`}
+        actions={<InboxNarrowActions />}
+      />
+      <Group align="flex-start" wrap="nowrap" gap="xl">
+        <Stack gap="md" {...stylex.props(styles.queue)}>
+          {kinds.length > 1 && (
+            <SegmentedControl
+              size="sm"
+              value={kind.key}
+              onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
+              data={kinds.map((candidate) => ({
+                value: candidate.key,
+                label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
+              }))}
+              {...stylex.props(styles.alignStart)}
+            />
+          )}
+
+          {queue.incomingCount > 0 && (
+            <Button
+              variant="light"
+              size="xs"
+              leftSection={<ArrowDown size={13} />}
+              onClick={queue.showIncoming}
+              {...stylex.props(styles.alignCenter)}
+            >
+              {queue.incomingCount === 1 ? "1 new proposal" : `${queue.incomingCount} new proposals`}
+            </Button>
+          )}
+
+          {queue.entries.length === 0 ? (
+            <Center py={64}>
+              <Stack align="center" gap="xxs">
+                <PartyPopper size={28} color="var(--mantine-color-tastebud-6)" />
+                <Text fw={600}>No {kind.plural} waiting</Text>
+                {othersWaiting.length > 0 ? (
+                  <Group gap="xxs" mt="2xs">
+                    {othersWaiting.map((other) => (
+                      <Button
+                        key={other.key}
+                        size="xs"
+                        variant="default"
+                        leftSection={<KindGlyph catalog={catalog} kind={other.key} />}
+                        onClick={() => void navigate({ search: { kind: other.key }, replace: true })}
+                      >
+                        Review {pendingByKind.get(other.key)}{" "}
+                        {pendingByKind.get(other.key) === 1 ? other.singular : other.plural}
+                      </Button>
+                    ))}
+                  </Group>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Agents propose with <code>tastebud propose</code>.{" "}
+                    <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
+                      Browse {kind.plural}
+                    </AnchorLink>
+                  </Text>
+                )}
+              </Stack>
+            </Center>
+          ) : (
+            queue.buckets.map((bucket) => (
+              <InboxGroupSection
+                key={bucket.key}
+                group={bucket.group}
+                entries={bucket.entries}
+                kind={kind}
+                owner={catalog?.owner}
+                drafts={drafts}
+                engagedIds={engagedIds}
+                known={known}
+                renderEntry={renderEntry}
+                onAccepted={removeFromQueue}
+              />
+            ))
+          )}
         </Stack>
-        <Group gap="2xs" wrap="nowrap">
-          <SessionDecisionsButton />
-          <Popover withArrow position="bottom-end" shadow="md">
-            <Popover.Target>
-              <Button variant="subtle" color="gray" leftSection={<Keyboard size={14} />}>
-                Shortcuts
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Box {...stylex.props(styles.keys)}>
-                {INBOX_KEYS.map(([keys, action]) => [
-                  <Kbd key={`${keys}-k`} size="xs">
-                    {keys}
-                  </Kbd>,
-                  <Text size="xs" key={`${keys}-a`}>
-                    {action}
-                  </Text>,
-                ])}
-              </Box>
-            </Popover.Dropdown>
-          </Popover>
-        </Group>
+        <InboxRail />
       </Group>
-
-      {kinds.length > 1 && (
-        <SegmentedControl
-          size="sm"
-          value={kind.key}
-          onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
-          data={kinds.map((candidate) => ({
-            value: candidate.key,
-            label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
-          }))}
-          {...stylex.props(styles.alignStart)}
-        />
-      )}
-
-      {queue.incomingCount > 0 && (
-        <Button
-          variant="light"
-          size="xs"
-          leftSection={<ArrowDown size={13} />}
-          onClick={queue.showIncoming}
-          {...stylex.props(styles.alignCenter)}
-        >
-          {queue.incomingCount === 1 ? "1 new proposal" : `${queue.incomingCount} new proposals`}
-        </Button>
-      )}
-
-      {queue.entries.length === 0 ? (
-        <Center py={64}>
-          <Stack align="center" gap="xxs">
-            <PartyPopper size={28} color="var(--mantine-color-tastebud-6)" />
-            <Text fw={600}>No {kind.plural} waiting</Text>
-            {othersWaiting.length > 0 ? (
-              <Group gap="xxs" mt="2xs">
-                {othersWaiting.map((other) => (
-                  <Button
-                    key={other.key}
-                    size="xs"
-                    variant="default"
-                    leftSection={<KindGlyph catalog={catalog} kind={other.key} />}
-                    onClick={() => void navigate({ search: { kind: other.key }, replace: true })}
-                  >
-                    Review {pendingByKind.get(other.key)}{" "}
-                    {pendingByKind.get(other.key) === 1 ? other.singular : other.plural}
-                  </Button>
-                ))}
-              </Group>
-            ) : (
-              <Text size="sm" c="dimmed">
-                Agents propose with <code>tastebud propose</code>.{" "}
-                <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
-                  Browse {kind.plural}
-                </AnchorLink>
-              </Text>
-            )}
-          </Stack>
-        </Center>
-      ) : (
-        queue.buckets.map((bucket) => (
-          <InboxGroupSection
-            key={bucket.key}
-            group={bucket.group}
-            entries={bucket.entries}
-            kind={kind}
-            owner={catalog?.owner}
-            drafts={drafts}
-            engagedIds={engagedIds}
-            known={known}
-            renderEntry={renderEntry}
-            onAccepted={removeFromQueue}
-          />
-        ))
-      )}
     </Stack>
   );
 }

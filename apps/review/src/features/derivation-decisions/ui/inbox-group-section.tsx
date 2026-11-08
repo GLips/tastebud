@@ -26,6 +26,7 @@ import { sendReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
+  // Sticks just under the shell's 48px header; the shell doesn't expose that height, so it is repeated here.
   groupHeader: {
     position: "sticky",
     top: "48px",
