@@ -85,8 +85,8 @@ export const describeKindDelivery = (kind: Pick<DerivedKindView, "plural" | "rec
 /** The policy as a short phrase for badges, in the owner's words rather than the config's. */
 export const RECALL_POLICY_LABELS: Record<RecallPolicy, string> = {
   inject: "Sent with prompts",
-  pull: "Given when asked",
-  never: "Never shown to agents",
+  pull: "Looked up when asked",
+  never: "Not sent: backlog",
 };
 
 /** `Beliefs`, from `beliefs`. */

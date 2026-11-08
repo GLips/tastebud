@@ -19,7 +19,7 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { type AgentHostConnectLines, agentHostConnectLinesFor } from "@tastebud/core/agent-hosts";
-import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Check, ChevronRight, Copy } from "lucide-react";
 import { useState } from "react";
@@ -42,6 +42,8 @@ const styles = stylex.create({
   mono: { fontFamily: "var(--mantine-font-family-monospace)", wordBreak: "break-all" },
   prompt: { whiteSpace: "pre-wrap", lineHeight: 1.55, maxHeight: "360px", overflow: "auto" },
   snippet: { position: "relative" },
+  // Wraps long paths so nothing hides behind horizontal scroll; the copied text keeps its own lines.
+  snippetCode: { whiteSpace: "pre-wrap", wordBreak: "normal", overflowWrap: "anywhere", paddingRight: "36px" },
   copy: { position: "absolute", top: "6px", right: "6px" },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
@@ -50,7 +52,7 @@ const styles = stylex.create({
 function CopyableSnippet({ code, label }: { code: string; label: string }) {
   return (
     <Box {...stylex.props(styles.snippet)}>
-      <Code block fz="xs" {...stylex.props(styles.mono)} aria-label={label}>
+      <Code block fz="xs" {...stylex.props(styles.mono, styles.snippetCode)} aria-label={label}>
         {code}
       </Code>
       <CopyButton value={code}>
@@ -74,7 +76,7 @@ function CopyableSnippet({ code, label }: { code: string; label: string }) {
 
 const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
-function DerivedKindCard({ kind, hookLimit }: { kind: DerivedKindView; hookLimit: number }) {
+function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   const catalog = useReviewCatalog();
   const [open, setOpen] = useState(false);
   const sources = (catalog?.sourceKinds ?? []).filter((source) => kind.sources.includes(source.key));
@@ -96,17 +98,6 @@ function DerivedKindCard({ kind, hookLimit }: { kind: DerivedKindView; hookLimit
           )}
         </Stack>
         <Box {...stylex.props(styles.facts)}>
-          <FactRow label="Agents">
-            <Stack gap="3xs" align="flex-start">
-              <Badge color={RECALL_POLICY_BADGE_COLORS[kind.recall]} tt="none" fw={500}>
-                {RECALL_POLICY_LABELS[kind.recall]}
-              </Badge>
-              <Text size="sm">
-                {describeKindDelivery(kind)}
-                {kind.recall === "inject" && ` At most ${hookLimit} go with one prompt, and only where they apply.`}
-              </Text>
-            </Stack>
-          </FactRow>
           <FactRow label="Labels">
             <Text size="sm">
               {kind.singular} / {kind.plural}
@@ -279,6 +270,145 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
   );
 }
 
+/** A text the owner pastes to their agent; the agent fills in the change from the guide. */
+const askAgentPromptOf = (configPath: string) =>
+  `Change my Tastebud setup: <say what you want, e.g. "send insights with prompts too">.\n` +
+  `Run \`tastebud config-show --guide\` first, then edit ${configPath} and check it with \`tastebud config-show\`.`;
+
+function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPath: string }) {
+  return (
+    <Stack gap="sm">
+      <Text fw={600}>How it behaves</Text>
+      <Paper p="md">
+        <Stack gap="md">
+          <Box {...stylex.props(styles.facts)}>
+            <FactRow label="Who decides">
+              <Text size="sm">
+                Agents only propose. Only {catalog.owner} accepts, rejects or retracts, here in the inbox.
+              </Text>
+            </FactRow>
+            <FactRow label="Each prompt">
+              <Text size="sm">
+                Carries at most {catalog.hook.limit} items, only ones that apply where the agent works, and only if they
+                are found within {catalog.hook.budgetMs} ms.
+              </Text>
+            </FactRow>
+            {catalog.derivedKinds.map((kind) => (
+              <FactRow key={kind.key} label={capitalize(kind.plural)}>
+                <Stack gap="3xs" align="flex-start">
+                  <Badge color={RECALL_POLICY_BADGE_COLORS[kind.recall]} tt="none" fw={500}>
+                    {RECALL_POLICY_LABELS[kind.recall]}
+                  </Badge>
+                  <Text size="sm">{describeKindDelivery(kind)}</Text>
+                </Stack>
+              </FactRow>
+            ))}
+          </Box>
+          <Stack gap="2xs">
+            <Text size="sm" fw={500}>
+              Ask your agent to change this
+            </Text>
+            <CopyableSnippet code={askAgentPromptOf(configPath)} label="prompt to change the setup" />
+          </Stack>
+        </Stack>
+      </Paper>
+    </Stack>
+  );
+}
+
+function ConfigurationDetails({
+  catalog,
+  storeRoot,
+  configPath,
+}: {
+  catalog: CatalogView;
+  storeRoot: string;
+  configPath: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Stack gap="sm">
+      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
+        <Group gap="2xs">
+          <ChevronRight
+            size={14}
+            color="var(--mantine-color-gray-6)"
+            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
+          />
+          <Text fw={600}>Configuration details</Text>
+          <Text size="xs" c="dimmed">
+            Store, labels, button wording, sources and the prompts agents read
+          </Text>
+        </Group>
+      </UnstyledButton>
+      <Collapse expanded={open}>
+        <Stack gap="lg">
+          <Paper p="md">
+            <Box {...stylex.props(styles.facts)}>
+              <FactRow label="Store">
+                <Text fz="xs" {...stylex.props(styles.mono)}>
+                  {storeRoot}
+                </Text>
+              </FactRow>
+              <FactRow label="Config">
+                <Text fz="xs" {...stylex.props(styles.mono)}>
+                  {configPath}
+                </Text>
+              </FactRow>
+              <FactRow label="Resolver">
+                <Text size="sm">
+                  {catalog.resolver} ·{" "}
+                  <AnchorLink to="/places" size="sm">
+                    try it in Places →
+                  </AnchorLink>
+                </Text>
+              </FactRow>
+            </Box>
+          </Paper>
+
+          <Stack gap="sm">
+            <Stack gap="3xs">
+              <Text fw={600}>Derived kinds</Text>
+              <Text size="xs" c="dimmed">
+                What agents propose for you to accept.
+              </Text>
+            </Stack>
+            {catalog.derivedKinds.map((kind) => (
+              <DerivedKindCard key={kind.key} kind={kind} />
+            ))}
+          </Stack>
+
+          <Stack gap="sm">
+            <Stack gap="3xs">
+              <Text fw={600}>Source kinds</Text>
+              <Text size="xs" c="dimmed">
+                Whose words the store keeps. Agents are told each description as when to save those words.
+              </Text>
+            </Stack>
+            <Paper p="md">
+              <Box {...stylex.props(styles.facts)}>
+                {catalog.sourceKinds.map((kind) => (
+                  <FactRow key={kind.key} label={kind.key}>
+                    <Text size="sm">
+                      {capitalize(kind.plural)}
+                      {kind.description !== undefined && (
+                        <Text span c="dimmed">
+                          {" "}
+                          — {kind.description}
+                        </Text>
+                      )}
+                    </Text>
+                  </FactRow>
+                ))}
+              </Box>
+            </Paper>
+          </Stack>
+        </Stack>
+      </Collapse>
+    </Stack>
+  );
+}
+
 export function SettingsPage() {
   const shell = useQuery(reviewShellQuery);
   if (shell.error) return <QueryErrorAlert error={shell.error} />;
@@ -289,11 +419,12 @@ export function SettingsPage() {
       </Center>
     );
   const { catalog, storeRoot, storeIsDefault } = shell.data;
+  const configPath = `${storeRoot.replace(/\/+$/, "")}/tastebud.config.ts`;
   return (
-    <Stack gap="lg">
+    <Stack gap="xl">
       <ReviewPageHeader
         title="Settings"
-        purpose="How this store is set up. Ask your agent to change it."
+        purpose="Connect your agents, and see how this store treats what they propose."
         details={
           <>
             This page only reads. Your agent edits <Code fz="xs">tastebud.config.ts</Code> in the store (guided by{" "}
@@ -301,77 +432,9 @@ export function SettingsPage() {
           </>
         }
       />
-
-      <Paper p="md">
-        <Box {...stylex.props(styles.facts)}>
-          <FactRow label="Owner">
-            <Text size="sm">{catalog.owner}</Text>
-          </FactRow>
-          <FactRow label="Store">
-            <Text fz="xs" {...stylex.props(styles.mono)}>
-              {storeRoot}
-            </Text>
-          </FactRow>
-          <FactRow label="Config">
-            <Text fz="xs" {...stylex.props(styles.mono)}>
-              {storeRoot.replace(/\/+$/, "")}/tastebud.config.ts
-            </Text>
-          </FactRow>
-          <FactRow label="Resolver">
-            <Text size="sm">
-              {catalog.resolver} ·{" "}
-              <AnchorLink to="/places" size="sm">
-                try it in Places →
-              </AnchorLink>
-            </Text>
-          </FactRow>
-          <FactRow label="Prompt hook">
-            <Text size="sm">
-              At most {catalog.hook.limit} items, within {catalog.hook.budgetMs} ms
-            </Text>
-          </FactRow>
-        </Box>
-      </Paper>
-
-      <Stack gap="sm">
-        <Stack gap="3xs">
-          <Text fw={600}>Derived kinds</Text>
-          <Text size="xs" c="dimmed">
-            What agents propose for you to accept. Ask an agent to add a kind or change one.
-          </Text>
-        </Stack>
-        {catalog.derivedKinds.map((kind) => (
-          <DerivedKindCard key={kind.key} kind={kind} hookLimit={catalog.hook.limit} />
-        ))}
-      </Stack>
-
-      <Stack gap="sm">
-        <Stack gap="3xs">
-          <Text fw={600}>Source kinds</Text>
-          <Text size="xs" c="dimmed">
-            Whose words the store keeps. Agents are told each description as when to save those words.
-          </Text>
-        </Stack>
-        <Paper p="md">
-          <Box {...stylex.props(styles.facts)}>
-            {catalog.sourceKinds.map((kind) => (
-              <FactRow key={kind.key} label={kind.key}>
-                <Text size="sm">
-                  {capitalize(kind.plural)}
-                  {kind.description !== undefined && (
-                    <Text span c="dimmed">
-                      {" "}
-                      — {kind.description}
-                    </Text>
-                  )}
-                </Text>
-              </FactRow>
-            ))}
-          </Box>
-        </Paper>
-      </Stack>
-
       <AgentHostInstallLines storeRoot={storeIsDefault ? undefined : storeRoot} />
+      <HowItBehaves catalog={catalog} configPath={configPath} />
+      <ConfigurationDetails catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
     </Stack>
   );
 }

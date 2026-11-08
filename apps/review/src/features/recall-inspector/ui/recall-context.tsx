@@ -15,11 +15,11 @@ const styles = stylex.create({
 });
 
 const ORIGIN_WORDING: Record<TasteContext["origin"], string> = {
-  in: "Resolved from the directory",
-  at: "Places taken as given",
-  cwd: "Resolved from the working directory",
-  "mcp-root": "Resolved from the MCP root",
-  unknown: "Unknown context: only global items apply",
+  in: "That folder counts as",
+  at: "Standing at",
+  cwd: "The server's own folder counts as",
+  "mcp-root": "The agent's project counts as",
+  unknown: "That folder isn't any place, so only items that apply everywhere reach",
 };
 
 export function RecallContextSummary({ context }: { context: TasteContext }) {
@@ -27,9 +27,8 @@ export function RecallContextSummary({ context }: { context: TasteContext }) {
   return (
     <Box {...stylex.props(styles.contextBar)}>
       <LocateFixed size={14} color="var(--mantine-color-gray-6)" />
-      <Text size="xs" c={context.origin === "unknown" ? "orange.8" : "dimmed"}>
+      <Text size="xs" c="dimmed">
         {ORIGIN_WORDING[context.origin]}
-        {context.cwd !== undefined && context.origin !== "at" && ` (${context.cwd})`}
       </Text>
       {context.places.map((place) => (
         <PlaceChip key={place} place={place} label={known.labelOf(place)} />
