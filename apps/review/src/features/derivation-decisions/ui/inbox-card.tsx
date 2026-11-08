@@ -38,6 +38,7 @@ import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote, type SourceQuoteRole } from "#review/shared/ui/source-quote.tsx";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
+import { InboxDecidedRow } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { scopeButtonPhrase, scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePicker } from "./scope-picker.tsx";
@@ -128,6 +129,8 @@ export function InboxProposalCard({
   onDraftChange,
   onEngagedChange,
   onDecided,
+  decided,
+  onUndone,
   ref,
 }: {
   card: InboxCard;
@@ -143,13 +146,20 @@ export function InboxProposalCard({
   /** True while this card holds the keyboard: editing, rejecting, previewing or submitting. */
   onEngagedChange: (engaged: boolean) => void;
   onDecided: () => void;
+  /** Decided from this card: it folds to its outcome with Undo, staying mounted so the undo survives. */
+  decided: boolean;
+  /** The undo landed and the proposal is pending again. */
+  onUndone: () => void;
   ref?: Ref<HTMLDivElement>;
 }) {
   const nowMs = useReviewClockMs();
   const catalog = useReviewCatalog();
   const { derivation: view } = card;
   const record = view.derivation;
-  const decision = useReviewDecision(view.id);
+  const decision = useReviewDecision(view.id, {
+    ...view,
+    acknowledges: view.decisions.findLast((entry) => entry.outcome === "accept")?.acknowledges,
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<CardMode>("idle");
@@ -186,7 +196,7 @@ export function InboxProposalCard({
   const submitAccept = async (acknowledges: ReadonlyArray<string>) => {
     if (decision.pending) return;
     const outcome = await decision.decide({ outcome: "accept", ...override, acknowledges });
-    if (outcome.ok) onDecided();
+    if (outcome.ok) settleDecided();
     else if (outcome.failure.tag === "WideningNeedsAcknowledgement") {
       setConflict(true);
       setMode("previewing");
@@ -196,7 +206,17 @@ export function InboxProposalCard({
   const submitReject = async (reason: string) => {
     if (decision.pending) return;
     const outcome = await decision.decide({ outcome: "reject", reason });
-    if (outcome.ok) onDecided();
+    if (outcome.ok) settleDecided();
+  };
+  const undo = async () => {
+    const outcome = await decision.undo();
+    if (outcome?.ok) onUndone();
+  };
+  // Back to idle with nothing half-typed, so an Undo returns a clean card.
+  const settleDecided = () => {
+    setMode("idle");
+    setRejectReason("");
+    onDecided();
   };
   const accept = () => {
     if (decision.pending || queued) return;
@@ -216,6 +236,17 @@ export function InboxProposalCard({
     ...(overlaps === 1 ? ["Overlaps a near repeat"] : []),
     ...(overlaps > 1 ? [`Overlaps ${overlaps} near repeats`] : []),
   ];
+
+  if (decided)
+    return (
+      <InboxDecidedRow
+        id={view.id}
+        statement={view.statement}
+        undoable={decision.undoable}
+        undoing={decision.pending}
+        onUndo={() => void undo()}
+      />
+    );
 
   return (
     <Paper

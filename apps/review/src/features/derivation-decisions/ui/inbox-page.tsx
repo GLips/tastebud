@@ -97,8 +97,10 @@ export function InboxPage() {
   for (const group of inbox.data?.groups ?? [])
     pendingByKind.set(group.kind, (pendingByKind.get(group.kind) ?? 0) + group.cards.length);
 
-  const order = queue.entries.map((entry) => entry.id);
-  // A decided card leaves the queue; selection falls to whatever now sits at the same position.
+  // Cards decided here stay where they were, folded to their outcome with Undo, but j/k skip them.
+  const [decidedHere, setDecidedHere] = useState<ReadonlySet<string>>(() => new Set());
+  const order = queue.entries.filter((entry) => !decidedHere.has(entry.id)).map((entry) => entry.id);
+  // A decided card leaves the order; selection falls to whatever now sits at the same position.
   const [lastIndex, setLastIndex] = useState(0);
   const selectedIndex = selectedId === undefined ? -1 : order.indexOf(selectedId);
   if (selectedIndex >= 0 && selectedIndex !== lastIndex) setLastIndex(selectedIndex);
@@ -144,6 +146,15 @@ export function InboxPage() {
     queue.remove(id);
     setDraft(id, undefined);
   };
+  const markDecided = (id: string, decided: boolean) => {
+    setDecidedHere((previous) => {
+      const next = new Set(previous);
+      if (decided) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    if (decided) setDraft(id, undefined);
+  };
 
   if (shell.error) return <QueryErrorAlert error={shell.error} />;
   if (inbox.error) return <QueryErrorAlert error={inbox.error} />;
@@ -157,7 +168,7 @@ export function InboxPage() {
 
   const othersWaiting = kinds.filter((other) => other.key !== kind.key && (pendingByKind.get(other.key) ?? 0) > 0);
   const renderEntry = (entry: InboxQueueEntry, queued: boolean) =>
-    entry.gone ? (
+    entry.gone && !decidedHere.has(entry.id) ? (
       <GoneProposalRow key={entry.id} entry={entry} onContinue={() => removeFromQueue(entry.id)} />
     ) : (
       <InboxCardSlot
@@ -171,7 +182,9 @@ export function InboxPage() {
         onSelect={() => select(entry.id, false)}
         onDraftChange={(draft) => setDraft(entry.id, draft)}
         onEngagedChange={onEngagedChange}
-        onDecided={() => removeFromQueue(entry.id)}
+        decided={decidedHere.has(entry.id)}
+        onDecided={() => markDecided(entry.id, true)}
+        onUndone={() => markDecided(entry.id, false)}
         cardRefs={cardRefs}
         reveal={entry.id === linkedCard}
       />
