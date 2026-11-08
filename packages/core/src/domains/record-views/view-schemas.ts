@@ -57,6 +57,13 @@ export const SourceViewSchema = Schema.Struct({
 });
 export type SourceView = typeof SourceViewSchema.Type;
 
+/** A derivation that cites a record, and whether it cites it as support or as contradiction. */
+export const CitationSchema = Schema.Struct({
+  ...DerivationSummarySchema.fields,
+  role: Schema.Literals(["supports", "contradicts"]),
+});
+export type Citation = typeof CitationSchema.Type;
+
 /** Why a recalled derivation is here: its kind's policy, its status, the place that matched, its score. */
 export const RecallExplanationSchema = Schema.Struct({
   policy: RecallPolicySchema,
@@ -141,7 +148,7 @@ export const ShowResultSchema = Schema.Struct({
   /** Present when the record is a source. */
   source: Schema.optionalKey(SourceViewSchema),
   /** Derivations citing this record in `supports` or `contradicts`. */
-  citedBy: Schema.Array(DerivationSummarySchema),
+  citedBy: Schema.Array(CitationSchema),
   /** Sources whose `revises` names this one. */
   revisedBy: Schema.Array(SourceRecordSchema),
   /** Derivations proposed `despite` this one. */

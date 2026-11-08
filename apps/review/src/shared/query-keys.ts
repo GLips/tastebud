@@ -24,7 +24,7 @@ export const REVIEW_QUERY_KEYS = {
   ) => ["derivations", kind ?? null, status ?? null, place ?? null, text ?? null] as const,
   records: () => ["record"] as const,
   record: (ref: string) => ["record", ref] as const,
-  sources: (kind: string | undefined) => ["sources", kind ?? null] as const,
+  sources: (kind: string | undefined, text: string | undefined) => ["sources", kind ?? null, text ?? null] as const,
   recall: (
     query: string,
     kind: string | undefined,

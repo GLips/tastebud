@@ -37,10 +37,18 @@ const DerivationRowSchema = Schema.Struct({
 });
 export type DerivationRow = typeof DerivationRowSchema.Type;
 
+const SourceRowSchema = Schema.Struct({
+  ...SourceViewSchema.fields,
+  /** How many derivations cite it, in `supports` or `contradicts`. */
+  citedByCount: Schema.Finite,
+});
+
+type SourceRow = typeof SourceRowSchema.Type;
+
 export const ListRecordsResultSchema = Schema.Struct({
   derivations: Schema.Array(DerivationRowSchema),
   /** Empty unless sources were asked for. */
-  sources: Schema.Array(SourceViewSchema),
+  sources: Schema.Array(SourceRowSchema),
 });
 export type ListRecordsResult = typeof ListRecordsResultSchema.Type;
 
@@ -56,7 +64,7 @@ const knownKindKeys = (view: ViewSource) =>
 /** Each full-text hit's position, best first: the ranking recall uses. */
 const textMatchRanks = (text: string | undefined, type: "Source" | "Derivation") =>
   text === undefined
-    ? Effect.void
+    ? Effect.succeed(undefined)
     : TasteStore.use((store) =>
         Effect.map(store.search(text, { type }), (hits) => new Map(hits.map((hit, rank) => [hit.id, rank]))),
       );
@@ -73,6 +81,33 @@ const rowOf = (view: ViewSource, snapshot: StoreSnapshot, id: string): Derivatio
     ...(replacement !== undefined && { replacedBy: summarizeDerivation(view, replacement) }),
     threadCount: threadOf(snapshot, derivation.id).length,
   };
+};
+
+/** Each cited record's id with the number of derivations citing it. */
+const citationCounts = (snapshot: StoreSnapshot) => {
+  const counts = new Map<string, number>();
+  for (const derivation of snapshot.derivations)
+    for (const id of new Set([...derivation.supports, ...(derivation.contradicts ?? [])]))
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+  return counts;
+};
+
+/** Sources of the given kinds (all when absent), best text match first, else newest captured first. */
+const sourceRows = (
+  view: ViewSource,
+  kinds: ReadonlySet<string> | undefined,
+  sourceText: ReadonlyMap<string, number> | undefined,
+): Array<SourceRow> => {
+  const citations = citationCounts(view.snapshot);
+  return view.snapshot.sources
+    .filter((source) => kinds === undefined || kinds.has(source.kind))
+    .filter((source) => sourceText === undefined || sourceText.has(source.id))
+    .sort(
+      (left, right) =>
+        (sourceText === undefined ? 0 : rankIn(sourceText, left.id) - rankIn(sourceText, right.id)) ||
+        compareIsoTimes(right.captured_at, left.captured_at),
+    )
+    .map((source) => Object.assign(viewSource(view, source), { citedByCount: citations.get(source.id) ?? 0 }));
 };
 
 /** Best text match first when `text` is given, newest first otherwise. */
@@ -112,19 +147,7 @@ export const listTasteRecords = Effect.fn("record-browsing.listTasteRecords")(fu
       return row === undefined ? [] : [row];
     });
 
-  const sourceText = input.sources === true ? yield* textMatchRanks(input.text, "Source") : undefined;
-  const sources =
-    input.sources === true
-      ? snapshot.sources
-          .filter((source) => kinds === undefined || kinds.has(source.kind))
-          .filter((source) => sourceText === undefined || sourceText.has(source.id))
-          .sort(
-            (left, right) =>
-              (sourceText === undefined ? 0 : rankIn(sourceText, left.id) - rankIn(sourceText, right.id)) ||
-              compareIsoTimes(right.captured_at, left.captured_at),
-          )
-          .map((source) => viewSource(view, source))
-      : [];
+  const sources = input.sources === true ? sourceRows(view, kinds, yield* textMatchRanks(input.text, "Source")) : [];
   const result: ListRecordsResult = { derivations, sources };
   return result;
 });

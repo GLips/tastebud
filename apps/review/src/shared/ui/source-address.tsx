@@ -2,7 +2,7 @@
  * Where a source's words were said. Only http(s) addresses are links: a Claude Code transcript address names a
  * session the owner can resume, not a page, so it shows that session with the resume command to copy.
  */
-import { ActionIcon, Anchor, CopyButton, Group, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Anchor, Button, CopyButton, Group, Text, Tooltip } from "@mantine/core";
 import { claudeCodeTranscriptSessionOf } from "@tastebud/core/claude-code-transcript";
 import { Copy, ExternalLink, SquareTerminal } from "lucide-react";
 
@@ -56,44 +56,48 @@ function SourceAddressLine({ address }: { address: string }) {
   }
 }
 
-/** The address as one small icon beside a quote: a link, or a copy of the resume command or the text. */
-function SourceAddressIcon({ address }: { address: string }) {
+/** The address as one short worded action beside a quote: open the page, or copy the resume command or the text. */
+function SourceAddressAction({ address }: { address: string }) {
   const shape = displayOfSourceAddress(address);
   if (shape.form === "web")
     return (
-      <Tooltip label="Open where it was said" withArrow>
-        <ActionIcon
-          component="a"
-          href={shape.url}
-          target="_blank"
-          rel="noreferrer"
-          variant="subtle"
-          color="gray"
-          size="xs"
-          aria-label="Open where it was said"
-        >
-          <ExternalLink size={12} />
-        </ActionIcon>
-      </Tooltip>
+      <Button
+        component="a"
+        href={shape.url}
+        target="_blank"
+        rel="noreferrer"
+        variant="subtle"
+        color="gray"
+        size="compact-xs"
+        rightSection={<ExternalLink size={11} />}
+      >
+        Where it was said
+      </Button>
     );
-  const [copyValue, label] =
+  const [copyValue, label, hint] =
     shape.form === "claude-code-session"
-      ? [shape.resume, `${describeClaudeCodeSession(shape.session)}: copy \`${shape.resume}\``]
-      : [shape.text, `Said at ${shape.text}: copy it`];
+      ? [shape.resume, "Copy resume command", `${describeClaudeCodeSession(shape.session)}: \`${shape.resume}\``]
+      : [shape.text, "Copy where it was said", shape.text];
   return (
     <CopyButton value={copyValue}>
       {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : label} withArrow>
-          <ActionIcon variant="subtle" color="gray" size="xs" aria-label="Copy where it was said" onClick={copy}>
-            {shape.form === "claude-code-session" ? <SquareTerminal size={12} /> : <Copy size={12} />}
-          </ActionIcon>
+        <Tooltip label={hint} withArrow>
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-xs"
+            onClick={copy}
+            leftSection={shape.form === "claude-code-session" ? <SquareTerminal size={11} /> : <Copy size={11} />}
+          >
+            {copied ? "Copied" : label}
+          </Button>
         </Tooltip>
       )}
     </CopyButton>
   );
 }
 
-/** Where a source was said: `line` spells it out (the source page), `icon` sits beside a quote. */
-export function SourceAddress({ address, variant }: { address: string; variant: "line" | "icon" }) {
-  return variant === "line" ? <SourceAddressLine address={address} /> : <SourceAddressIcon address={address} />;
+/** Where a source was said: `line` spells it out (the source page), `action` sits beside a quote. */
+export function SourceAddress({ address, variant }: { address: string; variant: "line" | "action" }) {
+  return variant === "line" ? <SourceAddressLine address={address} /> : <SourceAddressAction address={address} />;
 }

@@ -1,4 +1,5 @@
 export {
+  CitationSchema,
   DerivationSummarySchema,
   DerivationViewSchema,
   RecallExclusionReasonSchema,
@@ -9,6 +10,7 @@ export {
   SourceViewSchema,
 } from "./view-schemas.ts";
 export type {
+  Citation,
   DerivationSummary,
   DerivationView,
   ExcludedRecallHit,

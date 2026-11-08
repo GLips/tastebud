@@ -8,7 +8,7 @@ import { formatReviewDate } from "#review/shared/format.ts";
 
 import { KindGlyph } from "./kind-identity.tsx";
 import { AnchorLink } from "./router-links.tsx";
-import { DerivationStatusDot } from "./status-chips.tsx";
+import { DerivationStatusLabel } from "./status-chips.tsx";
 
 const styles = stylex.create({
   aside: { display: "flex", gap: "8px", alignItems: "flex-start" },
@@ -16,7 +16,7 @@ const styles = stylex.create({
   agentCase: { whiteSpace: "pre-wrap" },
 });
 
-/** Another derivation in one line: status, kind, its exact wording (linked), and the decision's reason. */
+/** Another derivation in one line: status in words, kind, its exact wording (linked), and the decision's reason. */
 export function DerivationSummaryLine({
   summary,
   catalog,
@@ -31,7 +31,7 @@ export function DerivationSummaryLine({
     summary.decidedAt !== undefined ? `${summary.status} ${formatReviewDate(summary.decidedAt)}` : undefined;
   return (
     <Group gap="xs" wrap="nowrap" align="baseline">
-      <DerivationStatusDot status={summary.status} />
+      <DerivationStatusLabel status={summary.status} />
       <KindGlyph catalog={catalog} kind={summary.kind} label={summary.kindLabel} size={10} />
       <Text size="sm" lineClamp={2}>
         <AnchorLink to="/derivations/$id" params={{ id: summary.id }} size="sm" c="inherit" underline="hover">

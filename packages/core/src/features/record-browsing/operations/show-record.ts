@@ -4,6 +4,7 @@ import { Effect, Schema } from "effect";
 import { resolveAnyRecordRef } from "#core/domains/record-snapshot/index.ts";
 import {
   buildDerivationView,
+  type Citation,
   type ShowResult,
   summarizeDerivation,
   viewSource,
@@ -35,9 +36,12 @@ export const showTasteRecord = Effect.fn("record-browsing.showTasteRecord")(func
     path,
     ...(record.type === "Derivation" && { derivation: buildDerivationView(view, record) }),
     ...(record.type === "Source" && { source: viewSource(view, record) }),
-    citedBy: summaries(
-      (derivation) => derivation.supports.includes(id) || derivation.contradicts?.includes(id) === true,
-    ),
+    citedBy: snapshot.derivations.flatMap((derivation): Array<Citation> => {
+      if (derivation.supports.includes(id)) return [{ ...summarizeDerivation(view, derivation), role: "supports" }];
+      if (derivation.contradicts?.includes(id) === true)
+        return [{ ...summarizeDerivation(view, derivation), role: "contradicts" }];
+      return [];
+    }),
     revisedBy: snapshot.sources.filter((source) => source.revises === id),
     despitedBy: summaries((derivation) => derivation.despite?.includes(id) === true),
     acknowledgedBy: summaries((derivation) => acknowledgingTargets.has(derivation.id)),
