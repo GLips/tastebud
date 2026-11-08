@@ -1,16 +1,10 @@
 /** Recall with no prompt: everything agents can be told where the inspector stands, by kind, and the no's they hear. */
 import { Box, Stack, Text } from "@mantine/core";
-import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 
-import { capitalize } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, describeKindDelivery } from "#review/shared/ui/kind-identity.tsx";
 
 import type { RecallAppliesHere } from "./recall-applies.ts";
 import { RecallItemRow } from "./recall-item-row.tsx";
-
-const POLICY_DELIVERY: Record<Exclude<RecallPolicy, "never">, (hookLimit: number) => string> = {
-  inject: (hookLimit) => `Sent with a prompt whose words match, at most ${hookLimit} at a time; also there when asked.`,
-  pull: () => "Only given when an agent asks about matching words.",
-};
 
 export function RecallAppliesPanel({
   applies,
@@ -39,11 +33,10 @@ export function RecallAppliesPanel({
                 {accepted.length}
               </Text>
             </Text>
-            {kind.recall !== "never" && (
-              <Text size="xs" c="dimmed">
-                {POLICY_DELIVERY[kind.recall](hookLimit)}
-              </Text>
-            )}
+            <Text size="xs" c="dimmed">
+              {describeKindDelivery(kind)}
+              {kind.recall === "inject" && ` At most ${hookLimit} go with one prompt.`}
+            </Text>
           </Stack>
           <Box>
             {accepted.map((item) => (

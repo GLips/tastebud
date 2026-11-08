@@ -2,7 +2,7 @@
  * Places' "Check a folder" tools: which place one folder resolves to, and the folders you work in
  * (the probes the audit checks scopes against), kept in this browser.
  */
-import { Box, ActionIcon, Button, Code, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { Box, ActionIcon, Button, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
@@ -28,9 +28,9 @@ const styles = stylex.create({
 });
 
 const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
-  git: "a repo place from the origin remote and the subdirectory, else the directory itself",
-  directories: "always the working directory",
-  custom: "a function in tastebud.config.ts",
+  git: "inside a git checkout that's its repo (and subfolder), anywhere else the folder itself",
+  directories: "the folder itself",
+  custom: "a rule in tastebud.config.ts decides",
 };
 
 /** "Where am I?": one directory through the configured resolver, without touching the probes. */
@@ -72,17 +72,10 @@ export function WhereAmIPanel({ onKeep }: { onKeep: (directory: string) => void 
           </Text>
           {catalog !== undefined && (
             <Text size="xs" c="dark.4">
-              Resolver{" "}
-              <Text span fw={600} size="xs">
-                {catalog.resolver}
-              </Text>
-              : {PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]}.
+              An agent working in a folder is placed by the folder: {PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]}. An
+              agent with no folder, like a chat app, names its place instead, such as clients/acme.
             </Text>
           )}
-          <Text size="xs" c="dark.4">
-            Callers outside a filesystem say where they are with <Code>--at &lt;place&gt;</Code>, e.g.{" "}
-            <Code>--at clients/acme</Code>.
-          </Text>
         </Stack>
         <form
           onSubmit={(event) => {

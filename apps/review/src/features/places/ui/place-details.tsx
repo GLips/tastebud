@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import { placeCovers, scopePlacesOf } from "@tastebud/core/places";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import type { DerivationStatus, RecallPolicy } from "@tastebud/core/taste-vocabulary";
+import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 import { ChevronRight, Globe, TriangleAlert } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
@@ -17,7 +17,7 @@ import { derivationListQuery } from "#review/features/derivation-library/index.t
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf, PlaceKeyCopy } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
@@ -157,17 +157,10 @@ function reachSummary(rows: ReadonlyArray<PlaceReachRow>, known: KnownPlaces): s
   return `${plural(rows.length, "accepted item applies", "accepted items apply")} here: ${parts.join(", ")}.`;
 }
 
-const POLICY_REACH_WORDING: Record<RecallPolicy, string> = {
-  inject: "can be sent with a matching prompt",
-  pull: "are there when an agent asks",
-  never: "stay in your backlog, never shown to agents",
-};
-
 /** What agents actually get of the accepted rows, kind by kind, from each kind's recall policy. */
 function appliesHint(rows: ReadonlyArray<PlaceReachRow>, catalog: CatalogView | undefined): string {
   const kinds = (catalog?.derivedKinds ?? []).filter((kind) => rows.some((row) => row.summary.kind === kind.key));
-  const parts = kinds.map((kind) => `${capitalize(kind.plural)} ${POLICY_REACH_WORDING[kind.recall]}`);
-  return parts.length === 0 ? "Accepted." : `Accepted. ${parts.join(". ")}.`;
+  return kinds.map((kind) => describeKindDelivery(kind)).join(" ");
 }
 
 /** Each kind's library filtered to this place, and the recall inspector standing here. */
@@ -351,7 +344,8 @@ export function PlaceDetails({
       {!isGlobal && scopedHereCount > 0 && (
         <Group gap="xs" pt="xs">
           <Text size="xs" c="dimmed">
-            Moved or renamed this place? Repoint proposes the same items at the new place, for you to accept.
+            Moved or renamed this place? Repoint proposes a revision of each accepted item here, pointing at the new
+            place, for you to accept.
           </Text>
           <Button
             size="compact-xs"
