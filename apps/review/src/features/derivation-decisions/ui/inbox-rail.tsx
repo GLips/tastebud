@@ -5,13 +5,12 @@
  */
 import { Badge, Box, Button, Group, Kbd, Popover, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DecisionOutcome } from "@tastebud/core/taste-vocabulary";
 import { History, Keyboard } from "lucide-react";
 
 import { formatTimeAgo } from "#review/shared/format.ts";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
-import { ReviewSessionList } from "./review-session-list.tsx";
+import { DECISION_OUTCOME_LABELS, ReviewSessionList } from "./review-session-list.tsx";
 import { useReviewSessionLog } from "./review-session-log.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
 
@@ -30,12 +29,6 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["d", "Discuss with an agent"],
   ["⌘↵ / Esc", "Confirm / back, in a preview"],
 ];
-
-const OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly color: string }> = {
-  accept: { word: "Accepted", color: "teal" },
-  reject: { word: "Rejected", color: "red" },
-  retract: { word: "Retracted", color: "gray" },
-};
 
 function InboxKeyList() {
   return (
@@ -72,7 +65,7 @@ function SessionDecisionsRail() {
         </Text>
       ) : (
         decisions.map((entry) => {
-          const outcome = OUTCOME_LABELS[entry.outcome];
+          const outcome = DECISION_OUTCOME_LABELS[entry.outcome];
           return (
             <Box key={entry.derivationId} {...stylex.props(styles.decision)}>
               <Badge size="xs" color={outcome.color}>

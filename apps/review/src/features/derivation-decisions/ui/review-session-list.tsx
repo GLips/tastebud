@@ -11,7 +11,8 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { useReviewSessionLog } from "./review-session-log.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
 
-const OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly color: string }> = {
+/** A decision outcome as one past-tense word and its badge colour, wherever a decision is listed. */
+export const DECISION_OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly color: string }> = {
   accept: { word: "Accepted", color: "teal" },
   reject: { word: "Rejected", color: "red" },
   retract: { word: "Retracted", color: "gray" },
@@ -51,7 +52,7 @@ export function ReviewSessionList() {
       </Group>
       <Paper p={0}>
         {decisions.map((entry) => {
-          const outcome = OUTCOME_LABELS[entry.outcome];
+          const outcome = DECISION_OUTCOME_LABELS[entry.outcome];
           return (
             <Box key={entry.derivationId} {...stylex.props(styles.row)}>
               <KindGlyph catalog={catalog} kind={entry.kind} />
