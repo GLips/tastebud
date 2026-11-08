@@ -4,6 +4,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import { type ScopeDraft } from "@tastebud/core/places";
 import { Schema } from "effect";
 import { ArrowDown, PartyPopper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +21,6 @@ import { InboxProposalCard } from "./inbox-card.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
 import { InboxNarrowActions, InboxRail } from "./inbox-rail.tsx";
-import type { ScopeDraft } from "./scope-draft.ts";
 
 /** `card` selects one proposal on arrival, for links that name a specific pending item. */
 export const InboxSearch = Schema.Struct({
