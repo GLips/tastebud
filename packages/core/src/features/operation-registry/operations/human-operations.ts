@@ -54,7 +54,7 @@ export const HUMAN_TASTE_OPERATIONS = {
     audience: "human",
     kind: "command",
     description:
-      "Accept (optionally with a scope and acknowledgements), reject or retract a derivation. Accepting an accepted one again moves it to the new scope.",
+      "Accept (optionally with a scope and acknowledgements), reject or retract a derivation, from any status but superseded. Accepting an accepted one again moves it to the new scope.",
     input: DecideDerivationInput,
     output: Schema.Struct({ decision: DecisionRecordSchema, derivation: DerivationViewSchema }),
     run: (input, caller) => decideDerivation(input, { writtenBy: caller.actor }),

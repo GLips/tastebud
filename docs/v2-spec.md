@@ -172,7 +172,9 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
 ### 3.3 Fixed semantics, the same for every kind
 
 - **Statuses:** pending, accepted, rejected, retracted, superseded. Decisions are accept, reject or retract. The `acceptLabel` changes the button's wording only.
-- **Supersession** requires an accepted target of the same kind.
+- **Any decision, any time.** The owner can change their mind: accept from any status (accepting an accepted one again moves it to a new scope), reject anything not already rejected (a reason is always required), and retract what is accepted. Each change is a new decision record; replaying them in time order, the latest valid one sets the status. Earlier decisions stay on record for provenance.
+- **A superseded derivation can't be decided.** Its accepted revision applies in its place, so the owner decides on the revision; rejecting or retracting that revision makes the original accepted again.
+- **Supersession** requires an accepted target of the same kind: accepting a revision needs its target accepted or retracted.
 - **Evidence:**
   - Every derivation directly cites at least one source in `supports`, of a kind listed in its derived kind's `sources`.
   - Further citations of derivations, of any kind, are allowed in `supports` and `contradicts`. They never count toward the rule above.
@@ -190,14 +192,14 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
 
 Only an accept decision may carry a complete scope override: `scope`, plus `places` when the scope is `places`. It means "accepted, with this scope".
 
-- **The effective scope** is the deciding accept's override when present, otherwise the proposed scope.
-- It stays the effective scope after a retraction or supersession.
+- **The effective scope** is the latest accept's override when present, otherwise the proposed scope.
+- It stays the effective scope after a later rejection, retraction or supersession.
 - It governs recall, the repeat check, grouping, the audit and repoint.
 - `show` returns both the proposed and the effective scope.
 
 **Widening at accept is checked.** Accepting re-runs the repeat check against the effective scope. Blocking matches that the proposal's `despite` didn't already list must appear in the decision's `acknowledges: [ids]`; otherwise the decision fails with `WideningNeedsAcknowledgement`. The UI shows those matches in the acceptance preview and sends the acknowledgement. This closes the loophole of proposing narrowly to dodge a rejection and then widening at accept.
 
-This keeps records append-only and makes scope part of what the human ratifies. Changing the scope of something already accepted takes a new revision (`supersedes`), proposed by `repoint` (§6) or by an agent.
+This keeps records append-only and makes scope part of what the human ratifies. The owner moves something already accepted by accepting it again with a new scope, under the same widening check; an agent changes one by proposing a revision (`supersedes`), as `repoint` (§6) does.
 
 ## 4. Store and config
 
@@ -311,7 +313,7 @@ declareTasteOperation({
 | `config-check` | agent | Validate a whole candidate text exactly as loading does: every problem by field, the unified diff, and `probes` resolved under the candidate's `place`. Writes nothing. |
 | `config-write` | agent | The same validation, then an atomic replace; creates the store (config and `.gitignore`) when there is none. `expected_current` (the hash or text last read, `""` for a new store) must match, else `StaleTastebudConfig` (conflict). |
 | `inbox` | human | Pending derivations grouped by kind, then scope, then subject. |
-| `decide` | human | Accept (with an optional scope amendment and acknowledgements), reject or retract. Reached only through the review UI's server functions. `tastebud decide <ref>` opens that record's review page and writes nothing. |
+| `decide` | human | Accept (with an optional scope amendment and acknowledgements), reject or retract, from any status but superseded (§3.3). Reached only through the review UI's server functions. `tastebud decide <ref>` opens that record's review page and writes nothing. |
 | `thread-note` | human | A human's comment on a thread, from the review UI. |
 | `seed` | human | CLI only. Writes its config through `config-write`'s path, so it never overwrites a store. |
 

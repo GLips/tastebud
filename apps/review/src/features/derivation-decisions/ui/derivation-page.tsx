@@ -1,4 +1,4 @@
-import { Box, Alert, Center, Group, Loader, Paper, Stack } from "@mantine/core";
+import { Box, Alert, Center, Loader, Paper, Stack } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
@@ -9,11 +9,12 @@ import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { findKindView } from "#review/shared/ui/kind-identity.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
-import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
-import { DerivationEvidence, DerivationHeader, DerivationScopeFacts } from "./derivation-header.tsx";
-import { DerivationActions, DerivationReviewPanels, useDerivationReview } from "./derivation-review.tsx";
-import { DerivationSidebar, hasDerivationSidebar } from "./derivation-sidebar.tsx";
+import { DerivationEvidence, DerivationHeader, useDerivationBack } from "./derivation-header.tsx";
+import { useDerivationPageHotkeys, useDerivationReview } from "./derivation-review.tsx";
+import { DerivationSidebar } from "./derivation-sidebar.tsx";
+import { DerivationStatusCard } from "./derivation-status.tsx";
 import { DerivationThread } from "./derivation-thread.tsx";
 
 const Route = getRouteApi("/derivations/$id");
@@ -28,7 +29,6 @@ const styles = stylex.create({
     gap: "20px",
     alignItems: "start",
   },
-  single: { gridTemplateColumns: "minmax(0, 1fr)" },
 });
 
 export function DerivationPage() {
@@ -73,36 +73,20 @@ function DerivationDetail({
   const owner = catalog?.owner ?? "";
   const kind = findKindView(catalog, view.kind);
   const acceptLabel = kind?.acceptLabel ?? "Accept";
-  const hasSidebar = hasDerivationSidebar(view, detail);
+  const back = useDerivationBack(view.kind);
+  useDerivationPageHotkeys(review, back.go);
 
   return (
-    <Stack gap="md">
-      <DerivationHeader
-        view={view}
-        kind={kind}
-        catalog={catalog}
-        owner={owner}
-        actions={<DerivationActions review={review} acceptLabel={acceptLabel} known={known} />}
-      />
-      <DerivationScopeFacts view={view} known={known} />
-      <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
-
-      <Box {...stylex.props(styles.layout, !hasSidebar && styles.single)}>
-        <Stack gap="md">
-          <DerivationEvidence view={view} kind={kind} />
-          <Paper p="md">
-            <DerivationThread derivationId={view.id} thread={view.thread} owner={owner} listeners={detail.listeners} />
-          </Paper>
-        </Stack>
-        {hasSidebar && <DerivationSidebar view={view} detail={detail} owner={owner} known={known} />}
-      </Box>
-      {view.status === "pending" && (
-        <Group>
-          <ButtonLink to="/" search={{ kind: view.kind }} variant="subtle" color="gray" size="xs">
-            Back to the inbox
-          </ButtonLink>
-        </Group>
-      )}
-    </Stack>
+    <Box {...stylex.props(styles.layout)}>
+      <Stack gap="md">
+        <DerivationHeader view={view} kind={kind} catalog={catalog} owner={owner} back={back} />
+        <DerivationStatusCard review={review} kind={kind} acceptLabel={acceptLabel} known={known} />
+        <DerivationEvidence view={view} kind={kind} />
+        <Paper p="md">
+          <DerivationThread derivationId={view.id} thread={view.thread} owner={owner} listeners={detail.listeners} />
+        </Paper>
+      </Stack>
+      <DerivationSidebar view={view} kind={kind} detail={detail} owner={owner} known={known} />
+    </Box>
   );
 }
