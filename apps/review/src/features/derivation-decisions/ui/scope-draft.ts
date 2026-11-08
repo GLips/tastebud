@@ -1,16 +1,14 @@
 /**
- * The inbox's scope editor as pure logic: a draft that may be invalid (no places yet), what it
- * changes against the proposed scope in plain words, and the places a scope place can narrow to.
+ * The scope picker's draft as pure logic: a scope that may be invalid (no places yet), the edits the
+ * picker makes to it, and what it says in plain words, alone and against the proposed scope.
  * Removing the last place never means global; global is only ever chosen outright.
  */
 import {
-  canonicalPlaceKey,
   type DerivationScope,
   formatPlaceLabel,
   parsePlaceKey,
   type PlaceKey,
   placeCovers,
-  REPO_PLACE_SEPARATOR,
   scopeGroupKey,
   scopePlacesOf,
 } from "@tastebud/core/places";
@@ -31,16 +29,17 @@ export const isSameScope = (left: ScopeDraft, right: ScopeDraft): boolean =>
 export const withoutPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft =>
   draft.scope === "global" ? draft : { scope: "places", places: draft.places.filter((kept) => kept !== place) };
 
+/**
+ * Adds a place beside the chosen ones. A place inside or around one already chosen takes its
+ * position instead, so adding `acme/web › apps/checkout` beside `acme/web` narrows it in place.
+ */
 export const withPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft => {
   const places = scopePlacesOf(draft);
-  return { scope: "places", places: places.includes(place) ? places : [...places, place] };
-};
-
-/** Swaps one place for a narrower one in the same position, so the list doesn't jump. */
-export const narrowPlace = (draft: ScopeDraft, from: PlaceKey, to: PlaceKey): ScopeDraft => {
-  if (draft.scope === "global") return draft;
-  const places = draft.places.map((place) => (place === from ? to : place));
-  return { scope: "places", places: [...new Set(places)] };
+  const overlaps = (chosen: PlaceKey) => placeCovers(chosen, place) || placeCovers(place, chosen);
+  const at = places.findIndex(overlaps);
+  if (at === -1) return { scope: "places", places: [...places, place] };
+  const kept = places.filter((chosen) => !overlaps(chosen));
+  return { scope: "places", places: [...kept.slice(0, at), place, ...kept.slice(at)] };
 };
 
 const segmentsOf = (place: PlaceKey): ReadonlyArray<string> => {
@@ -49,26 +48,21 @@ const segmentsOf = (place: PlaceKey): ReadonlyArray<string> => {
 };
 
 /** `apps/checkout` for `…web::apps/checkout` under `…web::`: the part a narrower place adds. */
-const relativePlacePath = (ancestor: PlaceKey, descendant: PlaceKey): string =>
+export const relativePlacePath = (ancestor: PlaceKey, descendant: PlaceKey): string =>
   segmentsOf(descendant).slice(segmentsOf(ancestor).length).join("/");
 
-/** Known places strictly inside `place`, nearest first. */
-export const narrowerPlacesOf = (place: PlaceKey, known: ReadonlyArray<PlaceKey>): Array<PlaceKey> =>
-  known
-    .filter((candidate) => candidate !== place && placeCovers(place, candidate))
-    .sort((left, right) => segmentsOf(left).length - segmentsOf(right).length || left.localeCompare(right));
+/** "a", "a and b", "a, b and c". */
+const joinWithAnd = (parts: ReadonlyArray<string>): string =>
+  parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 
-/** The key for a typed subpath under `place`, or why it can't be one. */
-export const childPlaceKey = (place: PlaceKey, subpath: string): Result.Result<PlaceKey, string> => {
-  const trimmed = subpath.trim().replace(/^\/+|\/+$/g, "");
-  if (trimmed === "") return Result.fail("type a path inside this place");
-  const parsed = parsePlaceKey(place);
-  if (Result.isFailure(parsed)) return Result.fail(parsed.failure);
-  const joined =
-    parsed.success.form === "repo"
-      ? `${parsed.success.repoId}${REPO_PLACE_SEPARATOR}${[...parsed.success.segments, trimmed].join("/")}`
-      : `${place.replace(/\/+$/, "")}/${trimmed}`;
-  return canonicalPlaceKey(joined);
+/** The draft as one sentence, for under the picker's rows: "Applies in acme/web › apps/checkout". */
+export const describeScopeResult = (
+  draft: ScopeDraft,
+  labelOf: (place: PlaceKey) => string = formatPlaceLabel,
+): string => {
+  if (draft.scope === "global") return "Applies everywhere, including places that don't exist yet";
+  if (draft.places.length === 0) return "Applies nowhere yet: pick a place, or Everywhere";
+  return `Applies in ${joinWithAnd(draft.places.map(labelOf))}`;
 };
 
 /**
@@ -104,6 +98,16 @@ export const describeScopeChange = (
       explainedAdditions.add(place);
     }
   }
+  // One place swapped for an unrelated one reads as a move, not an add and a remove.
+  const onlyAdded = added.find((place) => !explainedAdditions.has(place));
+  const onlyRemoved = removed.find((place) => !explainedRemovals.has(place));
+  if (
+    onlyAdded !== undefined &&
+    onlyRemoved !== undefined &&
+    added.length - explainedAdditions.size === 1 &&
+    removed.length - explainedRemovals.size === 1
+  )
+    return [...changes, `Moves it from ${labelOf(onlyRemoved)} to ${labelOf(onlyAdded)}`];
   for (const place of added) if (!explainedAdditions.has(place)) changes.push(`Adds ${labelOf(place)}`);
   for (const place of removed) if (!explainedRemovals.has(place)) changes.push(`Removes ${labelOf(place)}`);
   return changes;
