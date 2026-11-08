@@ -29,15 +29,22 @@ export const isSameScope = (left: ScopeDraft, right: ScopeDraft): boolean =>
   scopeDraftKey(left) === scopeDraftKey(right);
 
 /**
+ * The chosen places that adding `place` would replace: any inside or around it. Empty means it goes
+ * beside them.
+ */
+export const scopePlacesReplacedBy = (draft: ScopeDraft, place: PlaceKey): Array<PlaceKey> =>
+  scopePlacesOf(draft).filter((chosen) => placeCovers(chosen, place) || placeCovers(place, chosen));
+
+/**
  * Adds a place beside the chosen ones. A place inside or around one already chosen takes its
  * position instead, so adding `acme/web › apps/checkout` beside `acme/web` narrows it in place.
  */
 const withPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft => {
   const places = scopePlacesOf(draft);
-  const overlaps = (chosen: PlaceKey) => placeCovers(chosen, place) || placeCovers(place, chosen);
-  const at = places.findIndex(overlaps);
+  const replaced = new Set(scopePlacesReplacedBy(draft, place));
+  const at = places.findIndex((chosen) => replaced.has(chosen));
   if (at === -1) return { scope: "places", places: [...places, place] };
-  const kept = places.filter((chosen) => !overlaps(chosen));
+  const kept = places.filter((chosen) => !replaced.has(chosen));
   return { scope: "places", places: [...kept.slice(0, at), place, ...kept.slice(at)] };
 };
 
@@ -125,9 +132,7 @@ export const typedPlaceChoicesOf = (
   const path = trimmed.replace(/^\/+/, "");
   const named = asKey(path, "as a named place");
   const others = [
-    ...repoRoots.flatMap((root) =>
-      asKey(`${root}${path}`, `in ${labelOf(root)}`).filter((choice) => choice.place !== root),
-    ),
+    ...repoRoots.flatMap((root) => asKey(`${root}${path}`, "as a folder").filter((choice) => choice.place !== root)),
     ...(looksLikeRepoId(path) ? asKey(`${path}${REPO_PLACE_SEPARATOR}`, "as a repo") : []),
   ];
   const namedFirst = namedPlaces.some((place) => firstSegment(place) === firstSegment(path));

@@ -103,17 +103,58 @@ function PlaceOptionRow({
   );
 }
 
+/** "beside acme/web", "beside acme/web and 2 more". */
+const placesPhrase = (places: ReadonlyArray<PlaceKey>, labelOf: (place: PlaceKey) => string): string => {
+  const [first, ...rest] = places;
+  if (first === undefined) return "";
+  return rest.length === 0 ? labelOf(first) : `${labelOf(first)} and ${rest.length} more`;
+};
+
+/**
+ * A typed place, worded by what picking it does: "Add clients/globex as a named place, beside
+ * acme/web" when it joins the chosen places, "Use acme/web › apps/product as a folder, instead of
+ * acme/web" when it takes the place of one it is inside or around.
+ */
+function TypedOptionRow({
+  option,
+  labelOf,
+}: {
+  option: Extract<PlacePickerOption, { kind: "typed" }>;
+  labelOf: (place: PlaceKey) => string;
+}) {
+  const { effect } = option;
+  let note = "";
+  if (effect.effect === "add") note = `beside ${placesPhrase(effect.beside, labelOf)}`;
+  else if (effect.instead === "everywhere") note = "instead of Everywhere";
+  else if (effect.instead.length > 0) note = `instead of ${placesPhrase(effect.instead, labelOf)}`;
+  return (
+    <Box {...stylex.props(styles.row)}>
+      <LeadingIcon>
+        {effect.effect === "add" ? <Plus size={13} aria-hidden /> : <PlaceFormIcon place={option.place} size={13} />}
+      </LeadingIcon>
+      <Text size="sm" truncate>
+        {effect.effect === "add" ? "Add" : "Use"}{" "}
+        <Text span size="sm" fw={600}>
+          {option.label}
+        </Text>{" "}
+        {option.meaning}
+      </Text>
+      <Text size="xs" c="dimmed" truncate>
+        {note}
+      </Text>
+    </Box>
+  );
+}
+
 function PlacePickerRow({
   option,
   draft,
   known,
-  search,
   scope,
 }: {
   option: PlacePickerOption;
   draft: ScopeDraft;
   known: KnownPlaces;
-  search: string;
   scope: PlacePickerScopeRows | undefined;
 }) {
   switch (option.kind) {
@@ -139,21 +180,7 @@ function PlacePickerRow({
     case "place":
       return <PlaceOptionRow option={option} draft={draft} known={known} scope={scope} />;
     case "typed":
-      return (
-        <Box {...stylex.props(styles.row)}>
-          <LeadingIcon>
-            {scope === undefined ? <PlaceFormIcon place={option.place} size={13} /> : <Plus size={13} aria-hidden />}
-          </LeadingIcon>
-          <Text size="sm" truncate>
-            {scope === undefined ? "Use" : "Add"}{" "}
-            <Text span size="sm" fw={600}>
-              “{search.trim()}”
-            </Text>{" "}
-            {option.meaning}
-          </Text>
-          <Box component="span" />
-        </Box>
-      );
+      return <TypedOptionRow option={option} labelOf={known.labelOf} />;
     case "earlier":
       return (
         <Box {...stylex.props(styles.row)}>
@@ -195,20 +222,25 @@ export function PlacePickerList({
     search,
   });
 
-  // Focus skips scrolling: a list mounting into a dropdown is unpositioned for a frame, and a plain
-  // focus (autoFocus, focusSearchInput) jumps the page to where it briefly sits.
+  // The store object is new on every render but its methods are stable. Depending on the object
+  // re-ran the mount effect on any re-render, moving the selection to the chosen row (or none) after
+  // a search had selected its first row, so Enter then did nothing.
+  const { updateSelectedOptionIndex, selectFirstOption } = combobox;
+
+  // Once, on opening. Focus skips scrolling: a list mounting into a dropdown is unpositioned for a
+  // frame, and a plain focus (autoFocus, focusSearchInput) jumps the page to where it briefly sits.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       searchRef.current?.focus({ preventScroll: true });
-      combobox.updateSelectedOptionIndex("active");
+      updateSelectedOptionIndex("active");
     });
     return () => cancelAnimationFrame(frame);
-  }, [combobox]);
+  }, [updateSelectedOptionIndex]);
 
   // Enter takes the best match: the first row once anything is typed.
   useEffect(() => {
-    if (search.trim() !== "") combobox.selectFirstOption();
-  }, [search, combobox]);
+    if (search.trim() !== "") selectFirstOption();
+  }, [search, selectFirstOption]);
 
   return (
     <>
@@ -243,7 +275,7 @@ export function PlacePickerList({
                   (option.kind === "everywhere" && option.chosen)
                 }
               >
-                <PlacePickerRow option={option} draft={draft} known={known} search={search} scope={scope} />
+                <PlacePickerRow option={option} draft={draft} known={known} scope={scope} />
               </Combobox.Option>
             ));
             return group.heading === undefined ? (
