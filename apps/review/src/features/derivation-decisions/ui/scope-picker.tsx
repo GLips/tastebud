@@ -5,7 +5,18 @@
  * others, as does a typed new place. It only edits a draft: whoever hosts it decides when that draft
  * is used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { ActionIcon, Box, Button, Combobox, Group, ScrollArea, Text, Tooltip, useCombobox } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Combobox,
+  type ComboboxStore,
+  Group,
+  ScrollArea,
+  Text,
+  Tooltip,
+  useCombobox,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import {
   applyScopePick,
@@ -21,7 +32,7 @@ import { useEffect, useState } from "react";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 
-import { type ScopePickerOption, scopePickerGroupsOf } from "./scope-picker-options.ts";
+import { type ScopePickerOption, scopePickerGroupsOf, scopePickOfOptionValue } from "./scope-picker-options.ts";
 
 const styles = stylex.create({
   row: {
@@ -197,34 +208,38 @@ interface ScopePickerProps {
   proposed: DerivationScope;
   known: KnownPlaces;
   onChange: (draft: ScopeDraft) => void;
-  /** Open the list on mount, for hosts that show the picker in answer to a click on "Edit". */
-  defaultOpened?: boolean;
-  /** Told when the list opens or closes, so a host's own Esc can wait for the list's. */
+  /**
+   * Whether the list is open, when the host owns it (to open it from a key, or to know when its
+   * own Esc and ⌘↵ should wait). Leave it out and the picker owns its open state.
+   */
+  opened?: boolean;
+  /** Told whenever the list opens or closes: a click on the button, Esc, or a row picked. */
   onOpenedChange?: (opened: boolean) => void;
+  /** Uncontrolled only: open the list on mount. */
+  defaultOpened?: boolean;
   disabled?: boolean;
 }
 
-export function ScopePicker({
+/**
+ * The open list. It mounts with each opening, so the search starts empty every time, whichever
+ * side (picker or host) opened it.
+ */
+function ScopePickerList({
+  combobox,
   value,
   proposed,
   known,
-  onChange,
-  defaultOpened = false,
-  onOpenedChange,
-  disabled = false,
-}: ScopePickerProps) {
+  earlier,
+  onPick,
+}: {
+  combobox: ComboboxStore;
+  value: ScopeDraft;
+  proposed: DerivationScope;
+  known: KnownPlaces;
+  earlier: ReadonlyArray<PlaceKey>;
+  onPick: (pick: ScopePick) => void;
+}) {
   const [search, setSearch] = useState("");
-  // The places Everywhere last replaced; the draft itself stays with the host.
-  const [earlier, setEarlier] = useState<ReadonlyArray<PlaceKey>>(() => (value.scope === "places" ? value.places : []));
-  const combobox = useCombobox({
-    defaultOpened,
-    ...(onOpenedChange !== undefined && { onOpenedChange }),
-    onDropdownOpen: () => combobox.updateSelectedOptionIndex("active"),
-    onDropdownClose: () => {
-      combobox.resetSelectedOption();
-      setSearch("");
-    },
-  });
   const groups = scopePickerGroupsOf({
     draft: value,
     proposed,
@@ -233,20 +248,93 @@ export function ScopePicker({
     search,
     earlier,
   });
-  const options = new Map(groups.flatMap((group) => group.options.map((option) => [option.value, option] as const)));
 
-  // Focus the search without scrolling: the list is still unpositioned when it mounts, and a plain
-  // focus (autoFocus, focusSearchInput) jumps the page to where it briefly sits.
+  // Focus skips scrolling: the list is unpositioned as it mounts, and a plain focus (autoFocus,
+  // focusSearchInput) jumps the page to where it briefly sits.
   useEffect(() => {
-    if (!combobox.dropdownOpened) return;
-    const frame = requestAnimationFrame(() => combobox.searchRef.current?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() => {
+      combobox.searchRef.current?.focus({ preventScroll: true });
+      combobox.updateSelectedOptionIndex("active");
+    });
     return () => cancelAnimationFrame(frame);
-  }, [combobox.dropdownOpened, combobox.searchRef]);
+  }, [combobox]);
 
   // Enter takes the best match: the first row once anything is typed.
   useEffect(() => {
     if (search.trim() !== "") combobox.selectFirstOption();
   }, [search, combobox]);
+
+  return (
+    <>
+      <Combobox.Search
+        value={search}
+        aria-label="Search places, or type a new one"
+        placeholder="Search places, or type a folder or name"
+        onChange={(event) => {
+          setSearch(event.currentTarget.value);
+          combobox.updateSelectedOptionIndex();
+        }}
+        onKeyDown={(event) => {
+          // ⌘↵ belongs to the host's confirm; without this the list would also take the active row.
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) combobox.resetSelectedOption();
+        }}
+      />
+      <Combobox.Options>
+        <ScrollArea.Autosize mah={340} type="scroll">
+          {groups.map((group) => {
+            const rows = group.options.map((option) => (
+              <Combobox.Option
+                key={option.value}
+                value={option.value}
+                active={
+                  (option.kind === "place" && option.state === "chosen") ||
+                  (option.kind === "everywhere" && option.chosen)
+                }
+              >
+                <ScopePickerRow option={option} draft={value} known={known} search={search} onPick={onPick} />
+              </Combobox.Option>
+            ));
+            return group.heading === undefined ? (
+              rows
+            ) : (
+              <Combobox.Group key={group.heading} label={group.heading}>
+                {rows}
+              </Combobox.Group>
+            );
+          })}
+        </ScrollArea.Autosize>
+      </Combobox.Options>
+      <Combobox.Footer>
+        <Group gap="xxs" wrap="nowrap">
+          <Text size="xs" fw={500} {...(value.scope === "global" && { c: "orange.8" })}>
+            {describeScopeResult(value, known.labelOf)}
+          </Text>
+        </Group>
+        <Text size="xs" c="dimmed">
+          Click a place to use only it · + adds it beside the others
+        </Text>
+      </Combobox.Footer>
+    </>
+  );
+}
+
+export function ScopePicker({
+  value,
+  proposed,
+  known,
+  onChange,
+  opened,
+  onOpenedChange,
+  defaultOpened = false,
+  disabled = false,
+}: ScopePickerProps) {
+  // The places Everywhere last replaced; the draft itself stays with the host.
+  const [earlier, setEarlier] = useState<ReadonlyArray<PlaceKey>>(() => (value.scope === "places" ? value.places : []));
+  const combobox = useCombobox({
+    defaultOpened,
+    ...(opened !== undefined && { opened }),
+    ...(onOpenedChange !== undefined && { onOpenedChange }),
+  });
 
   const pick = (choice: ScopePick) => {
     const next = applyScopePick({ draft: value, earlier }, choice);
@@ -255,18 +343,12 @@ export function ScopePicker({
   };
 
   const submit = (picked: string) => {
-    const option = options.get(picked);
-    if (option === undefined) return;
-    if (option.kind === "type-path") {
+    const choice = scopePickOfOptionValue(picked);
+    if (choice === undefined) {
       combobox.searchRef.current?.focus({ preventScroll: true });
       return;
     }
-    if (option.kind === "typed") {
-      pick({ pick: "add", place: option.place });
-      setSearch("");
-      return;
-    }
-    pick(option.kind === "place" ? { pick: "only", place: option.place } : { pick: option.kind });
+    pick(choice);
     combobox.closeDropdown();
   };
 
@@ -290,54 +372,17 @@ export function ScopePicker({
         </Button>
       </Combobox.Target>
       <Combobox.Dropdown>
-        <Combobox.Search
-          value={search}
-          aria-label="Search places, or type a new one"
-          placeholder="Search places, or type a folder or name"
-          onChange={(event) => {
-            setSearch(event.currentTarget.value);
-            combobox.updateSelectedOptionIndex();
-          }}
-          onKeyDown={(event) => {
-            // ⌘↵ belongs to the host's confirm; without this the list would also take the active row.
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) combobox.resetSelectedOption();
-          }}
-        />
-        <Combobox.Options>
-          <ScrollArea.Autosize mah={340} type="scroll">
-            {groups.map((group) => {
-              const rows = group.options.map((option) => (
-                <Combobox.Option
-                  key={option.value}
-                  value={option.value}
-                  active={
-                    (option.kind === "place" && option.state === "chosen") ||
-                    (option.kind === "everywhere" && option.chosen)
-                  }
-                >
-                  <ScopePickerRow option={option} draft={value} known={known} search={search} onPick={pick} />
-                </Combobox.Option>
-              ));
-              return group.heading === undefined ? (
-                rows
-              ) : (
-                <Combobox.Group key={group.heading} label={group.heading}>
-                  {rows}
-                </Combobox.Group>
-              );
-            })}
-          </ScrollArea.Autosize>
-        </Combobox.Options>
-        <Combobox.Footer>
-          <Group gap="xxs" wrap="nowrap">
-            <Text size="xs" fw={500} {...(value.scope === "global" && { c: "orange.8" })}>
-              {describeScopeResult(value, known.labelOf)}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed">
-            Click a place to use only it · + adds it beside the others
-          </Text>
-        </Combobox.Footer>
+        {/* Combobox keeps its dropdown mounted; the list itself must not be, or the search survives. */}
+        {combobox.dropdownOpened && (
+          <ScopePickerList
+            combobox={combobox}
+            value={value}
+            proposed={proposed}
+            known={known}
+            earlier={earlier}
+            onPick={pick}
+          />
+        )}
       </Combobox.Dropdown>
     </Combobox>
   );
