@@ -323,6 +323,20 @@ describe("lifecycle", () => {
     expect((await runOperation(root, "show", { ref: belief.id }, inWeb)).derivation?.status).toBe("accepted");
   });
 
+  test("reopen puts a decided derivation back in the inbox, deciding afresh against the proposed scope", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Squash merge everything.");
+    const belief = await propose(root, inWeb, { statement: "Squash merge pull requests", supports: [memory] });
+    await decide(root, { ref: belief.id, outcome: "accept", scope: "global" });
+    await decide(root, { ref: belief.id, outcome: "reject", reason: "only for acme/web" });
+    const reopened = (await decide(root, { ref: belief.id, outcome: "reopen" })).derivation;
+    expect([reopened.status, reopened.effectiveScope]).toEqual(["pending", reopened.proposedScope]);
+    expect((await failOperation(root, "decide", { ref: belief.id, outcome: "reopen" }, reviewer))._tag).toBe(
+      "DecisionNotAllowed",
+    );
+    expect((await decide(root, { ref: belief.id, outcome: "accept" })).derivation.status).toBe("accepted");
+  });
+
   test("a revision of a derivation retracted after it was proposed can still be accepted", async () => {
     const { root, inWeb } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "Merge duplicate code paths.");

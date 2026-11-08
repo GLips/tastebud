@@ -34,6 +34,7 @@ const DECISION_BULLET_COLORS: Record<DecisionRecord["outcome"], string> = {
   accept: "tastebud",
   reject: "red",
   retract: "gray",
+  reopen: "blue",
 };
 
 const STATUS_WORDS: Record<DerivationView["status"], string> = {
@@ -134,6 +135,7 @@ function DerivationProperties({
 const decisionHeadline = (entry: DecisionRecord, previous: DecisionRecord | undefined): string => {
   if (entry.outcome === "reject") return "Rejected";
   if (entry.outcome === "retract") return "Retracted";
+  if (entry.outcome === "reopen") return "Put back in the inbox";
   switch (previous?.outcome) {
     case "accept":
       return "Moved to a new scope";

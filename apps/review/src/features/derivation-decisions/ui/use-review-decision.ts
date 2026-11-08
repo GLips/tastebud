@@ -31,13 +31,12 @@ export interface DecisionStanding {
 
 /**
  * The decision that returns a derivation from `after` to where it stood `before`, or undefined when
- * none can. No decision returns one to pending, and only an accepted one can be retracted.
+ * none can: only an accepted one can be retracted, and a superseded one is decided through its revision.
  */
-export const reversingDecisionOf = (
-  before: DecisionStanding,
-  after: DerivationStatus,
-): ReviewDecisionInput | undefined => {
+const reversingDecisionOf = (before: DecisionStanding, after: DerivationStatus): ReviewDecisionInput | undefined => {
   switch (before.status) {
+    case "pending":
+      return { outcome: "reopen" };
     case "accepted":
       return {
         outcome: "accept",

@@ -1,5 +1,5 @@
-/** The top of the derivation page: what it says and the agent's case for it, then its evidence. */
-import { Anchor, CopyButton, Group, Kbd, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
+/** The top of the derivation page: what it says, what the page is for and the agent's case, then its evidence. */
+import { Anchor, Box, CopyButton, Group, Kbd, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -9,12 +9,13 @@ import { ArrowLeft, Copy } from "lucide-react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { DerivationSummaryLine, DespiteNotice, SupersedesNotice } from "#review/shared/ui/derivation-link.tsx";
-import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
+import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 
 const styles = stylex.create({
-  statement: { lineHeight: 1.3, letterSpacing: "-0.015em", fontWeight: 650, textWrap: "balance" },
   prose: { whiteSpace: "pre-wrap" },
   id: { fontFamily: "var(--mantine-font-family-monospace)" },
   copy: { cursor: "copy" },
@@ -49,63 +50,82 @@ export function DerivationHeader({
   back: DerivationBack;
 }) {
   const reasoning = view.derivation.reasoning.trim();
+  // SubjectLabel renders nothing for the owner; the space before it has to follow the same test.
+  const aboutSomeoneElse = view.subject !== undefined && view.subject !== "owner" && view.subject !== owner;
+  const retired = view.retired ? " (its kind is retired)" : "";
   return (
-    <>
-      <Group justify="space-between">
-        {back.kind === "history" ? (
-          <Anchor component="button" size="sm" c="dimmed" underline="hover" onClick={back.go}>
-            <Group gap="2xs">
-              <ArrowLeft size={14} />
-              Back
-              <Kbd size="xs">Esc</Kbd>
-            </Group>
-          </Anchor>
-        ) : (
-          <AnchorLink to="/kinds/$kind" params={{ kind: view.kind }} size="sm" c="dimmed" underline="hover">
-            <Group gap="2xs">
-              <ArrowLeft size={14} />
-              All {kind?.plural ?? view.kind}
-            </Group>
-          </AnchorLink>
-        )}
-        <CopyButton value={view.id}>
-          {({ copied, copy }) => (
-            <Tooltip label={copied ? "Copied" : "Copy the full id, for the tastebud CLI"} withArrow>
-              <Group gap="2xs" c="dimmed" onClick={copy} {...stylex.props(styles.copy)}>
-                <Text fz="2xs">ID</Text>
-                <Text fz="2xs" {...stylex.props(styles.id)}>
-                  {shortIdOf(view.id)}
-                </Text>
-                <Copy size={11} />
-              </Group>
-            </Tooltip>
-          )}
-        </CopyButton>
-      </Group>
-
-      <Stack gap="xxs">
-        <Group gap="xxs">
-          <KindGlyph catalog={catalog} kind={view.kind} />
-          <Text size="sm" fw={500} c="dark.4">
-            {capitalize(view.kindLabel)}
-            {view.retired && " (retired kind)"}
-          </Text>
-          {view.subject !== undefined && view.subject !== "owner" && view.subject !== owner && (
-            <Text size="sm" c="dimmed">
-              · about {view.subject}
-            </Text>
-          )}
+    <ReviewPageHeader
+      crumb={
+        <Group justify="space-between">
+          <DerivationBackLink view={view} kind={kind} back={back} />
+          <DerivationIdCopy id={view.id} />
         </Group>
-        <Title order={2} fz="pageStatement" {...stylex.props(styles.statement)}>
-          {view.statement}
-        </Title>
-        {reasoning !== "" && (
-          <Text size="sm" c="dimmed" {...stylex.props(styles.prose)}>
-            {reasoning}
-          </Text>
-        )}
-      </Stack>
-    </>
+      }
+      icon={<KindGlyph catalog={catalog} kind={view.kind} />}
+      title={view.statement}
+      purpose={
+        <>
+          One {view.kindLabel}
+          {aboutSomeoneElse && " "}
+          <SubjectLabel summary={view} owner={owner} />
+          {retired}, what it rests on, and every decision you&apos;ve made on it.
+        </>
+      }
+      details={
+        reasoning === "" ? undefined : (
+          <Box component="span" {...stylex.props(styles.prose)}>
+            Why the agent proposed it: {reasoning}
+          </Box>
+        )
+      }
+    />
+  );
+}
+
+function DerivationBackLink({
+  view,
+  kind,
+  back,
+}: {
+  view: DerivationView;
+  kind: DerivedKindView | undefined;
+  back: DerivationBack;
+}) {
+  if (back.kind === "history")
+    return (
+      <Anchor component="button" size="sm" c="dimmed" underline="hover" onClick={back.go}>
+        <Group gap="2xs">
+          <ArrowLeft size={14} />
+          Back
+          <Kbd size="xs">Esc</Kbd>
+        </Group>
+      </Anchor>
+    );
+  return (
+    <AnchorLink to="/kinds/$kind" params={{ kind: view.kind }} size="sm" c="dimmed" underline="hover">
+      <Group gap="2xs">
+        <ArrowLeft size={14} />
+        All {kind?.plural ?? view.kind}
+      </Group>
+    </AnchorLink>
+  );
+}
+
+function DerivationIdCopy({ id }: { id: string }) {
+  return (
+    <CopyButton value={id}>
+      {({ copied, copy }) => (
+        <Tooltip label={copied ? "Copied" : "Copy the full id, for the tastebud CLI"} withArrow>
+          <Group gap="2xs" c="dimmed" onClick={copy} {...stylex.props(styles.copy)}>
+            <Text fz="2xs">ID</Text>
+            <Text fz="2xs" {...stylex.props(styles.id)}>
+              {shortIdOf(id)}
+            </Text>
+            <Copy size={11} />
+          </Group>
+        </Tooltip>
+      )}
+    </CopyButton>
   );
 }
 

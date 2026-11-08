@@ -14,12 +14,8 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
-import {
-  canDecideDerivation,
-  DerivationActions,
-  DerivationReviewPanels,
-  type DerivationReview,
-} from "./derivation-review.tsx";
+import { DerivationActions, DerivationReviewPanels, DerivationScopeRow } from "./derivation-review.tsx";
+import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
 
 const styles = stylex.create({
@@ -102,34 +98,37 @@ export function DerivationStatusCard({
   return (
     <Paper px="md" py="sm">
       <Stack gap="sm">
-        <Group justify="space-between" align="center" wrap="nowrap" gap="lg">
-          <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
-            <Group gap="xs" wrap="nowrap">
-              <DerivationStatusDot status={view.status} />
-              <StatusSentence view={view} />
-              {undoable !== undefined && (
-                <Button
-                  size="compact-xs"
-                  variant="subtle"
-                  color="gray"
-                  leftSection={<Undo2 size={12} />}
-                  loading={decision.pending}
-                  onClick={() => void review.undo()}
-                >
-                  Undo
-                </Button>
-              )}
-            </Group>
-            {view.status === "rejected" && view.reason !== undefined && (
-              <Text size="sm">Your reason: “{view.reason}”</Text>
+        <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
+          <Group gap="xs" wrap="nowrap">
+            <DerivationStatusDot status={view.status} />
+            <StatusSentence view={view} />
+            {undoable !== undefined && (
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                leftSection={<Undo2 size={12} />}
+                loading={decision.pending}
+                onClick={() => void review.undo()}
+              >
+                Undo
+              </Button>
             )}
-            {view.status === "superseded" && <SupersedingRevisionLink view={view} />}
-            <Text size="xs" c="dimmed">
-              {statusMeaningOf(view, kind)}
-            </Text>
-          </Stack>
-          <DerivationActions review={review} acceptLabel={acceptLabel} known={known} />
-        </Group>
+          </Group>
+          {view.status === "rejected" && view.reason !== undefined && (
+            <Text size="sm">Your reason: “{view.reason}”</Text>
+          )}
+          {view.status === "superseded" && <SupersedingRevisionLink view={view} />}
+          <Text size="xs" c="dimmed">
+            {statusMeaningOf(view, kind)}
+          </Text>
+        </Stack>
+        {canDecideDerivation(view) && (
+          <Group justify="space-between" align="center" gap="sm">
+            <DerivationScopeRow review={review} known={known} />
+            <DerivationActions review={review} acceptLabel={acceptLabel} known={known} />
+          </Group>
+        )}
         {canDecideDerivation(view) && panelsOpen && (
           <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
         )}
