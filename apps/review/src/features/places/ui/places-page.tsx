@@ -1,8 +1,10 @@
-import { Box, Paper, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Collapse, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Schema } from "effect";
+import { ChevronRight, LocateFixed } from "lucide-react";
+import { useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { useRememberedBrowserValue } from "#review/infrastructure/browser-storage.ts";
@@ -33,12 +35,21 @@ const styles = stylex.create({
     gap: "20px",
     alignItems: "start",
   },
+  chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
+  chevronOpen: { transform: "rotate(90deg)" },
 });
+
+function checkButtonLabel(checked: number, unreached: number): string {
+  if (unreached > 0) return `Check a folder · ${unreached} unreached`;
+  if (checked > 0) return `Check a folder · ${checked} checked`;
+  return "Check a folder";
+}
 
 export function PlacesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [probes, setProbes] = useRememberedBrowserValue<ReadonlyArray<string>>(PROBES_STORAGE_KEY, []);
+  const [checking, setChecking] = useState(false);
   const audit = useQuery(placesAuditQuery(probes));
   const known = useKnownPlaces();
   const data = audit.data;
@@ -48,19 +59,35 @@ export function PlacesPage() {
     const trimmed = probe.trim();
     if (trimmed !== "" && !probes.includes(trimmed)) setProbes([...probes, trimmed]);
   };
+  const unreached = probes.length === 0 ? 0 : (data?.audit.unmatched.length ?? 0);
 
   return (
     <Stack gap="md">
-      <Stack gap="3xs">
-        <Title order={3}>Places</Title>
-        <Text size="xs" c="dimmed">
-          Every place a scope names, how much lives there, and whether the places you work in still reach it.
-        </Text>
-      </Stack>
-      <Box {...stylex.props(styles.location)}>
-        <WhereAmIPanel onKeep={addProbe} />
-        <PlaceTestBench probes={probes} addProbe={addProbe} setProbes={setProbes} audit={data} known={known} />
-      </Box>
+      <Group justify="space-between" align="flex-end" wrap="nowrap">
+        <Stack gap="3xs">
+          <Title order={3}>Places</Title>
+          <Text size="sm" c="dimmed">
+            The repos, folders and names your items are scoped to. Pick one to see everything that applies there and
+            where each item comes from.
+          </Text>
+        </Stack>
+        <Button
+          variant={unreached > 0 ? "light" : "default"}
+          color="orange"
+          leftSection={<LocateFixed size={13} />}
+          rightSection={<ChevronRight size={13} {...stylex.props(styles.chevron, checking && styles.chevronOpen)} />}
+          onClick={() => setChecking(!checking)}
+          aria-expanded={checking}
+        >
+          {checkButtonLabel(probes.length, unreached)}
+        </Button>
+      </Group>
+      <Collapse expanded={checking}>
+        <Box {...stylex.props(styles.location)}>
+          <WhereAmIPanel onKeep={addProbe} />
+          <PlaceTestBench probes={probes} addProbe={addProbe} setProbes={setProbes} audit={data} known={known} />
+        </Box>
+      </Collapse>
       <LoadedQueryContent query={audit}>
         {(auditResult) => (
           <Box {...stylex.props(styles.layout)}>
@@ -75,7 +102,14 @@ export function PlacesPage() {
               {selected === undefined ? (
                 <Text c="dimmed">Pick a place.</Text>
               ) : (
-                <PlaceDetails key={selected} place={selected} audit={auditResult} probes={probes} known={known} />
+                <PlaceDetails
+                  key={selected}
+                  place={selected}
+                  audit={auditResult}
+                  probes={probes}
+                  known={known}
+                  onSelect={select}
+                />
               )}
             </Paper>
           </Box>

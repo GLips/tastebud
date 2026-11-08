@@ -1,8 +1,7 @@
 import {
   Box,
-  ActionIcon,
   Button,
-  Center,
+  Checkbox,
   Group,
   Paper,
   SegmentedControl,
@@ -11,13 +10,12 @@ import {
   Text,
   TextInput,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { Folder, GitCommitVertical, Search, Tag } from "lucide-react";
+import { Folder, Search, Tag } from "lucide-react";
 import { useState } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -25,11 +23,12 @@ import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { KnownPlaceSearch } from "#review/shared/ui/known-place-search.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 
+import { RecallAppliesPanel } from "./recall-applies-panel.tsx";
 import { RecallCandidateGroups } from "./recall-candidate-groups.tsx";
 import { RecallContextSummary, RecallFailure } from "./recall-context.tsx";
 import { RecallFindItemPanel } from "./recall-find-item-panel.tsx";
-import { RecallInjectedPanel } from "./recall-injected-panel.tsx";
 import { recallInspectionQuery } from "./recall-queries.ts";
+import { useRecallAppliesHere } from "./use-recall-applies-here.ts";
 
 /** `in` is a directory to resolve and `at` a place taken as given, the same terms core uses. */
 export const RecallSearch = Schema.Struct({
@@ -43,13 +42,7 @@ export const RecallSearch = Schema.Struct({
 const Route = getRouteApi("/recall");
 
 const styles = stylex.create({
-  grow: { flex: 1 },
-  layout: {
-    display: "grid",
-    gridTemplateColumns: { default: "minmax(0, 1fr) minmax(0, 0.9fr)", "@media (max-width: 960px)": "minmax(0, 1fr)" },
-    gap: "20px",
-    alignItems: "start",
-  },
+  grow: { flex: 1, minWidth: 0 },
   stale: { opacity: 0.55 },
 });
 
@@ -59,14 +52,19 @@ type ContextMode = (typeof CONTEXT_MODES)[number];
 /** The segmented control hands back a string; anything unrecognised means a directory. */
 const contextModeOf = (value: string): ContextMode => CONTEXT_MODES.find((mode) => mode === value) ?? "in";
 
+function initialModeOf(search: { readonly in?: string; readonly at?: string }): ContextMode {
+  if (search.at !== undefined && search.in === undefined) return "at";
+  if (search.in !== undefined) return "in";
+  return "none";
+}
+
 export function RecallInspectorPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const catalog = useReviewCatalog();
   const known = useKnownPlaces();
-  const initialMode: ContextMode = search.at !== undefined && search.in === undefined ? "at" : "in";
   const [query, setQuery] = useState(search.q ?? "");
-  const [mode, setMode] = useState<ContextMode>(initialMode);
+  const [mode, setMode] = useState<ContextMode>(initialModeOf(search));
   const [directory, setDirectory] = useState(search.in ?? "");
   const [place, setPlace] = useState(search.at ?? "");
   const submitted = {
@@ -77,6 +75,7 @@ export function RecallInspectorPage() {
     at: search.at === undefined ? undefined : [search.at],
   };
   const inspection = useQuery(recallInspectionQuery(submitted));
+  const { nowhere, standing, applies } = useRecallAppliesHere(submitted);
   const recallKinds = (catalog?.derivedKinds ?? []).filter((kind) => kind.recall !== "never");
 
   const draftSearch = {
@@ -108,9 +107,9 @@ export function RecallInspectorPage() {
     <Stack gap="md">
       <Stack gap="3xs">
         <Title order={3}>Recall</Title>
-        <Text size="xs" c="dimmed">
-          What an agent would be told for a prompt, standing in a directory or at a place, and why each item made it or
-          didn't.
+        <Text size="sm" c="dimmed">
+          What an agent is told in a place: everything that applies there, and for a prompt, what gets sent with it and
+          why.
         </Text>
       </Stack>
       <Paper p="sm">
@@ -124,33 +123,36 @@ export function RecallInspectorPage() {
             <Group gap="sm" wrap="nowrap">
               <TextInput
                 aria-label="Prompt"
-                placeholder="A prompt, e.g. add error handling to the checkout fetch"
+                placeholder="A prompt (optional), e.g. add error handling to the checkout fetch"
                 leftSection={<Search size={14} />}
                 value={query}
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 {...stylex.props(styles.grow)}
                 autoFocus
               />
-              <Button type="submit" size="sm" disabled={query.trim() === ""}>
-                Recall
+              <Button type="submit" size="sm">
+                Check
               </Button>
             </Group>
-            <Group gap="sm" wrap="nowrap">
+            <Group gap="xs" wrap="nowrap">
+              <Text size="xs" c="dimmed">
+                Where
+              </Text>
               <SegmentedControl
                 size="xs"
                 value={mode}
                 onChange={(value) => setMode(contextModeOf(value))}
                 data={[
-                  { value: "in", label: "Directory" },
-                  { value: "at", label: "Place" },
-                  { value: "none", label: "Nowhere" },
+                  { value: "at", label: "At a place" },
+                  { value: "in", label: "In a folder" },
+                  { value: "none", label: "Nowhere in particular" },
                 ]}
               />
               {mode === "in" && (
                 <TextInput
                   size="xs"
-                  aria-label="Pretend I'm in this directory"
-                  placeholder="Pretend I'm in… e.g. ~/code/acme-web/apps/checkout"
+                  aria-label="Pretend I'm in this folder"
+                  placeholder="e.g. ~/code/acme-web/apps/checkout"
                   leftSection={<Folder size={13} />}
                   value={directory}
                   onChange={(event) => setDirectory(event.currentTarget.value)}
@@ -172,62 +174,71 @@ export function RecallInspectorPage() {
               )}
               {mode === "none" && (
                 <Text size="xs" c="dimmed" {...stylex.props(styles.grow)}>
-                  Unknown context: only global items can apply, and the hook stays silent.
+                  Only items that apply everywhere reach, and the prompt hook stays silent.
                 </Text>
               )}
+              <Text size="xs" c="dimmed">
+                What
+              </Text>
               <Select
                 size="xs"
-                w={170}
+                w={150}
                 aria-label="Kinds to recall"
                 value={search.kind ?? "all"}
                 allowDeselect={false}
                 data={[
-                  { value: "all", label: "Every recallable kind" },
+                  { value: "all", label: "All kinds" },
                   ...recallKinds.map((kind) => ({ value: kind.key, label: capitalize(kind.plural) })),
                 ]}
                 onChange={(value) => run({ kind: value === null || value === "all" ? undefined : value })}
               />
-              <Tooltip
-                label={submitted.history ? "Including replaced and retracted" : "Include replaced and retracted"}
-                withArrow
-              >
-                <ActionIcon
-                  size="md"
-                  variant={submitted.history ? "light" : "default"}
-                  aria-label="Include history"
-                  aria-pressed={submitted.history}
-                  onClick={() => run({ history: !submitted.history })}
-                >
-                  <GitCommitVertical size={15} />
-                </ActionIcon>
-              </Tooltip>
+              <Checkbox
+                size="xs"
+                label="Include replaced and retracted"
+                checked={submitted.history}
+                onChange={() => run({ history: !submitted.history })}
+              />
             </Group>
-            {inspection.data !== undefined && <RecallContextSummary context={inspection.data.recall.context} />}
+            {standing !== undefined && <RecallContextSummary context={standing} />}
           </Stack>
         </form>
       </Paper>
 
-      {submitted.query === "" ? (
-        <Center py={60}>
-          <Text c="dimmed">Type a prompt to see what Tastebud would offer for it.</Text>
-        </Center>
-      ) : (
-        <LoadedQueryContent query={inspection} failurePanel={RecallFailure}>
-          {(inspected) => (
-            <Box {...stylex.props(styles.layout)}>
-              <Stack gap="lg" {...stylex.props(stale && styles.stale)}>
-                <RecallCandidateGroups recall={inspected.recall} hook={inspected.hook} catalog={catalog} />
-                <RecallFindItemPanel
-                  request={{ kind: submitted.kind, history: submitted.history, in: submitted.in, at: submitted.at }}
-                  recall={inspected.recall}
-                  hook={inspected.hook}
-                />
-              </Stack>
-              <RecallInjectedPanel hook={inspected.hook} stale={stale || inspection.isFetching} />
-            </Box>
-          )}
-        </LoadedQueryContent>
-      )}
+      <Box {...stylex.props(stale && styles.stale)}>
+        {submitted.query === "" ? (
+          <RecallAppliesPanel applies={applies} hookLimit={catalog?.hook.limit ?? 3} nowhere={nowhere} />
+        ) : (
+          <LoadedQueryContent query={inspection} failurePanel={RecallFailure}>
+            {(inspected) => {
+              const surfaced = new Set(
+                [
+                  ...inspected.hook.items,
+                  ...inspected.recall.accepted,
+                  ...inspected.recall.history,
+                  ...inspected.recall.excluded,
+                ].map((item) => item.id),
+              );
+              return (
+                <Stack gap="lg">
+                  <RecallCandidateGroups
+                    recall={inspected.recall}
+                    hook={inspected.hook}
+                    catalog={catalog}
+                    appliesUnmatched={applies.byKind
+                      .flatMap((group) => group.accepted)
+                      .filter((item) => !surfaced.has(item.id))}
+                  />
+                  <RecallFindItemPanel
+                    request={{ kind: submitted.kind, history: submitted.history, in: submitted.in, at: submitted.at }}
+                    recall={inspected.recall}
+                    hook={inspected.hook}
+                  />
+                </Stack>
+              );
+            }}
+          </LoadedQueryContent>
+        )}
+      </Box>
     </Stack>
   );
 }

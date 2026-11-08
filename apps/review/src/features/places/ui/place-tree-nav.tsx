@@ -76,7 +76,7 @@ function TreeNodes({
             {node.label}
           </Box>
           {unmatched.has(node.place) && (
-            <Tooltip label="Unmatched by your probes" withArrow>
+            <Tooltip label="None of your checked folders reach it" withArrow>
               <TriangleAlert size={12} {...stylex.props(styles.unmatched)} />
             </Tooltip>
           )}

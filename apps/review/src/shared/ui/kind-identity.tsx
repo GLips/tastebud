@@ -72,11 +72,11 @@ export const describeKindDelivery = (kind: Pick<DerivedKindView, "plural" | "rec
   return deliveries[kind.recall];
 };
 
-/** The policy as a short phrase for tables and settings. */
+/** The policy as a short phrase for badges, in the owner's words rather than the config's. */
 export const RECALL_POLICY_LABELS: Record<RecallPolicy, string> = {
-  inject: "Injected and recalled",
-  pull: "Recalled on request",
-  never: "Never recalled",
+  inject: "Sent with prompts",
+  pull: "Given when asked",
+  never: "Never shown to agents",
 };
 
 /** `Beliefs`, from `beliefs`. */
