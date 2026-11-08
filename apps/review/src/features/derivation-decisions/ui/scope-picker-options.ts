@@ -4,18 +4,17 @@
  * appears whenever one of its folders does, so widening a folder to its repo is always one row away.
  */
 import {
-  canonicalPlaceKey,
   type DerivationScope,
   parsePlaceKey,
   type PlaceKey,
   placeCovers,
-  REPO_PLACE_SEPARATOR,
+  relativePlacePath,
   repoRootPlace,
+  type ScopeDraft,
   scopePlacesOf,
+  typedPlaceChoicesOf,
 } from "@tastebud/core/places";
 import { Result } from "effect";
-
-import { relativePlacePath, type ScopeDraft } from "./scope-draft.ts";
 
 /** Chosen: in the draft. Inside: a chosen place already covers it. Open: neither. */
 type ScopePickerPlaceState = "chosen" | "inside" | "open";
@@ -54,50 +53,6 @@ interface ScopePickerGroup {
 const formOf = (place: PlaceKey) => {
   const parsed = parsePlaceKey(place);
   return Result.isSuccess(parsed) ? parsed.success.form : "named";
-};
-
-const firstSegment = (place: string) => place.split("/")[0];
-
-const looksLikeRepoId = (text: string) => /^[\w-]+(\.[\w-]+)+\/[^/]+\/[^/]+/.test(text);
-
-/**
- * What typed text could mean as a place. A full key (`…::`, `~/…`, `/…`) means itself. A bare path
- * is offered as a folder in each repo the scope touches, as a repo when it reads like
- * `github.com/owner/repo`, and as a named place: first when a known named place starts the same
- * way (`clients/globex` beside `clients/acme`), else last.
- */
-const typedPlaceChoicesOf = (
-  text: string,
-  {
-    repoRoots,
-    namedPlaces,
-    labelOf,
-  }: {
-    repoRoots: ReadonlyArray<PlaceKey>;
-    namedPlaces: ReadonlyArray<PlaceKey>;
-    labelOf: (place: PlaceKey) => string;
-  },
-): Array<{ place: PlaceKey; label: string; meaning: string }> => {
-  const trimmed = text.trim().replace(/\/+$/, "");
-  if (trimmed === "") return [];
-  const asKey = (key: string, meaning: string) => {
-    const canonical = canonicalPlaceKey(key);
-    return Result.isSuccess(canonical)
-      ? [{ place: canonical.success, label: labelOf(canonical.success), meaning }]
-      : [];
-  };
-  if (trimmed.includes(REPO_PLACE_SEPARATOR)) return asKey(trimmed, "as a repo place");
-  if (trimmed.startsWith("~") || trimmed.startsWith("/")) return asKey(trimmed, "as a folder on this machine");
-  const path = trimmed.replace(/^\/+/, "");
-  const named = asKey(path, "as a named place");
-  const others = [
-    ...repoRoots.flatMap((root) =>
-      asKey(`${root}${path}`, `in ${labelOf(root)}`).filter((choice) => choice.place !== root),
-    ),
-    ...(looksLikeRepoId(path) ? asKey(`${path}${REPO_PLACE_SEPARATOR}`, "as a repo") : []),
-  ];
-  const namedFirst = namedPlaces.some((place) => firstSegment(place) === firstSegment(path));
-  return namedFirst ? [...named, ...others] : [...others, ...named];
 };
 
 const stateOf = (draft: ScopeDraft, place: PlaceKey): ScopePickerPlaceState => {

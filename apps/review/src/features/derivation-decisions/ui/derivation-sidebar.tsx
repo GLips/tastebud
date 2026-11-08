@@ -5,6 +5,7 @@
 import { Box, Group, Paper, Stack, Text, Timeline } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import { isSameScope } from "@tastebud/core/places";
 import type { DerivationSummary, DerivationView, ShowResult } from "@tastebud/core/record-views";
 import { type DecisionRecord, scopeFromFields } from "@tastebud/core/records";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
@@ -17,8 +18,6 @@ import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
-
-import { isSameScope } from "./scope-draft.ts";
 
 const styles = stylex.create({
   current: { fontWeight: 600 },
