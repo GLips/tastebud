@@ -10,17 +10,25 @@ import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { reviewShellQuery } from "./review-shell-queries.ts";
 
 const styles = stylex.create({
-  page: { minHeight: "100vh", backgroundColor: "var(--mantine-color-gray-0)" },
+  // `--review-shell-header-height` is the sticky header's full height, border included. Pages read it for their
+  // own sticky offsets (`top: "var(--review-shell-header-height)"`); this is the one place that sets it.
+  page: {
+    "--review-shell-header-height": "49px",
+    minHeight: "100vh",
+    backgroundColor: "var(--mantine-color-gray-0)",
+  },
   header: {
     position: "sticky",
     top: 0,
     zIndex: 10,
+    boxSizing: "border-box",
+    height: "var(--review-shell-header-height)",
     backgroundColor: "white",
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
     borderBottomColor: "var(--mantine-color-gray-2)",
   },
-  bar: { height: "48px" },
+  bar: { height: "calc(var(--review-shell-header-height) - 1px)" },
   brand: { display: "flex", alignItems: "center" },
   lockup: { height: "24px", display: "block" },
   navLink: {

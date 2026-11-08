@@ -66,6 +66,7 @@ export function PlaceChip({
 }) {
   const badge = {
     color,
+    size: "md",
     variant: "light",
     tt: "none",
     fw: 500,
@@ -95,6 +96,7 @@ export function PlaceChip({
 function GlobalScopeChip({ label = "Everywhere", linked }: { label?: string; linked: boolean }) {
   const badge = {
     color: "orange",
+    size: "md",
     variant: "light",
     tt: "none",
     styles: UNCLIPPED_LABEL,
