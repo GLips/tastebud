@@ -33,7 +33,6 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { acceptPreviewsStaleOf } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import { DerivationSummaryLine, DespiteNotice, SupersedesNotice } from "#review/shared/ui/derivation-link.tsx";
-import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote, type SourceQuoteRole } from "#review/shared/ui/source-quote.tsx";
 
@@ -47,7 +46,7 @@ import {
   scopeButtonPhrase,
   scopeOverrideOf,
 } from "./scope-draft.ts";
-import { ScopeEditor } from "./scope-editor.tsx";
+import { ScopePicker } from "./scope-picker.tsx";
 import { useReviewClockMs } from "./use-review-clock.ts";
 import { useReviewDecision } from "./use-review-decision.ts";
 
@@ -106,7 +105,7 @@ function InboxCardQuotes({ view, backlog }: { view: InboxCard["derivation"]; bac
     ));
 }
 
-type CardMode = "idle" | "rejecting" | "editing" | "previewing";
+type CardMode = "idle" | "rejecting" | "previewing";
 
 /** Mounted only in the selected, idle card, so a/r/d/s always act on exactly one proposal. */
 function SelectedCardHotkeys(props: {
@@ -161,6 +160,15 @@ export function InboxProposalCard({
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<CardMode>("idle");
   const [conflict, setConflict] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  // The picker only opens itself on mount, so `s` (and closing it on confirm) remounts it via the key.
+  // Opening on mount doesn't call onOpenedChange, so the remount sets pickerOpen itself.
+  const [picker, setPicker] = useState({ mount: 0, openOnMount: false });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const remountPicker = (open: boolean) => {
+    setPickerOpen(open);
+    setPicker((previous) => ({ mount: previous.mount + 1, openOnMount: open }));
+  };
   const proposed = view.proposedScope;
   const shownScope = draft ?? proposed;
   const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
@@ -173,7 +181,7 @@ export function InboxProposalCard({
   const edited = draft !== undefined && !isSameScope(proposed, draft);
   const changes = describeScopeChange(proposed, shownScope, known.labelOf);
   const needsPreview = edited || card.needsAcknowledgement.length > 0;
-  const engaged = mode !== "idle" || decision.pending;
+  const engaged = mode !== "idle" || decision.pending || pickerOpen;
   const backlogKind = kind.recall === "never";
 
   useEffect(() => {
@@ -198,9 +206,11 @@ export function InboxProposalCard({
   };
   const accept = () => {
     if (decision.pending || queued) return;
-    if (draft !== undefined && !isCompleteScope(draft)) setMode("editing");
-    else if (needsPreview) setMode("previewing");
-    else void submitAccept([]);
+    if (draft !== undefined && !isCompleteScope(draft)) return remountPicker(true);
+    if (pickerOpen) remountPicker(false);
+    if (!needsPreview) return void submitAccept([]);
+    setConflict(false);
+    setMode("previewing");
   };
   const similarShown = new Set([view.supersedes?.id, ...view.despite.map((earlier) => earlier.id)]);
   const similar = card.related.filter((match) => !similarShown.has(match.id));
@@ -222,12 +232,12 @@ export function InboxProposalCard({
       onClick={onSelect}
       {...stylex.props(styles.card, selected && styles.selected)}
     >
-      {selected && mode === "idle" && !decision.pending && !queued && (
+      {selected && !engaged && !queued && (
         <SelectedCardHotkeys
           onAccept={accept}
           onReject={() => setMode("rejecting")}
           onDiscuss={() => void navigate({ to: "/derivations/$id", params: { id: view.id } })}
-          onEditScope={() => setMode("editing")}
+          onEditScope={() => remountPicker(true)}
         />
       )}
       <Stack gap="xs">
@@ -333,76 +343,52 @@ export function InboxProposalCard({
           </Text>
         )}
 
-        {mode !== "editing" && (
-          <Box {...stylex.props(styles.scopeRow)}>
-            <Text size="xs" c="dimmed">
-              Applies in
-            </Text>
-            {isCompleteScope(shownScope) ? (
-              <ScopeChips scope={shownScope} labels={known.labels} wrap="wrap" linked={mode === "idle"} />
-            ) : (
-              <Text size="xs" c="red.7">
-                no places yet
-              </Text>
-            )}
-            {mode === "idle" && !queued && (
-              <Tooltip label="Edit where this applies · S" withArrow>
-                <Anchor
-                  component="button"
-                  size="xs"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect();
-                    setMode("editing");
-                  }}
-                >
-                  Edit
-                </Anchor>
-              </Tooltip>
-            )}
-            {edited ? (
-              <>
-                <Text size="xs" c="dark.4">
-                  {changes.join(" · ") || "Edited"}
-                </Text>
-                {mode === "idle" && !queued && (
-                  <Anchor component="button" size="xs" c="dimmed" onClick={() => changeDraft(undefined)}>
-                    Restore
-                  </Anchor>
-                )}
-              </>
-            ) : (
-              view.scopeSource === "defaulted" && (
-                <Tooltip
-                  label="The proposer didn't choose a scope; Tastebud used the repo they were working in."
-                  withArrow
-                  multiline
-                  w={260}
-                >
-                  <Text size="xs" c="dimmed" fs="italic">
-                    Suggested from proposal context
-                  </Text>
-                </Tooltip>
-              )
-            )}
-          </Box>
-        )}
-
-        {mode === "editing" && (
-          <ScopeEditor
+        <Box
+          {...stylex.props(styles.scopeRow)}
+          onKeyDown={(event) => {
+            // The picker leaves ⌘↵ to its host: here it confirms with the card's own accept.
+            if (pickerOpen && event.key === "Enter" && (event.metaKey || event.ctrlKey)) accept();
+          }}
+        >
+          <Text size="xs" c="dimmed">
+            Applies in
+          </Text>
+          <ScopePicker
+            key={picker.mount}
+            value={shownScope}
             proposed={proposed}
-            draft={shownScope}
             known={known}
-            active={selected}
-            continueLabel={(scope) => `${kind.acceptLabel} ${scopeButtonPhrase(scope, known.labelOf)}…`}
-            onDraftChange={changeDraft}
-            onClose={() => setMode("idle")}
-            onContinue={() => {
-              setConflict(false);
-              setMode("previewing");
-            }}
+            onChange={changeDraft}
+            defaultOpened={picker.openOnMount}
+            onOpenedChange={setPickerOpen}
+            disabled={queued || mode !== "idle" || decision.pending}
           />
-        )}
+          {edited ? (
+            <>
+              <Text size="xs" c="dark.4">
+                {changes.join(" · ") || "Edited"}
+              </Text>
+              {mode === "idle" && !queued && (
+                <Anchor component="button" size="xs" c="dimmed" onClick={() => changeDraft(undefined)}>
+                  Restore
+                </Anchor>
+              )}
+            </>
+          ) : (
+            view.scopeSource === "defaulted" && (
+              <Tooltip
+                label="The proposer didn't choose a scope; Tastebud used the repo they were working in."
+                withArrow
+                multiline
+                w={260}
+              >
+                <Text size="xs" c="dimmed" fs="italic">
+                  Suggested from proposal context
+                </Text>
+              </Tooltip>
+            )
+          )}
+        </Box>
 
         {mode === "previewing" && (
           <AcceptancePreview
@@ -424,7 +410,7 @@ export function InboxProposalCard({
             pending={decision.pending}
             labels={known.labels}
             onConfirm={(acknowledges) => void submitAccept(acknowledges)}
-            onBack={() => setMode(edited ? "editing" : "idle")}
+            onBack={() => setMode("idle")}
           />
         )}
 
@@ -451,6 +437,8 @@ export function InboxProposalCard({
 
         {mode === "rejecting" && (
           <RejectReasonForm
+            initialReason={rejectReason}
+            onReasonChange={setRejectReason}
             pending={decision.pending}
             onCancel={() => setMode("idle")}
             onSubmit={(reason) => void submitReject(reason)}
