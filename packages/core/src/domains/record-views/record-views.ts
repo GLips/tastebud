@@ -17,8 +17,22 @@ export interface ViewSource {
   readonly catalog: TasteCatalog;
 }
 
+/** The label the account's newest source gives it; sources keep the speaker's name as said at the time. */
+const speakerLabelOf = (snapshot: StoreSnapshot, account: string): string | undefined =>
+  snapshot.sources
+    .filter((source) => source.said_by === account)
+    .reduce<SourceRecord | undefined>(
+      (newest, source) =>
+        newest === undefined || compareIsoTimes(source.said_at, newest.said_at) > 0 ? source : newest,
+      undefined,
+    )?.said_by_label;
+
 export const summarizeDerivation = (view: ViewSource, derivation: DerivationRecord): DerivationSummary => {
   const state = derivationStateOf(view.snapshot, derivation);
+  const subjectLabel =
+    derivation.subject === undefined || derivation.subject === "owner"
+      ? undefined
+      : speakerLabelOf(view.snapshot, derivation.subject);
   const kind = findDerivedKind(view.catalog, derivation.kind);
   const decidedAt = state.decidingDecision?.at;
   const reason = state.decidingDecision?.reason;
@@ -33,6 +47,7 @@ export const summarizeDerivation = (view: ViewSource, derivation: DerivationReco
     effectiveScope: state.effectiveScope,
     scopeSource: derivation.scope_source,
     ...(derivation.subject !== undefined && { subject: derivation.subject }),
+    ...(subjectLabel !== undefined && { subjectLabel }),
     proposedAt: derivation.proposed_at,
     ...(decidedAt !== undefined && { decidedAt }),
     ...(reason !== undefined && { reason }),

@@ -33,6 +33,11 @@ export const DerivationSummarySchema = Schema.Struct({
   effectiveScope: DerivationScopeSchema,
   scopeSource: Schema.Literals(SCOPE_SOURCES),
   subject: Schema.optionalKey(Schema.String),
+  /**
+   * How the subject account is named in its newest source's `said_by_label`. Absent for `owner` and for an
+   * account none of the store's sources were said by.
+   */
+  subjectLabel: Schema.optionalKey(Schema.String),
   proposedAt: Schema.String,
   /** When the decision behind the current status was made; absent while pending. */
   decidedAt: Schema.optionalKey(Schema.String),
