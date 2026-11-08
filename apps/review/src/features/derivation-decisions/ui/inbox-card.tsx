@@ -23,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
 import type { SourceView } from "@tastebud/core/record-views";
 import { MessageSquare, TriangleAlert, X } from "lucide-react";
 import { type Ref, useEffect, useState } from "react";
@@ -39,14 +40,7 @@ import { SourceQuote, type SourceQuoteRole } from "#review/shared/ui/source-quot
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
-import {
-  describeScopeChange,
-  isCompleteScope,
-  isSameScope,
-  type ScopeDraft,
-  scopeButtonPhrase,
-  scopeOverrideOf,
-} from "./scope-draft.ts";
+import { scopeButtonPhrase, scopeOverrideOf } from "./scope-draft.ts";
 import { ScopeEditor } from "./scope-editor.tsx";
 import { useReviewClockMs } from "./use-review-clock.ts";
 import { useReviewDecision } from "./use-review-decision.ts";

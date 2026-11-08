@@ -6,6 +6,7 @@
  */
 import { Alert, Button, Group, Kbd, Tooltip } from "@mantine/core";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, SquarePen, Undo2, X } from "lucide-react";
 import { useState } from "react";
@@ -14,14 +15,7 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
-import {
-  describeScopeChange,
-  isCompleteScope,
-  isSameScope,
-  type ScopeDraft,
-  scopeButtonPhrase,
-  scopeOverrideOf,
-} from "./scope-draft.ts";
+import { scopeButtonPhrase, scopeOverrideOf } from "./scope-draft.ts";
 import { ScopeEditor } from "./scope-editor.tsx";
 import { useReviewDecision } from "./use-review-decision.ts";
 

@@ -25,3 +25,15 @@ export {
   normalizeRemote,
   type RemoteIdentity,
 } from "./git-remote.ts";
+export {
+  applyScopePick,
+  describeScopeChange,
+  describeScopeResult,
+  isCompleteScope,
+  isSameScope,
+  relativePlacePath,
+  type ScopeDraft,
+  type ScopePick,
+  type ScopePickState,
+  typedPlaceChoicesOf,
+} from "./scope-draft.ts";

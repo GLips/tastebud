@@ -7,14 +7,20 @@
  */
 import { ActionIcon, Box, Button, Combobox, Group, ScrollArea, Text, Tooltip, useCombobox } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DerivationScope, PlaceKey } from "@tastebud/core/places";
+import {
+  applyScopePick,
+  type DerivationScope,
+  describeScopeResult,
+  type PlaceKey,
+  type ScopeDraft,
+  type ScopePick,
+} from "@tastebud/core/places";
 import { Check, ChevronDown, CornerDownRight, Globe, Plus, Undo2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 
-import { describeScopeResult, type ScopeDraft, withoutPlace, withPlace } from "./scope-draft.ts";
 import { type ScopePickerOption, scopePickerGroupsOf } from "./scope-picker-options.ts";
 
 const styles = stylex.create({
@@ -50,12 +56,12 @@ function PlaceRowAction({
   option,
   draft,
   labelOf,
-  onChange,
+  onPick,
 }: {
   option: Extract<ScopePickerOption, { kind: "place" }>;
   draft: ScopeDraft;
   labelOf: (place: PlaceKey) => string;
-  onChange: (draft: ScopeDraft) => void;
+  onPick: (pick: ScopePick) => void;
 }) {
   const chosen = option.state === "chosen";
   // From Everywhere a row click already limits to that place, so "add" would mean the same.
@@ -71,7 +77,7 @@ function PlaceRowAction({
         onClick={(event) => {
           // The row behind it replaces the scope; this button only adds or removes.
           event.stopPropagation();
-          onChange(chosen ? withoutPlace(draft, option.place) : withPlace(draft, option.place));
+          onPick({ pick: chosen ? "remove" : "add", place: option.place });
         }}
       >
         {chosen ? <X size={13} /> : <Plus size={13} />}
@@ -85,13 +91,13 @@ function ScopePickerRow({
   draft,
   known,
   search,
-  onChange,
+  onPick,
 }: {
   option: ScopePickerOption;
   draft: ScopeDraft;
   known: KnownPlaces;
   search: string;
-  onChange: (draft: ScopeDraft) => void;
+  onPick: (pick: ScopePick) => void;
 }) {
   switch (option.kind) {
     case "everywhere":
@@ -137,7 +143,7 @@ function ScopePickerRow({
               </Text>
             )}
           </Box>
-          <PlaceRowAction option={option} draft={draft} labelOf={known.labelOf} onChange={onChange} />
+          <PlaceRowAction option={option} draft={draft} labelOf={known.labelOf} onPick={onPick} />
         </Box>
       );
     case "typed":
@@ -208,7 +214,7 @@ export function ScopePicker({
   disabled = false,
 }: ScopePickerProps) {
   const [search, setSearch] = useState("");
-  // Everywhere and back again restores the places chosen before it, not a blank list.
+  // The places Everywhere last replaced; the draft itself stays with the host.
   const [earlier, setEarlier] = useState<ReadonlyArray<PlaceKey>>(() => (value.scope === "places" ? value.places : []));
   const combobox = useCombobox({
     defaultOpened,
@@ -242,6 +248,12 @@ export function ScopePicker({
     if (search.trim() !== "") combobox.selectFirstOption();
   }, [search, combobox]);
 
+  const pick = (choice: ScopePick) => {
+    const next = applyScopePick({ draft: value, earlier }, choice);
+    setEarlier(next.earlier);
+    onChange(next.draft);
+  };
+
   const submit = (picked: string) => {
     const option = options.get(picked);
     if (option === undefined) return;
@@ -250,16 +262,11 @@ export function ScopePicker({
       return;
     }
     if (option.kind === "typed") {
-      onChange(withPlace(value, option.place));
+      pick({ pick: "add", place: option.place });
       setSearch("");
       return;
     }
-    if (option.kind === "everywhere" && value.scope === "places" && value.places.length > 0) setEarlier(value.places);
-    onChange(
-      option.kind === "everywhere"
-        ? { scope: "global" }
-        : { scope: "places", places: option.kind === "earlier" ? option.places : [option.place] },
-    );
+    pick(option.kind === "place" ? { pick: "only", place: option.place } : { pick: option.kind });
     combobox.closeDropdown();
   };
 
@@ -308,7 +315,7 @@ export function ScopePicker({
                     (option.kind === "everywhere" && option.chosen)
                   }
                 >
-                  <ScopePickerRow option={option} draft={value} known={known} search={search} onChange={onChange} />
+                  <ScopePickerRow option={option} draft={value} known={known} search={search} onPick={pick} />
                 </Combobox.Option>
               ));
               return group.heading === undefined ? (

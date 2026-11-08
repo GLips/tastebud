@@ -6,13 +6,18 @@
 import { Anchor, Box, Button, Group, Kbd, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import type { DerivationScope } from "@tastebud/core/places";
+import {
+  type DerivationScope,
+  describeScopeChange,
+  isCompleteScope,
+  isSameScope,
+  type ScopeDraft,
+} from "@tastebud/core/places";
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 
-import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft } from "./scope-draft.ts";
 import { ScopePicker } from "./scope-picker.tsx";
 
 const styles = stylex.create({

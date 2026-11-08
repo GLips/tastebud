@@ -8,7 +8,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InboxGroup } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
-import type { DerivationScope } from "@tastebud/core/places";
+import { type DerivationScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
 import { CheckCheck, Globe } from "lucide-react";
 import { type ReactNode, useState, useSyncExternalStore } from "react";
 
@@ -21,7 +21,6 @@ import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
 
 import type { InboxQueueEntry } from "./inbox-queue.ts";
-import { isSameScope, type ScopeDraft } from "./scope-draft.ts";
 import { sendReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
