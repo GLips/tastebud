@@ -1,142 +1,111 @@
-/** The top of the derivation page: what it says and who proposed it, where it applies, and its evidence. */
-import { Box, CopyButton, Group, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
+/** The top of the derivation page: what it says and the agent's case for it, then its evidence. */
+import { Anchor, CopyButton, Group, Kbd, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { shortIdOf } from "@tastebud/core/taste-vocabulary";
-import { ArrowLeft } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowLeft, Copy } from "lucide-react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
-import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { DerivationSummaryLine, DespiteNotice, SupersedesNotice } from "#review/shared/ui/derivation-link.tsx";
-import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
-import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 
-import { isSameScope } from "./scope-draft.ts";
-import { useReviewClockMs } from "./use-review-clock.ts";
-
 const styles = stylex.create({
-  shrinkable: { minWidth: 0 },
   statement: { lineHeight: 1.3, letterSpacing: "-0.015em", fontWeight: 650, textWrap: "balance" },
   prose: { whiteSpace: "pre-wrap" },
-  id: { fontFamily: "var(--mantine-font-family-monospace)", cursor: "copy" },
-  facts: {
-    display: "grid",
-    gridTemplateColumns: "88px minmax(0, 1fr)",
-    columnGap: "12px",
-    rowGap: "6px",
-    alignItems: "center",
-  },
+  id: { fontFamily: "var(--mantine-font-family-monospace)" },
+  copy: { cursor: "copy" },
 });
+
+/**
+ * The page's one way back: to wherever the owner came from inside the app (inbox, library, a source),
+ * else to the kind's library when the page was opened directly.
+ */
+export function useDerivationBack(kind: string): DerivationBack {
+  const router = useRouter();
+  if (useCanGoBack()) return { kind: "history", go: () => router.history.back() };
+  return { kind: "library", go: () => void router.navigate({ to: "/kinds/$kind", params: { kind } }) };
+}
+
+export interface DerivationBack {
+  readonly kind: "history" | "library";
+  readonly go: () => void;
+}
 
 export function DerivationHeader({
   view,
   kind,
   catalog,
   owner,
-  actions,
+  back,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   catalog: CatalogView | undefined;
   owner: string;
-  actions: ReactNode;
+  back: DerivationBack;
 }) {
-  const nowMs = useReviewClockMs();
-  const record = view.derivation;
+  const reasoning = view.derivation.reasoning.trim();
   return (
     <>
       <Group justify="space-between">
-        <AnchorLink to="/kinds/$kind" params={{ kind: view.kind }} size="sm" c="dimmed" underline="hover">
-          <Group gap="2xs">
-            <ArrowLeft size={14} />
-            {capitalize(kind?.plural ?? view.kind)}
-          </Group>
-        </AnchorLink>
+        {back.kind === "history" ? (
+          <Anchor component="button" size="sm" c="dimmed" underline="hover" onClick={back.go}>
+            <Group gap="2xs">
+              <ArrowLeft size={14} />
+              Back
+              <Kbd size="xs">Esc</Kbd>
+            </Group>
+          </Anchor>
+        ) : (
+          <AnchorLink to="/kinds/$kind" params={{ kind: view.kind }} size="sm" c="dimmed" underline="hover">
+            <Group gap="2xs">
+              <ArrowLeft size={14} />
+              All {kind?.plural ?? view.kind}
+            </Group>
+          </AnchorLink>
+        )}
         <CopyButton value={view.id}>
           {({ copied, copy }) => (
-            <Tooltip label={copied ? "Copied" : "Copy the id for the CLI"} withArrow>
-              <Text c="dimmed" fz="2xs" onClick={copy} {...stylex.props(styles.id)}>
-                {shortIdOf(view.id)}
-              </Text>
+            <Tooltip label={copied ? "Copied" : "Copy the full id, for the tastebud CLI"} withArrow>
+              <Group gap="2xs" c="dimmed" onClick={copy} {...stylex.props(styles.copy)}>
+                <Text fz="2xs">ID</Text>
+                <Text fz="2xs" {...stylex.props(styles.id)}>
+                  {shortIdOf(view.id)}
+                </Text>
+                <Copy size={11} />
+              </Group>
             </Tooltip>
           )}
         </CopyButton>
       </Group>
 
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="lg">
-        <Stack gap="xxs" {...stylex.props(styles.shrinkable)}>
-          <Group gap="xxs">
-            <KindGlyph catalog={catalog} kind={view.kind} />
-            <Text size="sm" fw={500} c="dark.4">
-              {capitalize(view.kindLabel)}
-              {view.retired && " (retired kind)"}
-            </Text>
-            <Text size="sm" c="dimmed">
-              ·
-            </Text>
-            <Text size="sm" c="dimmed" tt="capitalize">
-              {view.status}
-            </Text>
-            {view.subject !== undefined && view.subject !== "owner" && view.subject !== owner && (
-              <Text size="sm" c="dimmed">
-                · about {view.subject}
-              </Text>
-            )}
-          </Group>
-          <Title order={2} fz="pageStatement" {...stylex.props(styles.statement)}>
-            {view.statement}
-          </Title>
-          <Text size="xs" c="dimmed">
-            <Box component="span" title={formatReviewTime(record.proposed_at)}>
-              {record.proposed_by} · {formatTimeAgo(record.proposed_at, nowMs)}
-            </Box>
-            {record.reasoning.trim() !== "" && (
-              <Box component="span" {...stylex.props(styles.prose)}>
-                {" "}
-                — {record.reasoning.trim()}
-              </Box>
-            )}
+      <Stack gap="xxs">
+        <Group gap="xxs">
+          <KindGlyph catalog={catalog} kind={view.kind} />
+          <Text size="sm" fw={500} c="dark.4">
+            {capitalize(view.kindLabel)}
+            {view.retired && " (retired kind)"}
           </Text>
-        </Stack>
-        {actions}
-      </Group>
-    </>
-  );
-}
-
-export function DerivationScopeFacts({ view, known }: { view: DerivationView; known: KnownPlaces }) {
-  const amended = !isSameScope(view.proposedScope, view.effectiveScope);
-  return (
-    <Paper px="md" py="sm">
-      <Box {...stylex.props(styles.facts)}>
-        <FactRow label={view.status === "pending" ? "Proposed for" : "Applies in"}>
-          <Group gap="xs">
-            <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />
-            {view.status === "pending" && view.scopeSource === "defaulted" && (
-              <Text size="xs" c="dimmed" fs="italic">
-                Suggested from proposal context
-              </Text>
-            )}
-          </Group>
-        </FactRow>
-        {amended && (
-          <FactRow label="Proposed">
-            <Group gap="xs">
-              <ScopeChips scope={view.proposedScope} labels={known.labels} wrap="wrap" />
-              <Text size="xs" c="dimmed">
-                changed by you
-              </Text>
-            </Group>
-          </FactRow>
+          {view.subject !== undefined && view.subject !== "owner" && view.subject !== owner && (
+            <Text size="sm" c="dimmed">
+              · about {view.subject}
+            </Text>
+          )}
+        </Group>
+        <Title order={2} fz="pageStatement" {...stylex.props(styles.statement)}>
+          {view.statement}
+        </Title>
+        {reasoning !== "" && (
+          <Text size="sm" c="dimmed" {...stylex.props(styles.prose)}>
+            {reasoning}
+          </Text>
         )}
-      </Box>
-    </Paper>
+      </Stack>
+    </>
   );
 }
 
@@ -160,11 +129,9 @@ export function DerivationEvidence({ view, kind }: { view: DerivationView; kind:
       {cited > 0 && (
         <Paper px="md" py="sm">
           <Stack gap="xs">
-            {backlogKind && (
-              <Text size="xs" c="dimmed">
-                What prompted this
-              </Text>
-            )}
+            <Text size="sm" fw={600}>
+              {backlogKind ? "What prompted this" : "What it rests on"}
+            </Text>
             {view.supportingSources.map((source) => (
               <SourceQuote key={source.source.id} view={source} role={backlogKind ? "prompted" : "supports"} showKind />
             ))}

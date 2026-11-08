@@ -1,112 +1,190 @@
-/** The Places page's right column: one place's counts, what is scoped to it, and whether probes reach it. */
-import { Alert, Button, Group, Stack, Table, Text, Title } from "@mantine/core";
+/**
+ * The Places page's right column: everything that reaches one place, accepted first, each with the
+ * place it comes from (here, a parent, or everywhere), then what waits for you and what you turned
+ * down. Repoint and the probe audit sit below as secondary tools.
+ */
+import { Alert, Anchor, Box, Button, Collapse, Group, Stack, Text, Title, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
+import type { CatalogView } from "@tastebud/core/kind-catalog";
 import { placeCovers, scopePlacesOf } from "@tastebud/core/places";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import type { DerivationSummary } from "@tastebud/core/record-views";
-import { Globe, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import type { DerivationStatus, RecallPolicy } from "@tastebud/core/taste-vocabulary";
+import { ChevronRight, Globe, TriangleAlert } from "lucide-react";
+import { type ReactNode, useState } from "react";
 
 import { derivationListQuery } from "#review/features/derivation-library/index.ts";
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { DerivationSummaryLine } from "#review/shared/ui/derivation-link.tsx";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf, PlaceKeyCopy } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
+import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
-  numeric: { fontVariantNumeric: "tabular-nums" },
-  onward: { rowGap: "2px" },
+  row: {
+    display: "grid",
+    gridTemplateColumns: "12px minmax(0, 1fr) auto",
+    columnGap: "8px",
+    alignItems: "baseline",
+    paddingBlock: "6px",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: { default: "var(--mantine-color-gray-1)", ":first-child": "transparent" },
+  },
+  origin: { whiteSpace: "nowrap" },
+  chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
+  chevronOpen: { transform: "rotate(90deg)" },
 });
 
-function CountsTable({ counts }: { counts: AuditPlacesResult["globalCounts"] }) {
-  const catalog = useReviewCatalog();
-  const kinds = [...new Set(counts.map((entry) => entry.kind))];
-  const statuses = ["pending", "accepted", "rejected", "superseded", "retracted"] as const;
-  const shown = statuses.filter((status) => counts.some((entry) => entry.status === status));
-  if (counts.length === 0)
+const SETTLED_STATUS_WORDS: Partial<Record<DerivationStatus, string>> = {
+  rejected: "Rejected",
+  retracted: "Retracted",
+  superseded: "Replaced by a newer revision",
+};
+
+/** Where a row reaches this place from, in words; a parent is a link that opens it. */
+function ReachOrigin({
+  row,
+  known,
+  onSelect,
+}: {
+  row: PlaceReachRow;
+  known: KnownPlaces;
+  onSelect: (place: string) => void;
+}) {
+  const { origin } = row;
+  if (origin.from === "here")
     return (
-      <Text size="sm" c="dimmed">
-        Nothing is scoped here.
+      <Text size="xs" c="dimmed" {...stylex.props(styles.origin)}>
+        Scoped here
       </Text>
     );
+  if (origin.from === "everywhere")
+    return (
+      <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.origin)}>
+        <Globe size={11} color="var(--mantine-color-orange-6)" />
+        <Text size="xs" c="orange.8">
+          Everywhere
+        </Text>
+      </Group>
+    );
   return (
-    <Table withRowBorders={false} verticalSpacing={2} horizontalSpacing="xs" w="fit-content">
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th />
-          {shown.map((status) => (
-            <Table.Th key={status} ta="right">
-              <Text size="xs" c="dimmed" fw={500} tt="capitalize">
-                {status}
-              </Text>
-            </Table.Th>
-          ))}
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {kinds.map((kind) => (
-          <Table.Tr key={kind}>
-            <Table.Td>
-              <Group gap="xxs" wrap="nowrap">
-                <KindGlyph catalog={catalog} kind={kind} />
-                <Text size="sm">
-                  {capitalize(catalog?.derivedKinds.find((candidate) => candidate.key === kind)?.plural ?? kind)}
-                </Text>
-              </Group>
-            </Table.Td>
-            {shown.map((status) => (
-              <Table.Td key={status} ta="right">
-                <Text size="sm" {...stylex.props(styles.numeric)}>
-                  {counts.find((entry) => entry.kind === kind && entry.status === status)?.count ?? "·"}
-                </Text>
-              </Table.Td>
-            ))}
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+    <Anchor
+      component="button"
+      type="button"
+      size="xs"
+      c="dimmed"
+      onClick={() => onSelect(origin.place)}
+      {...stylex.props(styles.origin)}
+    >
+      From {known.labelOf(origin.place)}
+    </Anchor>
   );
 }
 
-/** Where to go from a place: each kind's library filtered to it, and the recall inspector standing there. */
+function ReachRows({
+  rows,
+  known,
+  onSelect,
+  showStatus = false,
+}: {
+  rows: ReadonlyArray<PlaceReachRow>;
+  known: KnownPlaces;
+  onSelect: (place: string) => void;
+  showStatus?: boolean;
+}) {
+  const catalog = useReviewCatalog();
+  return (
+    <Box>
+      {rows.map((row) => (
+        <Box key={row.summary.id} {...stylex.props(styles.row)}>
+          <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
+          <Text size="sm">
+            <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
+              {row.summary.statement}
+            </AnchorLink>
+            {showStatus && (
+              <Text span size="xs" c={row.summary.status === "rejected" ? "red.7" : "dimmed"}>
+                {" "}
+                · {SETTLED_STATUS_WORDS[row.summary.status]}
+                {row.summary.reason !== undefined && `: “${row.summary.reason}”`}
+              </Text>
+            )}
+          </Text>
+          <ReachOrigin row={row} known={known} onSelect={onSelect} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function ReachSection({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  return (
+    <Stack gap="3xs">
+      <Text size="sm" fw={600}>
+        {title}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {hint}
+      </Text>
+      {children}
+    </Stack>
+  );
+}
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/** One sentence that answers "what applies here?" before the lists. */
+function reachSummary(rows: ReadonlyArray<PlaceReachRow>, known: KnownPlaces): string {
+  if (rows.length === 0) return "Nothing you've accepted applies here yet.";
+  const here = rows.filter((row) => row.origin.from === "here").length;
+  const everywhere = rows.filter((row) => row.origin.from === "everywhere").length;
+  const parents = [...new Set(rows.flatMap((row) => (row.origin.from === "parent" ? [row.origin.place] : [])))];
+  const parts = [
+    ...(here > 0 ? [`${here} scoped here`] : []),
+    ...parents.map(
+      (parent) =>
+        `${rows.filter((row) => row.origin.from === "parent" && row.origin.place === parent).length} from ${known.labelOf(parent)}`,
+    ),
+    ...(everywhere > 0 ? [`${everywhere} everywhere`] : []),
+  ];
+  return `${plural(rows.length, "accepted item applies", "accepted items apply")} here: ${parts.join(", ")}.`;
+}
+
+const POLICY_REACH_WORDING: Record<RecallPolicy, string> = {
+  inject: "can be sent with a matching prompt",
+  pull: "are there when an agent asks",
+  never: "stay in your backlog, never shown to agents",
+};
+
+/** What agents actually get of the accepted rows, kind by kind, from each kind's recall policy. */
+function appliesHint(rows: ReadonlyArray<PlaceReachRow>, catalog: CatalogView | undefined): string {
+  const kinds = (catalog?.derivedKinds ?? []).filter((kind) => rows.some((row) => row.summary.kind === kind.key));
+  const parts = kinds.map((kind) => `${capitalize(kind.plural)} ${POLICY_REACH_WORDING[kind.recall]}`);
+  return parts.length === 0 ? "Accepted." : `Accepted. ${parts.join(". ")}.`;
+}
+
+/** Each kind's library filtered to this place, and the recall inspector standing here. */
 function PlaceOnwardLinks({ place }: { place: string }) {
   const catalog = useReviewCatalog();
-  const kinds = catalog?.derivedKinds ?? [];
-  const [onlyKind] = kinds;
   return (
-    <Group gap="xxs" {...stylex.props(styles.onward)}>
-      {kinds.length === 1 && onlyKind !== undefined ? (
-        <AnchorLink to="/kinds/$kind" params={{ kind: onlyKind.key }} search={{ place }} size="sm">
-          What applies here →
+    <Group gap="xs">
+      {(catalog?.derivedKinds ?? []).map((kind) => (
+        <AnchorLink key={kind.key} to="/kinds/$kind" params={{ kind: kind.key }} search={{ place }} size="xs">
+          <Group gap="2xs" wrap="nowrap" component="span">
+            <KindGlyph catalog={catalog} kind={kind.key} />
+            {capitalize(kind.plural)} here
+          </Group>
         </AnchorLink>
-      ) : (
-        <>
-          <Text size="sm" c="dark.4">
-            What applies here:
-          </Text>
-          {kinds.map((kind) => (
-            <AnchorLink key={kind.key} to="/kinds/$kind" params={{ kind: kind.key }} search={{ place }} size="sm">
-              <Group gap="2xs" wrap="nowrap" component="span">
-                <KindGlyph catalog={catalog} kind={kind.key} />
-                {capitalize(kind.plural)}
-              </Group>
-            </AnchorLink>
-          ))}
-        </>
-      )}
-      <Text size="sm" c="gray.4" aria-hidden>
-        ·
-      </Text>
-      <AnchorLink to="/recall" search={{ at: place }} size="sm">
-        Recall here →
+      ))}
+      <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? {} : { at: place }} size="xs">
+        Try recall here →
       </AnchorLink>
     </Group>
   );
@@ -130,34 +208,57 @@ function ProbeReachNotice({
         color="orange"
         variant="light"
         icon={<TriangleAlert size={16} />}
-        title={probeCount === 1 ? "Unmatched by your probe" : "Unmatched by your probes"}
+        title={probeCount === 1 ? "Your checked folder doesn't reach it" : "None of your checked folders reach it"}
       >
-        {probeCount === 1 ? "Your probe doesn't reach it" : `None of your ${probeCount} probes reach it`}, so{" "}
         {unmatched.derivations.length === 1
-          ? "this accepted item"
-          : `these ${unmatched.derivations.length} accepted items`}{" "}
-        would never apply from there. If the place moved, repoint it.
+          ? "This accepted item"
+          : `These ${unmatched.derivations.length} accepted items`}{" "}
+        would never apply from {probeCount === 1 ? "that folder" : `those ${probeCount} folders`}. If the place moved,
+        repoint it.
       </Alert>
     );
   if (acceptedHereCount === 0) return null;
   return (
     <Text size="xs" c="tastebud.8">
-      Reached by {matchingProbes.map((probe) => probe.probe).join(", ") || "your probes"}.
+      Reached from {matchingProbes.map((probe) => probe.probe).join(", ") || "your checked folders"}.
     </Text>
   );
 }
 
-/** What names this exact place. While the list loads it reads as empty, not as a spinner. */
-function ScopedHereList({ error, rows }: { error: Error | null; rows: ReadonlyArray<DerivationSummary> }) {
-  const catalog = useReviewCatalog();
-  if (error) return <QueryErrorAlert error={error} />;
-  if (rows.length === 0)
-    return (
-      <Text size="sm" c="dimmed">
-        Nothing names this exact place.
-      </Text>
-    );
-  return rows.map((row) => <DerivationSummaryLine catalog={catalog} key={row.id} summary={row} />);
+function SettledAgainst({
+  rows,
+  known,
+  onSelect,
+}: {
+  rows: ReadonlyArray<PlaceReachRow>;
+  known: KnownPlaces;
+  onSelect: (place: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (rows.length === 0) return null;
+  return (
+    <Stack gap="3xs">
+      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open}>
+        <Group gap="2xs">
+          <ChevronRight
+            size={13}
+            color="var(--mantine-color-gray-6)"
+            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
+          />
+          <Text size="sm" fw={600}>
+            Doesn't apply
+          </Text>
+          <Text size="xs" c="dimmed">
+            {plural(rows.length, "item", "items")} you rejected, retracted or replaced. Agents are told about rejections
+            so they don't propose them again.
+          </Text>
+        </Group>
+      </UnstyledButton>
+      <Collapse expanded={open}>
+        <ReachRows rows={rows} known={known} onSelect={onSelect} showStatus />
+      </Collapse>
+    </Stack>
+  );
 }
 
 export function PlaceDetails({
@@ -165,87 +266,106 @@ export function PlaceDetails({
   audit,
   probes,
   known,
+  onSelect,
 }: {
   place: string;
   audit: AuditPlacesResult;
   probes: ReadonlyArray<string>;
   known: KnownPlaces;
+  onSelect: (place: string) => void;
 }) {
   const catalog = useReviewCatalog();
   const [repointing, setRepointing] = useState(false);
   const all = useQuery(derivationListQuery({}));
-  if (place === GLOBAL_PLACE_NODE) {
-    const rows = (all.data ?? []).filter((row) => row.effectiveScope.scope === "global");
-    return (
-      <Stack gap="md">
-        <Group gap="xs">
-          <Globe size={16} color="var(--mantine-color-orange-6)" />
-          <Title order={4}>Everywhere</Title>
-        </Group>
-        <Text size="sm" c="dimmed">
-          Global items apply in every place, including ones that don't exist yet, and in unknown contexts.
-        </Text>
-        <CountsTable counts={audit.globalCounts} />
-        <Stack gap="xxs">
-          {rows.map((row) => (
-            <DerivationSummaryLine catalog={catalog} key={row.id} summary={row} />
-          ))}
-        </Stack>
-      </Stack>
-    );
-  }
-  const entry = audit.places.find((candidate) => candidate.place === place);
+  const isGlobal = place === GLOBAL_PLACE_NODE;
+  const reach = placeReachOf(place, all.data ?? []);
+  const acceptedScopedHere = reach.applies.filter((row) => row.origin.from === "here");
   const unmatched = audit.audit.unmatched.find((candidate) => candidate.place === place);
-  const scopedHere = (all.data ?? []).filter((row) => scopePlacesOf(row.effectiveScope).includes(place));
-  const acceptedHere = scopedHere.filter((row) => row.status === "accepted");
   const matchingProbes = audit.audit.probes.filter((probe) =>
     probe.places.some((reached) => placeCovers(place, reached)),
   );
+  const scopedHereCount = (all.data ?? []).filter((row) => scopePlacesOf(row.effectiveScope).includes(place)).length;
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Stack gap="2xs" {...stylex.props(styles.shrinkable)}>
-          <Group gap="xs" wrap="nowrap">
-            <PlaceFormIcon place={place} size={16} />
-            <Title order={4}>{known.labelOf(place)}</Title>
-          </Group>
+      <Stack gap="2xs" {...stylex.props(styles.shrinkable)}>
+        {isGlobal ? (
           <Group gap="xs">
-            <Text size="xs" c="dimmed">
-              {PLACE_FORM_NAMES[placeFormOf(place)]}
-            </Text>
-            <PlaceKeyCopy place={place} />
+            <Globe size={16} color="var(--mantine-color-orange-6)" />
+            <Title order={4}>Everywhere</Title>
           </Group>
-        </Stack>
-        <Button
-          size="xs"
-          variant="default"
-          onClick={() => setRepointing(true)}
-          disabled={acceptedHere.length === 0}
-          title={acceptedHere.length === 0 ? "Nothing accepted is scoped here" : undefined}
-        >
-          Repoint…
-        </Button>
-      </Group>
-      <PlaceOnwardLinks place={place} />
+        ) : (
+          <>
+            <Group gap="xs" wrap="nowrap">
+              <PlaceFormIcon place={place} size={16} />
+              <Title order={4}>{known.labelOf(place)}</Title>
+            </Group>
+            <Group gap="xs">
+              <Text size="xs" c="dimmed">
+                {PLACE_FORM_NAMES[placeFormOf(place)]}
+              </Text>
+              <PlaceKeyCopy place={place} />
+            </Group>
+          </>
+        )}
+        <PlaceOnwardLinks place={place} />
+      </Stack>
 
-      {probes.length > 0 && (
-        <ProbeReachNotice
-          probeCount={probes.length}
-          unmatched={unmatched}
-          acceptedHereCount={acceptedHere.length}
-          matchingProbes={matchingProbes}
-        />
+      {all.error ? (
+        <QueryErrorAlert error={all.error} />
+      ) : (
+        <>
+          <Text size="sm">
+            {isGlobal
+              ? `Global items apply in every place, including ones that don't exist yet. ${plural(reach.applies.length, "accepted item is", "accepted items are")} global.`
+              : reachSummary(reach.applies, known)}
+          </Text>
+
+          {probes.length > 0 && !isGlobal && (
+            <ProbeReachNotice
+              probeCount={probes.length}
+              unmatched={unmatched}
+              acceptedHereCount={acceptedScopedHere.length}
+              matchingProbes={matchingProbes}
+            />
+          )}
+
+          {reach.applies.length > 0 && (
+            <ReachSection title="Applies here" hint={appliesHint(reach.applies, catalog)}>
+              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} />
+            </ReachSection>
+          )}
+
+          {reach.waiting.length > 0 && (
+            <ReachSection
+              title="Waiting for you"
+              hint="Proposed to apply here. Nothing reaches agents until you accept it in the inbox."
+            >
+              <ReachRows rows={reach.waiting} known={known} onSelect={onSelect} />
+            </ReachSection>
+          )}
+
+          <SettledAgainst rows={reach.settledAgainst} known={known} onSelect={onSelect} />
+        </>
       )}
 
-      <CountsTable counts={entry?.counts ?? []} />
-
-      <Stack gap="xxs">
-        <Text size="sm" fw={600}>
-          Scoped here
-        </Text>
-        <ScopedHereList error={all.error} rows={scopedHere} />
-      </Stack>
-      <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
+      {!isGlobal && scopedHereCount > 0 && (
+        <Group gap="xs" pt="xs">
+          <Text size="xs" c="dimmed">
+            Moved or renamed this place? Repoint proposes the same items at the new place, for you to accept.
+          </Text>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="gray"
+            onClick={() => setRepointing(true)}
+            disabled={acceptedScopedHere.length === 0}
+            title={acceptedScopedHere.length === 0 ? "Nothing accepted is scoped exactly here" : undefined}
+          >
+            Repoint…
+          </Button>
+          <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
+        </Group>
+      )}
     </Stack>
   );
 }

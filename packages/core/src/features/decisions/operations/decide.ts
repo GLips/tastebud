@@ -1,7 +1,7 @@
 /**
  * `decide`: a human's accept, reject or retract. Reached only through the review server and the
- * seed. An accept may amend the scope, and re-runs the repeat check against the scope it settles on.
- * Accepting an accepted derivation again moves it to a new scope in place, under the same checks.
+ * seed, from any status `decisionInvalidReason` allows. An accept may amend the scope, and re-runs the
+ * repeat check against the scope it settles on. Accepting an accepted derivation again moves it in place.
  */
 import { Effect, Schema } from "effect";
 

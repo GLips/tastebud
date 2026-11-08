@@ -46,9 +46,9 @@ export interface DerivationLookup {
 }
 
 /**
- * Why a decision is or isn't valid given the statuses at that moment. Shared by the write-time check
- * (under the lock) and the replay below, so a file that slipped past the lock (hand-written, or a
- * race on another machine) has no effect instead of corrupting status.
+ * Why a decision is or isn't valid at that moment. Shared by the write-time check and the replay, so a
+ * file that slipped past the lock has no effect. The owner may change their mind any time, except on
+ * a superseded derivation: its accepted revision governs in its place, so decide on that instead.
  */
 export const decisionInvalidReason = (
   outcome: DecisionOutcome,
@@ -56,19 +56,19 @@ export const decisionInvalidReason = (
   lookup: DerivationLookup,
 ): string | undefined => {
   const status = lookup.statusOf(derivation.id);
+  if (status === "superseded")
+    return `this ${derivation.kind} is superseded by its accepted revision; decide on the revision instead`;
   if (outcome === "retract")
     return status === "accepted" ? undefined : `only an accepted ${derivation.kind} can be retracted (it is ${status})`;
+  if (outcome === "reject") return status === "rejected" ? `this ${derivation.kind} is already rejected` : undefined;
   // Accepting an accepted derivation again is the owner moving it: the latest accept's scope governs.
-  if (outcome === "accept" && status === "accepted") return undefined;
-  if (status !== "pending") return `only a pending ${derivation.kind} can be decided (it is ${status})`;
-  if (outcome === "accept" && derivation.supersedes !== undefined) {
-    if (lookup.kindOf(derivation.supersedes) !== derivation.kind)
-      return `it supersedes ${derivation.supersedes}, which is not a ${derivation.kind}`;
-    // A retracted target has nothing left to replace, so accepting its revision stands on its own.
-    const replaced = lookup.statusOf(derivation.supersedes);
-    if (replaced !== "accepted" && replaced !== "retracted")
-      return `it supersedes ${derivation.supersedes}, which is ${replaced}, not accepted`;
-  }
+  if (status === "accepted" || derivation.supersedes === undefined) return undefined;
+  if (lookup.kindOf(derivation.supersedes) !== derivation.kind)
+    return `it supersedes ${derivation.supersedes}, which is not a ${derivation.kind}`;
+  // A retracted target has nothing left to replace, so accepting its revision stands on its own.
+  const replaced = lookup.statusOf(derivation.supersedes);
+  if (replaced !== "accepted" && replaced !== "retracted")
+    return `it supersedes ${derivation.supersedes}, which is ${replaced}, not accepted`;
   return undefined;
 };
 
