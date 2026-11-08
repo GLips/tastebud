@@ -9,13 +9,13 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
+import type { DerivationRow } from "@tastebud/core/record-browsing";
 import { DERIVATION_STATUSES, type DerivationStatus, DerivationStatusSchema } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 import { CornerDownRight, MessageSquare, Search } from "lucide-react";
@@ -25,15 +25,22 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { formatReviewDate } from "#review/shared/format.ts";
 import { capitalize, describeKindDelivery, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon, ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
+import {
+  DERIVATION_STATUS_MEANINGS,
+  DERIVATION_STATUS_WORDS,
+  DerivationStatusDot,
+} from "#review/shared/ui/status-chips.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 
 const styles = stylex.create({
   fitCell: { width: "1%", whiteSpace: "nowrap" },
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
+  groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
+  row: { backgroundColor: { default: null, ":hover": "var(--mantine-color-gray-0)" } },
 });
 
 const STATUS_CHOICES = ["all", ...DERIVATION_STATUSES] as const;
@@ -45,6 +52,69 @@ export const KindLibrarySearch = Schema.Struct({
 });
 
 const Route = getRouteApi("/kinds/$kind");
+
+/** Rows in status sections, in lifecycle order; a status with no rows has no section. */
+const groupDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
+  DERIVATION_STATUSES.map((status) => ({ status, rows: rows.filter((row) => row.status === status) })).filter(
+    (group) => group.rows.length > 0,
+  );
+
+/** Why a row is in its section, in one line; pending and accepted need none. */
+function DerivationRowWhy({ row }: { row: DerivationRow }) {
+  if (row.status === "superseded" && row.replacedBy !== undefined)
+    return (
+      <Group gap="2xs" wrap="nowrap">
+        <CornerDownRight size={12} color="var(--mantine-color-gray-5)" />
+        <Text size="xs" c="dimmed" span>
+          Replaced by
+        </Text>
+        <AnchorLink to="/derivations/$id" params={{ id: row.replacedBy.id }} size="xs" c="dimmed" lineClamp={1}>
+          “{row.replacedBy.statement}”
+        </AnchorLink>
+      </Group>
+    );
+  if (row.status === "rejected" || row.status === "retracted")
+    return (
+      <Text size="xs" c="dimmed" lineClamp={1}>
+        {DERIVATION_STATUS_WORDS[row.status]} {formatReviewDate(row.decidedAt)}
+        {row.reason !== undefined && `: “${row.reason}”`}
+      </Text>
+    );
+  return null;
+}
+
+function KindLibraryRow({ row, labels }: { row: DerivationRow; labels: ReadonlyMap<string, string> }) {
+  return (
+    <Table.Tr {...stylex.props(styles.row)}>
+      <Table.Td pl="xl">
+        <AnchorLink to="/derivations/$id" params={{ id: row.id }} c="inherit" fw={500} size="sm" underline="hover">
+          {row.statement}
+        </AnchorLink>
+        <DerivationRowWhy row={row} />
+      </Table.Td>
+      <Table.Td w={48}>
+        {row.threadCount > 0 && (
+          <Tooltip label={`${row.threadCount} ${row.threadCount === 1 ? "note" : "notes"} in the thread`} withArrow>
+            <Group gap="3xs" wrap="nowrap" c="dimmed">
+              <MessageSquare size={13} />
+              <Text size="xs">{row.threadCount}</Text>
+            </Group>
+          </Tooltip>
+        )}
+      </Table.Td>
+      <Table.Td {...stylex.props(styles.fitCell)}>
+        <ScopeChips scope={row.effectiveScope} labels={labels} />
+      </Table.Td>
+      <Table.Td w={96} ta="right">
+        <Tooltip label="Proposed" withArrow>
+          <Text size="xs" c="dimmed" {...stylex.props(styles.numericNoWrap)}>
+            {formatReviewDate(row.proposedAt)}
+          </Text>
+        </Tooltip>
+      </Table.Td>
+    </Table.Tr>
+  );
+}
 
 export function KindLibraryPage() {
   const { kind: kindKey } = Route.useParams();
@@ -88,19 +158,16 @@ export function KindLibraryPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="nowrap">
-        <Stack gap="3xs">
-          <Group gap="xs">
-            <KindGlyph catalog={catalog} kind={kindKey} size={14} />
-            <Title order={3}>{capitalize(plural)}</Title>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {kind === undefined
-              ? "This kind is no longer in tastebud.config.ts; its records are read-only."
-              : [kind.description, describeKindDelivery(kind)].filter(Boolean).join(" ")}
-          </Text>
-        </Stack>
-      </Group>
+      <ReviewPageHeader
+        icon={<KindGlyph catalog={catalog} kind={kindKey} size={14} />}
+        title={capitalize(plural)}
+        purpose={`Every ${kind?.singular ?? kindKey} your agents have proposed, grouped by where it stands. Open one to see why, or to change your mind.`}
+        details={
+          kind === undefined
+            ? "This kind is no longer in tastebud.config.ts; its records are read-only."
+            : [kind.description, describeKindDelivery(kind)].filter(Boolean).join(" ")
+        }
+      />
 
       <Group gap="sm" wrap="wrap">
         <SegmentedControl
@@ -154,68 +221,30 @@ export function KindLibraryPage() {
             </Center>
           ) : (
             <Paper p={0}>
-              <Table verticalSpacing={8} horizontalSpacing="md" highlightOnHover>
-                <Table.Tbody>
-                  {rows.map((row) => (
-                    <Table.Tr key={row.id}>
-                      <Table.Td w={28} pr={0}>
-                        <DerivationStatusDot status={row.status} />
-                      </Table.Td>
-                      <Table.Td>
-                        <AnchorLink
-                          to="/derivations/$id"
-                          params={{ id: row.id }}
-                          c="inherit"
-                          fw={500}
-                          size="sm"
-                          underline="hover"
-                        >
-                          {row.statement}
-                        </AnchorLink>
-                        {row.replacedBy !== undefined && (
-                          <Group gap="2xs" wrap="nowrap">
-                            <CornerDownRight size={12} color="var(--mantine-color-gray-5)" />
-                            <AnchorLink
-                              to="/derivations/$id"
-                              params={{ id: row.replacedBy.id }}
-                              size="xs"
-                              c="dimmed"
-                              lineClamp={1}
-                            >
-                              {row.replacedBy.statement}
-                            </AnchorLink>
-                          </Group>
-                        )}
-                        {row.status === "rejected" && row.reason !== undefined && (
-                          <Text size="xs" c="dimmed" lineClamp={1}>
-                            “{row.reason}”
+              <Table verticalSpacing="xs" horizontalSpacing="md">
+                {groupDerivationRowsByStatus(rows).map(({ status, rows: group }) => (
+                  <Table.Tbody key={status}>
+                    <Table.Tr {...stylex.props(styles.groupRow)}>
+                      <Table.Td colSpan={4} py="xxs">
+                        <Group gap="xs" wrap="nowrap">
+                          <DerivationStatusDot status={status} />
+                          <Text size="sm" fw={600}>
+                            {DERIVATION_STATUS_WORDS[status]}
                           </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td w={48}>
-                        {row.threadCount > 0 && (
-                          <Tooltip
-                            label={`${row.threadCount} ${row.threadCount === 1 ? "note" : "notes"} in the thread`}
-                            withArrow
-                          >
-                            <Group gap={3} wrap="nowrap" c="dimmed">
-                              <MessageSquare size={13} />
-                              <Text size="xs">{row.threadCount}</Text>
-                            </Group>
-                          </Tooltip>
-                        )}
-                      </Table.Td>
-                      <Table.Td {...stylex.props(styles.fitCell)}>
-                        <ScopeChips scope={row.effectiveScope} labels={known.labels} />
-                      </Table.Td>
-                      <Table.Td w={96} ta="right">
-                        <Text size="xs" c="dimmed" {...stylex.props(styles.numericNoWrap)}>
-                          {formatReviewDate(row.proposedAt)}
-                        </Text>
+                          <Text size="sm" c="dimmed" {...stylex.props(styles.numericNoWrap)}>
+                            {group.length}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {DERIVATION_STATUS_MEANINGS[status]}
+                          </Text>
+                        </Group>
                       </Table.Td>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
+                    {group.map((row) => (
+                      <KindLibraryRow key={row.id} row={row} labels={known.labels} />
+                    ))}
+                  </Table.Tbody>
+                ))}
               </Table>
             </Paper>
           )

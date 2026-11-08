@@ -1,7 +1,10 @@
 import { Alert, Button, Center, Stack, Text, Title } from "@mantine/core";
+import * as stylex from "@stylexjs/stylex";
 import { Link, type ErrorComponentProps } from "@tanstack/react-router";
 
 import { type ReviewFailure, ReviewQueryError } from "#review/shared/review-outcome.ts";
+
+const styles = stylex.create({ message: { whiteSpace: "pre-wrap" } });
 
 export function RouteErrorPanel({ error, reset }: ErrorComponentProps) {
   return (
@@ -43,7 +46,7 @@ export function QueryErrorAlert({ error }: { error: Error }) {
   const title = error instanceof ReviewQueryError ? FAILURE_TITLES[error.failure.category] : "Could not load this";
   return (
     <Alert color="red" title={title}>
-      <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+      <Text size="sm" {...stylex.props(styles.message)}>
         {error.message}
       </Text>
     </Alert>

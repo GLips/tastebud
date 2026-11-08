@@ -30,10 +30,11 @@ export const PLACE_FORM_NAMES: Record<PlaceForm, string> = {
 
 export function PlaceFormIcon({ place, size = 12 }: { place: PlaceKey; size?: number }) {
   const Icon = PLACE_FORM_ICONS[placeFormOf(place)];
-  return <Icon size={size} strokeWidth={2} aria-hidden style={{ flexShrink: 0 }} />;
+  return <Icon size={size} strokeWidth={2} aria-hidden {...stylex.props(styles.formIcon)} />;
 }
 
 const styles = stylex.create({
+  formIcon: { flexShrink: 0 },
   key: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: "11px", wordBreak: "break-all" },
   copyable: { cursor: "copy", userSelect: "all" },
   // Quiet until pointed at: the chip reads as a label, and only hover or focus shows it leads somewhere.

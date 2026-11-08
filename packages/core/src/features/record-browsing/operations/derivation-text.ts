@@ -66,7 +66,7 @@ export const renderShowText = (result: ShowResult) => {
   const reverse = [
     ...block(
       "Cited by",
-      result.citedBy.map((other) => `  ${formatDerivationSummary(other)}`),
+      result.citedBy.map((other) => `  ${other.role}: ${formatDerivationSummary(other)}`),
     ),
     ...block(
       "Revised by",

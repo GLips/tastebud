@@ -3,9 +3,15 @@
  * the catalog (so three kinds never collide), and the one line that says how a kind reaches agents.
  */
 import { Tooltip } from "@mantine/core";
+import * as stylex from "@stylexjs/stylex";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Diamond, Hexagon, type LucideIcon, Pentagon, Square, Triangle } from "lucide-react";
+
+const styles = stylex.create({
+  glyph: { flexShrink: 0 },
+  tooltipTarget: { display: "inline-flex" },
+});
 
 // Shapes stay clear of the circle, which status dots own; colours stay clear of green, red, orange and blue.
 const KIND_ACCENTS: ReadonlyArray<{ readonly icon: LucideIcon; readonly color: string }> = [
@@ -50,14 +56,14 @@ export function KindGlyph({
       fill={`var(--mantine-color-${accent.color}-1)`}
       aria-hidden={label === undefined}
       aria-label={label}
-      style={{ flexShrink: 0 }}
+      {...stylex.props(styles.glyph)}
     />
   );
   return label === undefined ? (
     glyph
   ) : (
     <Tooltip label={label} withArrow openDelay={200}>
-      <span style={{ display: "inline-flex" }}>{glyph}</span>
+      <span {...stylex.props(styles.tooltipTarget)}>{glyph}</span>
     </Tooltip>
   );
 }

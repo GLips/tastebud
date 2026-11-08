@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Container,
   createTheme,
   type MantineColorsTuple,
   Paper,
@@ -58,6 +59,12 @@ const reviewShadows = {
   listeningDot: "0 0 0 3px var(--mantine-color-teal-1)",
 };
 
+/**
+ * The one content width, in px, every page sits in: the shell's bar and its main column both use it
+ * through Container's default size, so a page fills the column instead of choosing its own width.
+ */
+const reviewPageWidth = 1120;
+
 const remScale = (scale: Readonly<Record<string, number>>): Record<string, string> =>
   Object.fromEntries(Object.entries(scale).map(([name, px]) => [name, rem(px)]));
 
@@ -77,6 +84,7 @@ export const tastebudMantineTheme = createTheme({
   headings: { fontWeight: "650" },
   components: {
     Button: Button.extend({ defaultProps: { size: "xs" } }),
+    Container: Container.extend({ defaultProps: { size: reviewPageWidth } }),
     ActionIcon: ActionIcon.extend({ defaultProps: { radius: "md" } }),
     Badge: Badge.extend({ defaultProps: { radius: "sm", variant: "light", size: "sm" } }),
     Text: Text.extend({ defaultProps: { size: "sm" } }),

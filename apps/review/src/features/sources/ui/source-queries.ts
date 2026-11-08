@@ -5,11 +5,15 @@ import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";
 
 import { fetchSourceList } from "../controllers/source-list.ts";
 
-export const sourceListQuery = (kind: string | undefined) =>
+export const sourceListQuery = (kind: string | undefined, text: string | undefined) =>
   queryOptions({
-    queryKey: REVIEW_QUERY_KEYS.sources(kind),
+    queryKey: REVIEW_QUERY_KEYS.sources(kind, text),
     queryFn: async () =>
-      unwrapReviewOutcome(await fetchSourceList({ data: kind === undefined ? {} : { kind: [kind] } })),
+      unwrapReviewOutcome(
+        await fetchSourceList({
+          data: { ...(kind !== undefined && { kind: [kind] }), ...(text !== undefined && { text }) },
+        }),
+      ),
     refetchInterval: REVIEW_POLL_MS * 3,
     placeholderData: keepPreviousData,
   });

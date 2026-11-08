@@ -1,7 +1,7 @@
 import { mapReviewOutcome } from "#review/shared/review-outcome.ts";
 
-import { readSourcesOfKinds } from "../repo/source-list.server.ts";
+import { readSourceList, type SourceListFilter } from "../repo/source-list.server.ts";
 
-/** Every source, optionally of some kinds. Speaker filtering happens in the browser. */
-export const loadSourceList = async (kind: ReadonlyArray<string> | undefined) =>
-  mapReviewOutcome(await readSourcesOfKinds(kind), (listed) => listed.sources);
+/** Sources, optionally of some kinds or matching words. Speaker filtering happens in the browser. */
+export const loadSourceList = async (filter: SourceListFilter) =>
+  mapReviewOutcome(await readSourceList(filter), (listed) => listed.sources);

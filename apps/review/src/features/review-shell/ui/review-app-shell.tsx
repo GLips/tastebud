@@ -33,18 +33,42 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    ":hover": { backgroundColor: "var(--mantine-color-gray-1)" },
+    backgroundColor: { default: null, ":hover": "var(--mantine-color-gray-1)" },
   },
-  navActive: { backgroundColor: "var(--mantine-color-tastebud-0)", color: "var(--mantine-color-tastebud-9)" },
+  navActive: {
+    backgroundColor: { default: "var(--mantine-color-tastebud-0)", ":hover": "var(--mantine-color-tastebud-1)" },
+    color: "var(--mantine-color-tastebud-9)",
+    fontWeight: 600,
+  },
   divider: { width: "1px", height: "16px", backgroundColor: "var(--mantine-color-gray-2)", marginInline: "4px" },
   who: { display: "flex", alignItems: "center", gap: "5px", cursor: "default" },
   main: { paddingBlock: "20px" },
 });
 
-// TanStack's `activeProps` styles the current tab; StyleX can't express "this link is active", so this is inline.
-const ACTIVE_NAV = {
-  style: { backgroundColor: "var(--mantine-color-tastebud-0)", color: "var(--mantine-color-tastebud-9)" },
-};
+/**
+ * Whether the page at `pathname` belongs to the nav entry at `section`: the section itself or a page under
+ * it, so a source's page keeps Sources lit. The inbox is `/` and matches only itself.
+ */
+const isNavSectionActive = (pathname: string, section: string) =>
+  section === "/" ? pathname === "/" : pathname === section || pathname.startsWith(`${section}/`);
+
+function useNavSectionActive(section: string) {
+  return useRouterState({ select: (state) => isNavSectionActive(state.location.pathname, section) });
+}
+
+/** One top-level entry. Active state is computed here, not with `activeProps`, so StyleX merges it with the base. */
+function ShellNavLink({ to, children }: { to: "/" | "/sources" | "/recall" | "/places"; children: ReactNode }) {
+  const active = useNavSectionActive(to);
+  return (
+    <Link
+      to={to}
+      {...stylex.props(styles.navLink, active && styles.navActive)}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
+    </Link>
+  );
+}
 
 /** Past this many derived kinds the header folds them into one Library menu. */
 const INLINE_KIND_LIMIT = 3;
@@ -59,8 +83,7 @@ function KindNavigation() {
         key={kind.key}
         to="/kinds/$kind"
         params={{ kind: kind.key }}
-        {...stylex.props(styles.navLink)}
-        activeProps={ACTIVE_NAV}
+        {...stylex.props(styles.navLink, isNavSectionActive(pathname, `/kinds/${kind.key}`) && styles.navActive)}
       >
         <KindGlyph catalog={catalog} kind={kind.key} size={10} />
         {capitalize(kind.plural)}
@@ -121,26 +144,27 @@ function ReviewerIdentity() {
 
 export function ReviewAppShell({ children }: { children: ReactNode }) {
   const shell = useQuery(reviewShellQuery);
+  const settingsActive = useNavSectionActive("/settings");
   const hasKinds = (shell.data?.catalog.derivedKinds.length ?? 0) > 0;
   const pendingTotal = Object.values(shell.data?.pendingByKind ?? {}).reduce((sum, count) => sum + count, 0);
   return (
     <Box {...stylex.props(styles.page)}>
       <Box component="header" {...stylex.props(styles.header)}>
-        <Container size="lg">
+        <Container>
           <Group justify="space-between" wrap="nowrap" {...stylex.props(styles.bar)}>
             <Group gap="lg" wrap="nowrap">
-              <Link to="/" {...stylex.props(styles.brand)}>
+              <Link to="/" aria-label="Tastebud: back to the inbox" {...stylex.props(styles.brand)}>
                 <Box component="img" src="/brand/lockup.svg" alt="tastebud" {...stylex.props(styles.lockup)} />
               </Link>
               <Group gap="3xs" wrap="nowrap" fz="sm">
-                <Link to="/" {...stylex.props(styles.navLink)} activeOptions={{ exact: true }} activeProps={ACTIVE_NAV}>
+                <ShellNavLink to="/">
                   Inbox
                   {pendingTotal > 0 && (
                     <Badge size="sm" circle={pendingTotal < 10} variant="filled">
                       {pendingTotal}
                     </Badge>
                   )}
-                </Link>
+                </ShellNavLink>
                 {hasKinds && (
                   <>
                     <Box component="span" {...stylex.props(styles.divider)} />
@@ -148,15 +172,9 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
                   </>
                 )}
                 <Box component="span" {...stylex.props(styles.divider)} />
-                <Link to="/sources" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
-                  Sources
-                </Link>
-                <Link to="/recall" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
-                  Recall
-                </Link>
-                <Link to="/places" {...stylex.props(styles.navLink)} activeProps={ACTIVE_NAV}>
-                  Places
-                </Link>
+                <ShellNavLink to="/sources">Sources</ShellNavLink>
+                <ShellNavLink to="/recall">Recall</ShellNavLink>
+                <ShellNavLink to="/places">Places</ShellNavLink>
               </Group>
             </Group>
             <Group gap={10} wrap="nowrap">
@@ -165,10 +183,10 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
                 <ActionIcon
                   component={Link}
                   to="/settings"
-                  variant="subtle"
-                  color="gray"
+                  variant={settingsActive ? "light" : "subtle"}
+                  color={settingsActive ? "tastebud" : "gray"}
                   aria-label="Settings"
-                  activeProps={{ "data-active": true, style: { color: "var(--mantine-color-tastebud-9)" } }}
+                  aria-current={settingsActive ? "page" : undefined}
                 >
                   <Settings size={16} />
                 </ActionIcon>
@@ -177,9 +195,7 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
           </Group>
         </Container>
       </Box>
-      <Container size="lg" {...stylex.props(styles.main)}>
-        {children}
-      </Container>
+      <Container {...stylex.props(styles.main)}>{children}</Container>
     </Box>
   );
 }
