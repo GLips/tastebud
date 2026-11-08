@@ -4,6 +4,7 @@
  * The rarer choices (standing in a folder or nowhere, including history) sit behind Options.
  */
 import {
+  Box,
   Button,
   Checkbox,
   Collapse,
@@ -16,13 +17,12 @@ import {
   TextInput,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { Folder, Search, SlidersHorizontal, Tag } from "lucide-react";
+import { Folder, Search, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
-import { KnownPlaceSearch } from "#review/shared/ui/known-place-search.tsx";
-import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
+import { PlaceSelect } from "#review/shared/ui/place-select.tsx";
 
 const styles = stylex.create({
   grow: { flex: 1, minWidth: 0 },
@@ -69,13 +69,11 @@ export function RecallCheckForm({ check, onRun }: { check: RecallCheck; onRun: (
   const [query, setQuery] = useState(check.q ?? "");
   const [mode, setMode] = useState<ContextMode>(initialModeOf(check));
   const [directory, setDirectory] = useState(check.in ?? "");
-  // Shows the place's label while it is a known place; a typed key is kept as typed.
-  const [placeText, setPlaceText] = useState(check.at === undefined ? "" : known.labelOf(check.at));
+  const [place, setPlace] = useState(check.at);
   const [kind, setKind] = useState(check.kind);
   const [history, setHistory] = useState(check.history === true);
   const recallKinds = (catalog?.derivedKinds ?? []).filter((candidate) => candidate.recall !== "never");
   const kindLabel = capitalize(recallKinds.find((candidate) => candidate.key === check.kind)?.plural ?? "all kinds");
-  const placeKey = known.places.find((candidate) => known.labelOf(candidate) === placeText.trim()) ?? placeText.trim();
 
   if (!editing)
     return (
@@ -100,7 +98,7 @@ export function RecallCheckForm({ check, onRun }: { check: RecallCheck; onRun: (
           onRun({
             ...(query.trim() !== "" && { q: query.trim() }),
             ...(mode === "in" && directory.trim() !== "" && { in: directory.trim() }),
-            ...(mode === "at" && placeKey !== "" && { at: placeKey }),
+            ...(mode === "at" && place !== undefined && { at: place }),
             ...(kind !== undefined && { kind }),
             ...(history && { history: true }),
           });
@@ -123,17 +121,9 @@ export function RecallCheckForm({ check, onRun }: { check: RecallCheck; onRun: (
           </Group>
           <Group gap="xs" wrap="nowrap">
             {mode === "at" && (
-              <KnownPlaceSearch
-                known={known}
-                options={known.places}
-                aria-label="Where the agent works"
-                placeholder="Where the agent works: search places, or type a key such as clients/acme"
-                leftSection={placeKey === "" ? <Tag size={13} /> : <PlaceFormIcon place={placeKey} size={13} />}
-                value={placeText}
-                onChange={setPlaceText}
-                onPick={(picked) => setPlaceText(known.labelOf(picked))}
-                {...stylex.props(styles.grow)}
-              />
+              <Box {...stylex.props(styles.grow)}>
+                <PlaceSelect value={place} known={known} onChange={setPlace} aria-label="Stand at this place" />
+              </Box>
             )}
             {mode === "in" && (
               <TextInput

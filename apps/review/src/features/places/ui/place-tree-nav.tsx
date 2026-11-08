@@ -13,7 +13,10 @@ import { buildPlaceTree, filterPlaceTree, firstPlaceShown, type PlaceTreeNode, t
 
 const styles = stylex.create({
   indent: (depth: number) => ({ paddingLeft: `${8 + depth * 14}px` }),
-  tree: { position: { default: "sticky", "@media (max-width: 860px)": "static" }, top: "68px" },
+  tree: {
+    position: { default: "sticky", "@media (max-width: 860px)": "static" },
+    top: "calc(var(--review-shell-header-height) + var(--mantine-spacing-md))",
+  },
   node: {
     display: "flex",
     alignItems: "center",
@@ -80,7 +83,12 @@ function TreeNodes({
               <TriangleAlert size={12} {...stylex.props(styles.unmatched)} />
             </Tooltip>
           )}
-          <Box component="span" fz="2xs" {...stylex.props(styles.count)}>
+          <Box
+            component="span"
+            fz="2xs"
+            title={`${countsByPlace.get(node.place) ?? 0} scoped here, in any status`}
+            {...stylex.props(styles.count)}
+          >
             {countsByPlace.get(node.place) ?? 0}
           </Box>
         </UnstyledButton>
@@ -149,6 +157,9 @@ export function PlaceTreeNav({
         onChange={(event) => setNeedle(event.currentTarget.value)}
         mb="2xs"
       />
+      <Text size="2xs" c="dimmed" px="xs" mb="2xs">
+        Counts: items scoped to each place.
+      </Text>
       <ScrollArea.Autosize mah="calc(100vh - 220px)">
         {globalCount > 0 && (
           <UnstyledButton
@@ -160,7 +171,12 @@ export function PlaceTreeNav({
             <Box component="span" {...stylex.props(styles.nodeLabel)}>
               Everywhere
             </Box>
-            <Box component="span" fz="2xs" {...stylex.props(styles.count)}>
+            <Box
+              component="span"
+              fz="2xs"
+              title={`${globalCount} scoped everywhere, in any status`}
+              {...stylex.props(styles.count)}
+            >
               {globalCount}
             </Box>
           </UnstyledButton>
