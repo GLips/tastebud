@@ -14,6 +14,7 @@ import {
   type ScopeDraft,
   type ScopePick,
   scopePlacesOf,
+  scopePlacesReplacedBy,
   typedPlaceChoicesOf,
 } from "@tastebud/core/places";
 import { Result } from "effect";
@@ -40,11 +41,30 @@ export type PlacePickerOption =
       readonly value: string;
       readonly place: PlaceKey;
       readonly label: string;
-      /** How the typed text is read: "in acme/web", "as a named place". */
+      /** The place's form: "as a folder", "as a named place". */
       readonly meaning: string;
+      readonly effect: TypedPlaceEffect;
     }
   /** While Everywhere is chosen: go back to the places chosen before it. */
   | { readonly kind: "earlier"; readonly value: string; readonly places: ReadonlyArray<PlaceKey> };
+
+/**
+ * What picking a typed place does to the chosen ones, so its row can say so: it goes beside them, or
+ * takes the place of those it is inside or around (or of Everywhere). A single-place select always
+ * uses it, instead of nothing.
+ */
+export type TypedPlaceEffect =
+  | { readonly effect: "add"; readonly beside: ReadonlyArray<PlaceKey> }
+  | { readonly effect: "use"; readonly instead: ReadonlyArray<PlaceKey> | "everywhere" };
+
+const typedPlaceEffectOf = (mode: "scope" | "single", draft: ScopeDraft, place: PlaceKey): TypedPlaceEffect => {
+  if (mode === "single") return { effect: "use", instead: [] };
+  if (draft.scope === "global") return { effect: "use", instead: "everywhere" };
+  const replaced = scopePlacesReplacedBy(draft, place);
+  return replaced.length > 0 || draft.places.length === 0
+    ? { effect: "use", instead: replaced }
+    : { effect: "add", beside: draft.places };
+};
 
 interface PlacePickerGroup {
   /** No heading for the Everywhere row. */
@@ -134,7 +154,14 @@ export const placePickerGroupsOf = ({
           labelOf,
         })
           .filter((choice) => !listed.has(choice.place))
-          .map(({ place, label, meaning }) => ({ kind: "typed", value: `typed:${place}`, place, label, meaning }));
+          .map(({ place, label, meaning }) => ({
+            kind: "typed",
+            value: `typed:${place}`,
+            place,
+            label,
+            meaning,
+            effect: typedPlaceEffectOf(mode, draft, place),
+          }));
 
   const everywhereMatches =
     mode === "scope" && (needle === "" || "everywhere".includes(needle) || "global".includes(needle));

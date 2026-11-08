@@ -33,6 +33,7 @@ export {
   isSameScope,
   relativePlacePath,
   type ScopeDraft,
+  scopePlacesReplacedBy,
   type ScopePick,
   type ScopePickState,
   typedPlaceChoicesOf,
