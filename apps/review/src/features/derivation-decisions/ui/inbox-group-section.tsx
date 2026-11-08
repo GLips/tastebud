@@ -26,10 +26,9 @@ import { sendReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
-  // Sticks just under the shell's 48px header; the shell doesn't expose that height, so it is repeated here.
   groupHeader: {
     position: "sticky",
-    top: "48px",
+    top: "var(--review-shell-header-height)",
     zIndex: 5,
     paddingTop: "12px",
     paddingBottom: "6px",
@@ -217,7 +216,7 @@ export function InboxGroupSection({
               loading={batch.pending}
               onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
             >
-              {kind.acceptLabel} {ready.length} unchanged
+              {`${kind.acceptLabel} ${ready.length === 2 ? "both" : `all ${ready.length}`} as proposed`}
             </Button>
           </Group>
         )}

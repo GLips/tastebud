@@ -20,7 +20,7 @@ import { inboxGroupsQuery } from "./decision-queries.ts";
 import { InboxProposalCard } from "./inbox-card.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
-import { InboxNarrowActions, InboxRail } from "./inbox-rail.tsx";
+import { InboxHeaderActions, InboxRail } from "./inbox-rail.tsx";
 
 /** `card` selects one proposal on arrival, for links that name a specific pending item. */
 export const InboxSearch = Schema.Struct({
@@ -38,8 +38,8 @@ let leftSelectedCard: string | undefined;
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
   alignCenter: { alignSelf: "center" },
-  // The queue keeps a readable measure; the rail beside it takes the rest of the shell's width.
-  queue: { flex: 1, minWidth: 0 },
+  // A readable measure with or without the rail, so the queue doesn't jump when the rail appears.
+  queue: { flex: 1, minWidth: 0, maxWidth: "760px" },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
 });
@@ -195,7 +195,7 @@ export function InboxPage() {
       <ReviewPageHeader
         title="Inbox"
         purpose={`Proposals waiting on you. ${describeAcceptedOutcome(kind)}`}
-        actions={<InboxNarrowActions />}
+        actions={<InboxHeaderActions />}
       />
       <Group align="flex-start" wrap="nowrap" gap="xl">
         <Stack gap="md" {...stylex.props(styles.queue)}>
