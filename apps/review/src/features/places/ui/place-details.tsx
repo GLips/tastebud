@@ -1,24 +1,44 @@
 /**
  * The Places page's right column: everything that reaches one place, accepted first, each with the
  * place it comes from (here, a parent, or everywhere), then what waits for you and what you turned
- * down. Repoint and the probe audit sit below as secondary tools.
+ * down. Moving the place (repoint) sits in the header menu.
  */
-import { Alert, Anchor, Box, Button, Collapse, Group, Stack, Text, Title, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Box,
+  Collapse,
+  CopyButton,
+  Group,
+  Menu,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
-import { placeCovers, scopePlacesOf } from "@tastebud/core/places";
+import { placeCovers } from "@tastebud/core/places";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { ChevronRight, Globe, TriangleAlert } from "lucide-react";
+import { Check, ChevronRight, Copy, Ellipsis, Globe, TriangleAlert } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { derivationListQuery } from "#review/features/derivation-library/index.ts";
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
-import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf, PlaceKeyCopy } from "#review/shared/ui/place-chips.tsx";
+import {
+  capitalize,
+  describeKindDelivery,
+  findKindView,
+  KindGlyph,
+  RECALL_POLICY_LABELS,
+} from "#review/shared/ui/kind-identity.tsx";
+import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
@@ -47,6 +67,21 @@ const SETTLED_STATUS_WORDS: Partial<Record<DerivationStatus, string>> = {
   retracted: "Retracted",
   superseded: "Replaced by a newer revision",
 };
+
+/** The full place key, copied on click; it shows only in the tooltip, never in the header line. */
+function PlaceKeyCopyButton({ place }: { place: string }) {
+  return (
+    <CopyButton value={place}>
+      {({ copied, copy }) => (
+        <Tooltip label={copied ? "Copied" : `Copy the key: ${place}`} withArrow fz="xs">
+          <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the place key" onClick={copy}>
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </CopyButton>
+  );
+}
 
 /** Where a row reaches this place from, in words; a parent is a link that opens it. */
 function ReachOrigin({
@@ -93,33 +128,45 @@ function ReachRows({
   known,
   onSelect,
   showStatus = false,
+  showDelivery = false,
 }: {
   rows: ReadonlyArray<PlaceReachRow>;
   known: KnownPlaces;
   onSelect: (place: string) => void;
   showStatus?: boolean;
+  /** Say how each item reaches agents, so a backlog idea isn't read as a rule. */
+  showDelivery?: boolean;
 }) {
   const catalog = useReviewCatalog();
   return (
     <Box>
-      {rows.map((row) => (
-        <Box key={row.summary.id} {...stylex.props(styles.row)}>
-          <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
-          <Text size="sm">
-            <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
-              {row.summary.statement}
-            </AnchorLink>
-            {showStatus && (
-              <Text span size="xs" c={row.summary.status === "rejected" ? "red.7" : "dimmed"}>
-                {" "}
-                · {SETTLED_STATUS_WORDS[row.summary.status]}
-                {row.summary.reason !== undefined && `: “${row.summary.reason}”`}
-              </Text>
-            )}
-          </Text>
-          <ReachOrigin row={row} known={known} onSelect={onSelect} />
-        </Box>
-      ))}
+      {rows.map((row) => {
+        const kind = findKindView(catalog, row.summary.kind);
+        return (
+          <Box key={row.summary.id} {...stylex.props(styles.row)}>
+            <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
+            <Text size="sm">
+              <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
+                {row.summary.statement}
+              </AnchorLink>
+              {showDelivery && kind !== undefined && (
+                <Text span size="xs" c={kind.recall === "inject" ? "tastebud.8" : "dimmed"}>
+                  {" "}
+                  · {RECALL_POLICY_LABELS[kind.recall]}
+                </Text>
+              )}
+              {showStatus && (
+                <Text span size="xs" c="dimmed">
+                  {" "}
+                  · {SETTLED_STATUS_WORDS[row.summary.status]}
+                  {row.summary.reason !== undefined && `: “${row.summary.reason}”`}
+                </Text>
+              )}
+            </Text>
+            <ReachOrigin row={row} known={known} onSelect={onSelect} />
+          </Box>
+        );
+      })}
     </Box>
   );
 }
@@ -140,21 +187,37 @@ function ReachSection({ title, hint, children }: { title: string; hint: string; 
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** One sentence that answers "what applies here?" before the lists. */
-function reachSummary(rows: ReadonlyArray<PlaceReachRow>, known: KnownPlaces): string {
+/**
+ * One sentence that answers "what applies here?" before the lists. It counts what reaches agents apart
+ * from backlog kinds, so its first number is the one Recall shows standing at the same place.
+ */
+function reachSummary(
+  rows: ReadonlyArray<PlaceReachRow>,
+  known: KnownPlaces,
+  catalog: CatalogView | undefined,
+): string {
   if (rows.length === 0) return "Nothing you've accepted applies here yet.";
-  const here = rows.filter((row) => row.origin.from === "here").length;
-  const everywhere = rows.filter((row) => row.origin.from === "everywhere").length;
-  const parents = [...new Set(rows.flatMap((row) => (row.origin.from === "parent" ? [row.origin.place] : [])))];
+  const isBacklog = (row: PlaceReachRow) => findKindView(catalog, row.summary.kind)?.recall === "never";
+  const reaching = rows.filter((row) => !isBacklog(row));
+  const backlog = rows.length - reaching.length;
+  const here = reaching.filter((row) => row.origin.from === "here").length;
+  const everywhere = reaching.filter((row) => row.origin.from === "everywhere").length;
+  const parents = [...new Set(reaching.flatMap((row) => (row.origin.from === "parent" ? [row.origin.place] : [])))];
   const parts = [
     ...(here > 0 ? [`${here} scoped here`] : []),
     ...parents.map(
       (parent) =>
-        `${rows.filter((row) => row.origin.from === "parent" && row.origin.place === parent).length} from ${known.labelOf(parent)}`,
+        `${reaching.filter((row) => row.origin.from === "parent" && row.origin.place === parent).length} from ${known.labelOf(parent)}`,
     ),
     ...(everywhere > 0 ? [`${everywhere} everywhere`] : []),
   ];
-  return `${plural(rows.length, "accepted item applies", "accepted items apply")} here: ${parts.join(", ")}.`;
+  const reachWording =
+    reaching.length === 0
+      ? "Nothing you've accepted reaches agents here."
+      : `${plural(reaching.length, "accepted item reaches", "accepted items reach")} agents here: ${parts.join(", ")}.`;
+  return backlog === 0
+    ? reachWording
+    : `${reachWording} ${plural(backlog, "more applies", "more apply")} but ${backlog === 1 ? "is" : "are"} backlog, never sent.`;
 }
 
 /** What agents actually get of the accepted rows, kind by kind, from each kind's recall policy. */
@@ -277,7 +340,6 @@ export function PlaceDetails({
   const matchingProbes = audit.audit.probes.filter((probe) =>
     probe.places.some((reached) => placeCovers(place, reached)),
   );
-  const scopedHereCount = (all.data ?? []).filter((row) => scopePlacesOf(row.effectiveScope).includes(place)).length;
   return (
     <Stack gap="md">
       <Stack gap="2xs" {...stylex.props(styles.shrinkable)}>
@@ -287,18 +349,37 @@ export function PlaceDetails({
             <Title order={4}>Everywhere</Title>
           </Group>
         ) : (
-          <>
-            <Group gap="xs" wrap="nowrap">
+          <Group justify="space-between" wrap="nowrap" align="flex-start">
+            <Group gap="xs" wrap="nowrap" {...stylex.props(styles.shrinkable)}>
               <PlaceFormIcon place={place} size={16} />
-              <Title order={4}>{known.labelOf(place)}</Title>
-            </Group>
-            <Group gap="xs">
+              <Tooltip label={place} withArrow openDelay={300} fz="xs">
+                <Title order={4}>{known.labelOf(place)}</Title>
+              </Tooltip>
               <Text size="xs" c="dimmed">
                 {PLACE_FORM_NAMES[placeFormOf(place)]}
               </Text>
-              <PlaceKeyCopy place={place} />
+              <PlaceKeyCopyButton place={place} />
             </Group>
-          </>
+            {acceptedScopedHere.length > 0 && (
+              <Menu position="bottom-end" withArrow>
+                <Menu.Target>
+                  <ActionIcon variant="subtle" color="gray" aria-label="More for this place">
+                    <Ellipsis size={16} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item onClick={() => setRepointing(true)}>
+                    <Text size="sm">Move these to another place…</Text>
+                    <Text size="xs" c="dimmed" maw={260}>
+                      Proposes a revision of each accepted item scoped exactly here, pointing at the new place. Each
+                      replaces the old one when you accept it.
+                    </Text>
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
+            <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
+          </Group>
         )}
         <PlaceOnwardLinks place={place} />
       </Stack>
@@ -310,7 +391,7 @@ export function PlaceDetails({
           <Text size="sm">
             {isGlobal
               ? `Global items apply in every place, including ones that don't exist yet. ${plural(reach.applies.length, "accepted item is", "accepted items are")} global.`
-              : reachSummary(reach.applies, known)}
+              : reachSummary(reach.applies, known, catalog)}
           </Text>
 
           {probes.length > 0 && !isGlobal && (
@@ -324,7 +405,7 @@ export function PlaceDetails({
 
           {reach.applies.length > 0 && (
             <ReachSection title="Applies here" hint={appliesHint(reach.applies, catalog)}>
-              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} />
+              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} showDelivery />
             </ReachSection>
           )}
 
@@ -339,26 +420,6 @@ export function PlaceDetails({
 
           <SettledAgainst rows={reach.settledAgainst} known={known} onSelect={onSelect} />
         </>
-      )}
-
-      {!isGlobal && scopedHereCount > 0 && (
-        <Group gap="xs" pt="xs">
-          <Text size="xs" c="dimmed">
-            Moved or renamed this place? Repoint proposes a revision of each accepted item here, pointing at the new
-            place, for you to accept.
-          </Text>
-          <Button
-            size="compact-xs"
-            variant="subtle"
-            color="gray"
-            onClick={() => setRepointing(true)}
-            disabled={acceptedScopedHere.length === 0}
-            title={acceptedScopedHere.length === 0 ? "Nothing accepted is scoped exactly here" : undefined}
-          >
-            Repoint…
-          </Button>
-          <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
-        </Group>
       )}
     </Stack>
   );
