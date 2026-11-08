@@ -1,4 +1,4 @@
-import { Box, Button, Collapse, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Collapse, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { useRememberedBrowserValue } from "#review/infrastructure/browser-storage.ts";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 
 import { PlaceDetails } from "./place-details.tsx";
 import { PlaceTestBench, WhereAmIPanel } from "./place-test-bench.tsx";
@@ -63,25 +64,22 @@ export function PlacesPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="nowrap">
-        <Stack gap="3xs">
-          <Title order={3}>Places</Title>
-          <Text size="sm" c="dimmed">
-            The repos, folders and names your items are scoped to. Pick one to see everything that applies there and
-            where each item comes from.
-          </Text>
-        </Stack>
-        <Button
-          variant={unreached > 0 ? "light" : "default"}
-          color="orange"
-          leftSection={<LocateFixed size={13} />}
-          rightSection={<ChevronRight size={13} {...stylex.props(styles.chevron, checking && styles.chevronOpen)} />}
-          onClick={() => setChecking(!checking)}
-          aria-expanded={checking}
-        >
-          {checkButtonLabel(probes.length, unreached)}
-        </Button>
-      </Group>
+      <ReviewPageHeader
+        title="Places"
+        purpose="The repos, folders and names your items are scoped to. Pick one to see everything that applies there and where each item comes from."
+        actions={
+          <Button
+            variant={unreached > 0 ? "light" : "default"}
+            color="orange"
+            leftSection={<LocateFixed size={13} />}
+            rightSection={<ChevronRight size={13} {...stylex.props(styles.chevron, checking && styles.chevronOpen)} />}
+            onClick={() => setChecking(!checking)}
+            aria-expanded={checking}
+          >
+            {checkButtonLabel(probes.length, unreached)}
+          </Button>
+        }
+      />
       <Collapse expanded={checking}>
         <Box {...stylex.props(styles.location)}>
           <WhereAmIPanel onKeep={addProbe} />

@@ -13,7 +13,6 @@ import {
   SegmentedControl,
   Stack,
   Text,
-  Title,
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
@@ -27,12 +26,12 @@ import { useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
-import { capitalize, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 const styles = stylex.create({
-  screen: { maxWidth: "880px" },
   facts: {
     display: "grid",
     gridTemplateColumns: "120px minmax(0, 1fr)",
@@ -75,16 +74,6 @@ function CopyableSnippet({ code, label }: { code: string; label: string }) {
 
 const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
-/** What a kind's recall policy means for an accepted item, in a sentence. */
-function recallPolicyExplanation(kind: DerivedKindView, hookLimit: number): string {
-  const explanations: Record<RecallPolicy, string> = {
-    inject: `When a prompt's words match, the prompt hook adds up to ${hookLimit} accepted ${kind.plural} that apply where the agent works. Agents can also look them up.`,
-    pull: `Never added to prompts. An agent gets accepted ${kind.plural} when it asks Tastebud about matching words.`,
-    never: `Agents never see these. Accepted ${kind.plural} are your backlog, to read here.`,
-  };
-  return explanations[kind.recall];
-}
-
 function DerivedKindCard({ kind, hookLimit }: { kind: DerivedKindView; hookLimit: number }) {
   const catalog = useReviewCatalog();
   const [open, setOpen] = useState(false);
@@ -112,7 +101,10 @@ function DerivedKindCard({ kind, hookLimit }: { kind: DerivedKindView; hookLimit
               <Badge color={RECALL_POLICY_BADGE_COLORS[kind.recall]} tt="none" fw={500}>
                 {RECALL_POLICY_LABELS[kind.recall]}
               </Badge>
-              <Text size="sm">{recallPolicyExplanation(kind, hookLimit)}</Text>
+              <Text size="sm">
+                {describeKindDelivery(kind)}
+                {kind.recall === "inject" && ` At most ${hookLimit} go with one prompt, and only where they apply.`}
+              </Text>
             </Stack>
           </FactRow>
           <FactRow label="Labels">
@@ -298,17 +290,17 @@ export function SettingsPage() {
     );
   const { catalog, storeRoot, storeIsDefault } = shell.data;
   return (
-    <Stack gap="lg" {...stylex.props(styles.screen)}>
-      <Stack gap="3xs">
-        <Title order={3}>Settings</Title>
-        <Text size="sm" c="dimmed">
-          How this store is set up. Ask your agent to change it.
-        </Text>
-        <Text size="xs" c="dimmed">
-          This page only reads. Your agent edits <Code>tastebud.config.ts</Code> in the store (guided by{" "}
-          <Code>tastebud config-show --guide</Code>), and this page picks the change up on save.
-        </Text>
-      </Stack>
+    <Stack gap="lg">
+      <ReviewPageHeader
+        title="Settings"
+        purpose="How this store is set up. Ask your agent to change it."
+        details={
+          <>
+            This page only reads. Your agent edits <Code fz="xs">tastebud.config.ts</Code> in the store (guided by{" "}
+            <Code fz="xs">tastebud config-show --guide</Code>), and this page picks the change up on save.
+          </>
+        }
+      />
 
       <Paper p="md">
         <Box {...stylex.props(styles.facts)}>
