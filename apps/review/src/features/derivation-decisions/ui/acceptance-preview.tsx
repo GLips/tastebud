@@ -160,6 +160,7 @@ export function AcceptancePreview({
   proposedScope,
   changes,
   verb,
+  consequence,
   active,
   acknowledged,
   onAcknowledge,
@@ -177,6 +178,8 @@ export function AcceptancePreview({
   changes: ReadonlyArray<string>;
   /** What confirming does, before the scope: the kind's accept label, or "Apply" when moving an accepted one. */
   verb: string;
+  /** What changes once it lands, in a sentence, when that isn't plain from the verb. */
+  consequence?: string | undefined;
   /** Only the preview on the selected card listens for ⌘↵ and Esc; other cards' previews stay put. */
   active: boolean;
   acknowledged: ReadonlySet<string>;
@@ -226,10 +229,11 @@ export function AcceptancePreview({
             ))}
           </Stack>
         </Box>
+        {consequence !== undefined && <Text size="sm">{consequence}</Text>}
 
         {conflict && (
           <Alert color="yellow" variant="light" py="xxs" icon={<TriangleAlert size={14} />}>
-            Another overlapping proposal needs review. Your scope is kept; look it over below.
+            Something close to it overlaps this scope. Look it over below, then accept anyway or go back.
           </Alert>
         )}
 

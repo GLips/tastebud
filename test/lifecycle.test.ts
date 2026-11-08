@@ -290,6 +290,39 @@ describe("lifecycle", () => {
     expect(again._tag).toBe("DecisionNotAllowed");
   });
 
+  test("the owner changes their mind from any status but superseded; the latest decision sets it", async () => {
+    const { root, inWeb } = await makeAcmeWorld();
+    const memory = await captureOwnerWords(root, inWeb, "Prefer small pull requests.");
+    const belief = await propose(root, inWeb, { statement: "Keep pull requests small", supports: [memory] });
+    const statusAfter = async (input: TasteOperationWireInput) =>
+      (await decide(root, { ref: belief.id, ...input })).derivation.status;
+
+    expect(await statusAfter({ outcome: "reject", reason: "size isn't the point" })).toBe("rejected");
+    expect((await failOperation(root, "decide", { ref: belief.id, outcome: "retract" }, reviewer))._tag).toBe(
+      "DecisionNotAllowed",
+    );
+    expect(await statusAfter({ outcome: "accept" })).toBe("accepted");
+    expect(await statusAfter({ outcome: "retract" })).toBe("retracted");
+    expect(await statusAfter({ outcome: "accept" })).toBe("accepted");
+    expect(await statusAfter({ outcome: "reject", reason: "changed my mind again" })).toBe("rejected");
+    const shown = (await runOperation(root, "show", { ref: belief.id }, inWeb)).derivation;
+    expect([shown?.decisions.length, shown?.reason]).toEqual([5, "changed my mind again"]);
+
+    // A superseded one is decided through its revision, which can itself be undone.
+    await decide(root, { ref: belief.id, outcome: "accept" });
+    const revision = await propose(root, inWeb, {
+      statement: "Keep pull requests small and focused",
+      supports: [memory],
+      supersedes: belief.id,
+    });
+    await decide(root, { ref: revision.id, outcome: "accept" });
+    expect((await failOperation(root, "decide", { ref: belief.id, outcome: "retract" }, reviewer))._tag).toBe(
+      "DecisionNotAllowed",
+    );
+    await decide(root, { ref: revision.id, outcome: "reject", reason: "the original said it" });
+    expect((await runOperation(root, "show", { ref: belief.id }, inWeb)).derivation?.status).toBe("accepted");
+  });
+
   test("a revision of a derivation retracted after it was proposed can still be accepted", async () => {
     const { root, inWeb } = await makeAcmeWorld();
     const memory = await captureOwnerWords(root, inWeb, "Merge duplicate code paths.");
