@@ -19,6 +19,7 @@ import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 
 import type { InboxQueueEntry } from "./inbox-queue.ts";
 import { isSameScope, type ScopeDraft } from "./scope-draft.ts";
@@ -37,23 +38,6 @@ const styles = stylex.create({
   },
   gone: { borderStyle: "dashed", backgroundColor: "var(--mantine-color-gray-0)" },
 });
-
-/**
- * Groups about the owner need no label; only derivations about someone else say whom. A person's
- * name lives only on the words they said, so it comes from the group's quotes, falling back to the
- * account id when none of them is theirs.
- */
-const subjectLabel = (
-  subject: string | undefined,
-  owner: string | undefined,
-  entries: ReadonlyArray<InboxQueueEntry>,
-) => {
-  if (subject === undefined || subject === "owner" || subject === owner) return undefined;
-  const theirs = entries
-    .flatMap((entry) => [...entry.card.derivation.supportingSources, ...entry.card.derivation.contradictingSources])
-    .find((view) => view.source.said_by === subject);
-  return `About ${theirs?.source.said_by_label ?? subject}`;
-};
 
 /** The Places page node that lists what applies in a scope; a scope of several places has no one node. */
 const placesNodeOf = (scope: DerivationScope): string | undefined => {
@@ -202,7 +186,8 @@ export function InboxGroupSection({
   const live = entries.filter((entry) => !entry.gone).length;
   const ready = entries.filter((entry) => isBatchAcceptable(entry, drafts, engagedIds));
   const needReview = live - ready.length;
-  const about = subjectLabel(group.subject, owner, entries);
+  // Every card in a group shares its subject, so the first speaks for the group.
+  const [first] = group.cards;
   const placesNode = placesNodeOf(group.scope);
   return (
     <Stack gap="sm" component="section">
@@ -210,7 +195,7 @@ export function InboxGroupSection({
         <Group gap="sm" {...stylex.props(styles.shrinkable)}>
           <ScopeTitle scope={group.scope} known={known} />
           <Text c="dimmed">
-            {live} waiting{about !== undefined && ` · ${about}`}
+            {live} waiting {first !== undefined && <SubjectLabel summary={first.derivation} owner={owner} />}
           </Text>
           {placesNode !== undefined && (
             <AnchorLink to="/places" search={{ place: placesNode }} size="sm">
