@@ -162,8 +162,9 @@ export function PlaceRepointSheet({
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Proposes a revision of each accepted item scoped to exactly this place, with only this place swapped. Nothing
-          changes until you accept the revisions in the inbox.
+          For each accepted item scoped to exactly this place, proposes a new revision with this place swapped for the
+          new one and its other places kept. The accepted item keeps applying here until you accept its revision in the
+          inbox; accepting it replaces the old one.
         </Text>
         <Stack gap="2xs">
           <Text size="xs" c="dimmed">

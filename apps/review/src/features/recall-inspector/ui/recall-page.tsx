@@ -1,16 +1,4 @@
-import {
-  Box,
-  Button,
-  Checkbox,
-  Group,
-  Paper,
-  SegmentedControl,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
+import { Box, Button, Checkbox, Group, Paper, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
@@ -22,6 +10,7 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { KnownPlaceSearch } from "#review/shared/ui/known-place-search.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
+import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 
 import { RecallAppliesPanel } from "./recall-applies-panel.tsx";
 import { RecallCandidateGroups } from "./recall-candidate-groups.tsx";
@@ -105,13 +94,10 @@ export function RecallInspectorPage() {
 
   return (
     <Stack gap="md">
-      <Stack gap="3xs">
-        <Title order={3}>Recall</Title>
-        <Text size="sm" c="dimmed">
-          What an agent is told in a place: everything that applies there, and for a prompt, what gets sent with it and
-          why.
-        </Text>
-      </Stack>
+      <ReviewPageHeader
+        title="Recall"
+        purpose="What an agent is told in a place: everything that applies there, and for a prompt, what gets sent with it and why."
+      />
       <Paper p="sm">
         <form
           onSubmit={(event) => {

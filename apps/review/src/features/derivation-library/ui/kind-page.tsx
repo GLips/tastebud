@@ -33,6 +33,7 @@ import {
   DERIVATION_STATUS_WORDS,
   DerivationStatusDot,
 } from "#review/shared/ui/status-chips.tsx";
+import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 
@@ -83,13 +84,24 @@ function DerivationRowWhy({ row }: { row: DerivationRow }) {
   return null;
 }
 
-function KindLibraryRow({ row, labels }: { row: DerivationRow; labels: ReadonlyMap<string, string> }) {
+function KindLibraryRow({
+  row,
+  labels,
+  owner,
+}: {
+  row: DerivationRow;
+  labels: ReadonlyMap<string, string>;
+  owner: string | undefined;
+}) {
   return (
     <Table.Tr {...stylex.props(styles.row)}>
       <Table.Td pl="xl">
         <AnchorLink to="/derivations/$id" params={{ id: row.id }} c="inherit" fw={500} size="sm" underline="hover">
           {row.statement}
-        </AnchorLink>
+        </AnchorLink>{" "}
+        <Text span size="xs" c="dimmed">
+          <SubjectLabel summary={row} owner={owner} />
+        </Text>
         <DerivationRowWhy row={row} />
       </Table.Td>
       <Table.Td w={48}>
@@ -241,7 +253,7 @@ export function KindLibraryPage() {
                       </Table.Td>
                     </Table.Tr>
                     {group.map((row) => (
-                      <KindLibraryRow key={row.id} row={row} labels={known.labels} />
+                      <KindLibraryRow key={row.id} row={row} labels={known.labels} owner={catalog?.owner} />
                     ))}
                   </Table.Tbody>
                 ))}

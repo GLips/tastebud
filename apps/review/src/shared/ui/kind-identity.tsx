@@ -68,15 +68,19 @@ export function KindGlyph({
   );
 }
 
-/** One quiet sentence on how accepted derivations of a kind reach agents, from its policy alone. */
-export const describeKindDelivery = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
-  const deliveries: Record<RecallPolicy, string> = {
-    inject: `Accepted ${kind.plural} may be offered to agents.`,
-    pull: "Available when an agent asks.",
-    never: `Save worthwhile ${kind.plural} to your backlog. Never injected.`,
-  };
-  return deliveries[kind.recall];
+/**
+ * The one wording of what a recall policy means, shared by every page that explains it (library,
+ * Places, Recall, Settings), so the owner reads the same promise everywhere.
+ */
+const RECALL_POLICY_REACH: Record<RecallPolicy, string> = {
+  inject: "are sent with a prompt whose words match, and agents can look them up",
+  pull: "are given only when an agent asks about matching words",
+  never: "are never shown to agents; they are your backlog",
 };
+
+/** One sentence on how accepted derivations of a kind reach agents, from its policy alone. */
+export const describeKindDelivery = (kind: Pick<DerivedKindView, "plural" | "recall">): string =>
+  `Accepted ${kind.plural} ${RECALL_POLICY_REACH[kind.recall]}.`;
 
 /** The policy as a short phrase for badges, in the owner's words rather than the config's. */
 export const RECALL_POLICY_LABELS: Record<RecallPolicy, string> = {
