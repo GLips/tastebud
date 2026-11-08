@@ -5,7 +5,6 @@
  */
 import {
   Box,
-  ActionIcon,
   Alert,
   Anchor,
   Badge,
@@ -24,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { SourceView } from "@tastebud/core/record-views";
 import { MessageSquare, TriangleAlert, X } from "lucide-react";
 import { type Ref, useEffect, useState } from "react";
 
@@ -35,7 +35,7 @@ import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-wri
 import { DerivationSummaryLine, DespiteNotice, SupersedesNotice } from "#review/shared/ui/derivation-link.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
-import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
+import { SourceQuote, type SourceQuoteRole } from "#review/shared/ui/source-quote.tsx";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
@@ -66,7 +66,42 @@ const styles = stylex.create({
   statement: { fontWeight: 600, lineHeight: 1.35, letterSpacing: "-0.005em" },
   scopeRow: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", minHeight: "22px" },
   quotes: { paddingTop: "2px" },
+  reasoning: { whiteSpace: "pre-wrap", lineHeight: 1.45 },
+  quoteGroupLabel: { letterSpacing: "0.02em" },
 });
+
+type QuoteGroup = { label: string; role: SourceQuoteRole; sources: ReadonlyArray<SourceView> };
+
+/**
+ * The quotes under a word label, so supporting and contradicting read apart without relying on the
+ * quote mark's colour. A backlog kind's quotes only prompted it, so they share one label.
+ */
+function InboxCardQuotes({ view, backlog }: { view: InboxCard["derivation"]; backlog: boolean }) {
+  const groups: ReadonlyArray<QuoteGroup> = backlog
+    ? [
+        {
+          label: "What prompted this",
+          role: "prompted",
+          sources: [...view.supportingSources, ...view.contradictingSources],
+        },
+      ]
+    : [
+        { label: "Supports this", role: "supports", sources: view.supportingSources },
+        { label: "Says the opposite", role: "contradicts", sources: view.contradictingSources },
+      ];
+  return groups
+    .filter((group) => group.sources.length > 0)
+    .map((group) => (
+      <Stack key={group.label} gap="xxs" {...stylex.props(styles.quotes)}>
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase" {...stylex.props(styles.quoteGroupLabel)}>
+          {group.label}
+        </Text>
+        {group.sources.map((source) => (
+          <SourceQuote key={source.source.id} view={source} role={group.role} />
+        ))}
+      </Stack>
+    ));
+}
 
 type CardMode = "idle" | "rejecting" | "editing" | "previewing";
 
@@ -167,7 +202,13 @@ export function InboxProposalCard({
   const similarShown = new Set([view.supersedes?.id, ...view.despite.map((earlier) => earlier.id)]);
   const similar = card.related.filter((match) => !similarShown.has(match.id));
   const reasoning = record.reasoning.trim();
-  const sources = [...view.supportingSources, ...view.contradictingSources];
+  // Said beside the button, so a past "no" or a near repeat is seen before the click, not only in the evidence.
+  const overlaps = edited ? 0 : card.needsAcknowledgement.length;
+  const cautions = [
+    ...(view.despite.length > 0 ? ["You rejected something close to this"] : []),
+    ...(overlaps === 1 ? ["Overlaps a near repeat"] : []),
+    ...(overlaps > 1 ? [`Overlaps ${overlaps} near repeats`] : []),
+  ];
 
   return (
     <Paper
@@ -199,11 +240,8 @@ export function InboxProposalCard({
             >
               {view.statement}
             </AnchorLink>
-            <Text size="xs" c="dimmed" lineClamp={1} title={reasoning === "" ? undefined : reasoning}>
-              <Box component="span" title={formatReviewTime(record.proposed_at)}>
-                {record.proposed_by} · {formatTimeAgo(record.proposed_at, nowMs)}
-              </Box>
-              {reasoning !== "" && ` — ${reasoning}`}
+            <Text size="xs" c="dimmed" title={formatReviewTime(record.proposed_at)}>
+              Proposed by {record.proposed_by} · {formatTimeAgo(record.proposed_at, nowMs)}
             </Text>
           </Stack>
           {mode === "idle" && queued && (
@@ -215,60 +253,82 @@ export function InboxProposalCard({
             </Group>
           )}
           {mode === "idle" && !queued && (
-            <Group gap="2xs" wrap="nowrap">
-              {similar.length > 0 && (
-                <HoverCard width={380} withArrow shadow="md" position="bottom-end">
-                  <HoverCard.Target>
-                    <Badge variant="light" color="gray" tt="none" fw={500} {...stylex.props(styles.helpCursor)}>
-                      ≈ {similar.length}
-                    </Badge>
-                  </HoverCard.Target>
-                  <HoverCard.Dropdown>
-                    <Text size="xs" c="dimmed" mb="xxs">
-                      Similar {kind.plural}, any status
-                    </Text>
-                    <Stack gap="xxs">
-                      {similar.map((match) => (
-                        <DerivationSummaryLine catalog={catalog} key={match.id} summary={match} />
-                      ))}
-                    </Stack>
-                  </HoverCard.Dropdown>
-                </HoverCard>
+            <Stack gap="2xs" align="flex-end">
+              {cautions.length > 0 && (
+                <Group gap="2xs" wrap="nowrap">
+                  <TriangleAlert size={12} color="var(--mantine-color-orange-6)" aria-hidden />
+                  <Text size="xs" c="orange.8" {...stylex.props(styles.noWrap)}>
+                    {cautions.join(" · ")}
+                  </Text>
+                </Group>
               )}
-              <Tooltip
-                label={view.thread.length > 0 ? `Discuss (${view.thread.length}) · D` : "Discuss with an agent · D"}
-                withArrow
-              >
-                <ButtonLink
-                  to="/derivations/$id"
-                  params={{ id: view.id }}
-                  variant="subtle"
-                  color="gray"
-                  size="compact-sm"
-                  px="xxs"
-                  leftSection={<MessageSquare size={15} />}
-                  aria-label="Discuss"
+              <Group gap="2xs" wrap="nowrap">
+                {similar.length > 0 && (
+                  <HoverCard width={380} withArrow shadow="md" position="bottom-end">
+                    <HoverCard.Target>
+                      <Badge variant="light" color="gray" tt="none" fw={500} {...stylex.props(styles.helpCursor)}>
+                        ≈ {similar.length}
+                      </Badge>
+                    </HoverCard.Target>
+                    <HoverCard.Dropdown>
+                      <Text size="xs" c="dimmed" mb="xxs">
+                        Similar {kind.plural}, any status
+                      </Text>
+                      <Stack gap="xxs">
+                        {similar.map((match) => (
+                          <DerivationSummaryLine catalog={catalog} key={match.id} summary={match} />
+                        ))}
+                      </Stack>
+                    </HoverCard.Dropdown>
+                  </HoverCard>
+                )}
+                <Tooltip
+                  label={view.thread.length > 0 ? `Discuss (${view.thread.length}) · D` : "Discuss with an agent · D"}
+                  withArrow
                 >
-                  {view.thread.length > 0 ? view.thread.length : null}
-                </ButtonLink>
-              </Tooltip>
-              <Tooltip label="Reject · R" withArrow>
-                <ActionIcon variant="default" size="md" aria-label="Reject" onClick={() => setMode("rejecting")}>
-                  <X size={16} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip
-                label={needsPreview ? `Review, then ${kind.acceptLabel.toLowerCase()} · A` : `${kind.acceptLabel} · A`}
-                withArrow
-              >
-                <Button size="xs" loading={decision.pending} onClick={accept}>
-                  {`${kind.acceptLabel} ${isCompleteScope(shownScope) ? scopeButtonPhrase(shownScope, known.labelOf) : ""}`.trim()}
-                  {needsPreview && "…"}
-                </Button>
-              </Tooltip>
-            </Group>
+                  <ButtonLink
+                    to="/derivations/$id"
+                    params={{ id: view.id }}
+                    variant="subtle"
+                    color="gray"
+                    px="xs"
+                    leftSection={<MessageSquare size={14} />}
+                  >
+                    {view.thread.length > 0 ? `Discuss (${view.thread.length})` : "Discuss"}
+                  </ButtonLink>
+                </Tooltip>
+                <Tooltip label="Reject with a reason · R" withArrow>
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    px="xs"
+                    leftSection={<X size={14} />}
+                    onClick={() => setMode("rejecting")}
+                  >
+                    Reject
+                  </Button>
+                </Tooltip>
+                <Tooltip
+                  label={
+                    needsPreview ? `Review, then ${kind.acceptLabel.toLowerCase()} · A` : `${kind.acceptLabel} · A`
+                  }
+                  withArrow
+                >
+                  <Button size="xs" loading={decision.pending} onClick={accept}>
+                    {`${kind.acceptLabel} ${isCompleteScope(shownScope) ? scopeButtonPhrase(shownScope, known.labelOf) : ""}`.trim()}
+                    {needsPreview && "…"}
+                  </Button>
+                </Tooltip>
+              </Group>
+            </Stack>
           )}
         </Group>
+
+        {reasoning !== "" && (
+          <Text c="dimmed" {...stylex.props(styles.reasoning)}>
+            {reasoning}
+          </Text>
+        )}
 
         {mode !== "editing" && (
           <Box {...stylex.props(styles.scopeRow)}>
@@ -322,17 +382,6 @@ export function InboxProposalCard({
                 </Tooltip>
               )
             )}
-            {card.needsAcknowledgement.length > 0 && !edited && (
-              <Group gap="2xs" wrap="nowrap">
-                <TriangleAlert size={12} color="var(--mantine-color-orange-6)" />
-                <Text size="xs" c="orange.8">
-                  Overlaps{" "}
-                  {card.needsAcknowledgement.length === 1
-                    ? "a near repeat"
-                    : `${card.needsAcknowledgement.length} near repeats`}
-                </Text>
-              </Group>
-            )}
           </Box>
         )}
 
@@ -379,21 +428,7 @@ export function InboxProposalCard({
         {view.supersedes !== undefined && <SupersedesNotice replaces={view.supersedes} />}
         {view.despite.length > 0 && <DespiteNotice despite={view.despite} agentCase={record.despite_case} />}
 
-        {sources.length > 0 && (
-          <Stack gap="xxs" {...stylex.props(styles.quotes)}>
-            {backlogKind && (
-              <Text size="xs" c="dimmed">
-                What prompted this
-              </Text>
-            )}
-            {view.supportingSources.map((source) => (
-              <SourceQuote key={source.source.id} view={source} role={backlogKind ? "prompted" : "supports"} />
-            ))}
-            {view.contradictingSources.map((source) => (
-              <SourceQuote key={source.source.id} view={source} role={backlogKind ? "plain" : "contradicts"} />
-            ))}
-          </Stack>
-        )}
+        <InboxCardQuotes view={view} backlog={backlogKind} />
         {view.supportingDerivations.length + view.contradictingDerivations.length > 0 && (
           <Stack gap="2xs">
             {view.supportingDerivations.map((summary) => (

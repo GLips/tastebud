@@ -1,29 +1,16 @@
-import {
-  Box,
-  ActionIcon,
-  Button,
-  Center,
-  Group,
-  Kbd,
-  Loader,
-  SegmentedControl,
-  Stack,
-  Text,
-  Title,
-  Tooltip,
-} from "@mantine/core";
+import { Box, Button, Center, Group, Kbd, Loader, Popover, SegmentedControl, Stack, Text, Title } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Schema } from "effect";
-import { ArrowDown, Keyboard, PartyPopper } from "lucide-react";
+import { ArrowDown, History, Keyboard, PartyPopper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { reviewShellQuery, useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { readRememberedBrowserText, rememberBrowserText } from "#review/infrastructure/browser-storage.ts";
-import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
@@ -32,6 +19,7 @@ import { InboxProposalCard } from "./inbox-card.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
 import { ReviewSessionList } from "./review-session-list.tsx";
+import { useReviewSessionLog } from "./review-session-log.ts";
 import type { ScopeDraft } from "./scope-draft.ts";
 
 /** `card` selects one proposal on arrival, for links that name a specific pending item. */
@@ -43,6 +31,9 @@ export const InboxSearch = Schema.Struct({
 const Route = getRouteApi("/");
 
 const LAST_KIND_KEY = "tastebud.inbox.kind";
+
+/** The card selected when the inbox last unmounted, so a trip to a card's page and back keeps the reviewer's place. */
+let leftSelectedCard: string | undefined;
 
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
@@ -61,6 +52,34 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["d", "Discuss with an agent"],
   ["⌘↵ / Esc", "Confirm / back, in a preview"],
 ];
+
+/** What accepting does for the selected kind, finishing the page's one-line job. */
+const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
+  const outcomes: Record<DerivedKindView["recall"], string> = {
+    inject: `Accepted ${kind.plural} are told to agents wherever they apply.`,
+    pull: `Agents can look up accepted ${kind.plural} wherever they apply.`,
+    never: `Accepted ${kind.plural} go to your backlog; agents aren't told them.`,
+  };
+  return outcomes[kind.recall];
+};
+
+/** What this tab decided, one click from the top of the page wherever the reviewer has scrolled to. */
+function SessionDecisionsButton() {
+  const decided = useReviewSessionLog().length;
+  if (decided === 0) return null;
+  return (
+    <Popover withArrow position="bottom-end" shadow="md" width={720}>
+      <Popover.Target>
+        <Button variant="subtle" color="gray" leftSection={<History size={14} />}>
+          Decided this session · {decided}
+        </Button>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <ReviewSessionList />
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
 
 function KindTabLabel({ kind, count }: { kind: DerivedKindView; count: number }) {
   const catalog = useQuery(reviewShellQuery).data?.catalog;
@@ -88,7 +107,7 @@ export function InboxPage() {
   const kindKey = kind?.key ?? "";
   const queue = useStableInboxQueue(inbox.data?.groups, kindKey);
   const [drafts, setDrafts] = useState<ReadonlyMap<string, ScopeDraft>>(() => new Map());
-  const [selectedId, setSelectedId] = useState<string | undefined>(search.card);
+  const [selectedId, setSelectedId] = useState<string | undefined>(search.card ?? leftSelectedCard);
   const [linkedCard, setLinkedCard] = useState(search.card);
   if (search.card !== linkedCard) {
     setLinkedCard(search.card);
@@ -112,6 +131,9 @@ export function InboxPage() {
   if (selectedIndex >= 0 && selectedIndex !== lastIndex) setLastIndex(selectedIndex);
   const effectiveId = selectedIndex >= 0 ? selectedId : order[Math.min(lastIndex, order.length - 1)];
   const engaged = effectiveId !== undefined && engagedIds.has(effectiveId);
+  useEffect(() => {
+    leftSelectedCard = effectiveId;
+  }, [effectiveId]);
 
   const select = (id: string | undefined, scroll: boolean) => {
     setSelectedId(id);
@@ -184,55 +206,47 @@ export function InboxPage() {
 
   return (
     <Stack gap="md" {...stylex.props(styles.screen)}>
-      <Group justify="space-between" align="center">
-        <Tooltip
-          label="What agents proposed from what people said. Nothing counts until you accept it."
-          withArrow
-          multiline
-          w={260}
-          position="bottom-start"
-        >
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Stack gap="2xs">
           <Title order={3}>Inbox</Title>
-        </Tooltip>
-        <Tooltip
-          withArrow
-          position="bottom-end"
-          label={
-            <Box {...stylex.props(styles.keys)}>
-              {INBOX_KEYS.map(([keys, action]) => [
-                <Kbd key={`${keys}-k`} size="xs">
-                  {keys}
-                </Kbd>,
-                <Box component="span" key={`${keys}-a`}>
-                  {action}
-                </Box>,
-              ])}
-            </Box>
-          }
-        >
-          <ActionIcon variant="subtle" color="gray" aria-label="Keyboard shortcuts">
-            <Keyboard size={16} />
-          </ActionIcon>
-        </Tooltip>
+          <Text c="dimmed">Proposals waiting on you. {describeAcceptedOutcome(kind)}</Text>
+        </Stack>
+        <Group gap="2xs" wrap="nowrap">
+          <SessionDecisionsButton />
+          <Popover withArrow position="bottom-end" shadow="md">
+            <Popover.Target>
+              <Button variant="subtle" color="gray" leftSection={<Keyboard size={14} />}>
+                Shortcuts
+              </Button>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Box {...stylex.props(styles.keys)}>
+                {INBOX_KEYS.map(([keys, action]) => [
+                  <Kbd key={`${keys}-k`} size="xs">
+                    {keys}
+                  </Kbd>,
+                  <Text size="xs" key={`${keys}-a`}>
+                    {action}
+                  </Text>,
+                ])}
+              </Box>
+            </Popover.Dropdown>
+          </Popover>
+        </Group>
       </Group>
 
       {kinds.length > 1 && (
-        <Stack gap="xxs">
-          <SegmentedControl
-            size="sm"
-            value={kind.key}
-            onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
-            data={kinds.map((candidate) => ({
-              value: candidate.key,
-              label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
-            }))}
-            {...stylex.props(styles.alignStart)}
-          />
-        </Stack>
+        <SegmentedControl
+          size="sm"
+          value={kind.key}
+          onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
+          data={kinds.map((candidate) => ({
+            value: candidate.key,
+            label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
+          }))}
+          {...stylex.props(styles.alignStart)}
+        />
       )}
-      <Text size="xs" c="dimmed" mt={kinds.length > 1 ? -8 : 0}>
-        {describeKindDelivery(kind)}
-      </Text>
 
       {queue.incomingCount > 0 && (
         <Button
@@ -292,8 +306,6 @@ export function InboxPage() {
           />
         ))
       )}
-
-      <ReviewSessionList />
     </Stack>
   );
 }
