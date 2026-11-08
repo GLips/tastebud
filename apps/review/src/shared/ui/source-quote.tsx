@@ -38,7 +38,7 @@ function SurroundingContext({ source }: { source: SourceRecord }) {
   return (
     <Stack gap="xxs">
       {source.before !== undefined && (
-        <Text size="xs" c="dimmed" {...stylex.props(styles.context)}>
+        <Text size="xs" c="gray.7" {...stylex.props(styles.context)}>
           …{source.before}
         </Text>
       )}
@@ -46,7 +46,7 @@ function SurroundingContext({ source }: { source: SourceRecord }) {
         “{source.quote}”
       </Text>
       {source.after !== undefined && (
-        <Text size="xs" c="dimmed" {...stylex.props(styles.context)}>
+        <Text size="xs" c="gray.7" {...stylex.props(styles.context)}>
           {source.after}…
         </Text>
       )}
@@ -98,15 +98,15 @@ export function SourceQuote({
         </Text>
         <span {...stylex.props(styles.meta)}>
           {roleWords !== undefined && (
-            <Text span size="xs" fw={600} c={role === "contradicts" ? "red.7" : "dimmed"}>
+            <Text span size="sm" fw={600} c={role === "contradicts" ? "red.8" : "gray.7"}>
               {roleWords} ·
             </Text>
           )}
           <AnchorLink
             to="/sources/$id"
             params={{ id: source.id }}
-            size="xs"
-            c="dimmed"
+            size="sm"
+            c="gray.7"
             underline="hover"
             title={`Open this ${view.kindLabel} and what cites it`}
           >
@@ -114,7 +114,7 @@ export function SourceQuote({
             {showKind && ` · ${view.kindLabel}`}
           </AnchorLink>
           {source.revises !== undefined && (
-            <AnchorLink to="/sources/$id" params={{ id: source.revises }} size="xs" c="dimmed" underline="hover">
+            <AnchorLink to="/sources/$id" params={{ id: source.revises }} size="sm" c="gray.7" underline="hover">
               · revises earlier words
             </AnchorLink>
           )}

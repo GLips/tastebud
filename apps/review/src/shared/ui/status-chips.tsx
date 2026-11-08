@@ -46,7 +46,7 @@ export function DerivationStatusLabel({ status }: { status: DerivationStatus }) 
     <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
       <Group gap="xxs" wrap="nowrap" component="span">
         <span {...stylex.props(styles.dot, styles[status])} />
-        <Text span size="xs" c="dimmed" fw={500}>
+        <Text span size="xs" c="gray.7" fw={500}>
           {DERIVATION_STATUS_WORDS[status]}
         </Text>
       </Group>

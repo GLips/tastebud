@@ -78,7 +78,6 @@ export function SourceListPage() {
       <ReviewPageHeader
         title="Sources"
         purpose="People's exact words, as your agents saved them. Every conclusion cites at least one; open one to see what it led to."
-        details="Sources are store-wide: they never carry a place."
       />
       <Group gap="sm">
         <TextInput
@@ -133,27 +132,27 @@ export function SourceListPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>
-                      <Text size="xs" c="dimmed" fw={500}>
+                      <Text size="xs" c="gray.7" fw={600}>
                         Words
                       </Text>
                     </Table.Th>
                     <Table.Th {...stylex.props(styles.fitCell)}>
-                      <Text size="xs" c="dimmed" fw={500}>
+                      <Text size="xs" c="gray.7" fw={600}>
                         Said by
                       </Text>
                     </Table.Th>
                     <Table.Th {...stylex.props(styles.fitCell)}>
-                      <Text size="xs" c="dimmed" fw={500}>
+                      <Text size="xs" c="gray.7" fw={600}>
                         Kind
                       </Text>
                     </Table.Th>
                     <Table.Th {...stylex.props(styles.fitCell)} ta="right">
-                      <Text size="xs" c="dimmed" fw={500} title="How many conclusions cite these words">
+                      <Text size="xs" c="gray.7" fw={600} title="How many conclusions cite these words">
                         Cited by
                       </Text>
                     </Table.Th>
                     <Table.Th w={96} ta="right">
-                      <Text size="xs" c="dimmed" fw={500}>
+                      <Text size="xs" c="gray.7" fw={600}>
                         Said
                       </Text>
                     </Table.Th>
@@ -176,26 +175,25 @@ export function SourceListPage() {
                         </AnchorLink>
                       </Table.Td>
                       <Table.Td {...stylex.props(styles.fitCell)}>
-                        <Text size="xs" c="dimmed">
+                        <Text size="sm" c="gray.7">
                           {view.source.said_by_label}
                         </Text>
                       </Table.Td>
                       <Table.Td {...stylex.props(styles.fitCell)}>
-                        <Text size="xs" c="dimmed">
+                        <Text size="sm" c="gray.7">
                           {capitalize(view.kindLabel)}
                           {view.retired && " (retired)"}
                         </Text>
                       </Table.Td>
                       <Table.Td {...stylex.props(styles.fitCell)} ta="right">
-                        {view.citedByCount === 0 ? (
-                          <Text size="xs" c="dimmed">
-                            Not yet
-                          </Text>
-                        ) : (
-                          <Text size="xs" fw={500} {...stylex.props(styles.numericNoWrap)}>
-                            {view.citedByCount}
-                          </Text>
-                        )}
+                        <Text
+                          size="sm"
+                          fw={500}
+                          c={view.citedByCount === 0 ? "dimmed" : "dark"}
+                          {...stylex.props(styles.numericNoWrap)}
+                        >
+                          {view.citedByCount}
+                        </Text>
                       </Table.Td>
                       <Table.Td w={96} ta="right">
                         <Text
