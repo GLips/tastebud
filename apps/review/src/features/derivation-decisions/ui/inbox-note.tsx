@@ -19,7 +19,7 @@ export type InboxNoteState = "closed" | "writing" | "saved";
 
 function FullThreadLink({ derivationId }: { derivationId: string }) {
   return (
-    <AnchorLink to="/derivations/$id" params={{ id: derivationId }} size="xs">
+    <AnchorLink to="/derivations/$id" params={{ id: derivationId }} hash="thread" size="xs">
       Open the full thread
     </AnchorLink>
   );

@@ -31,6 +31,7 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["s", "Edit where it applies"],
   ["r", "Reject with a reason"],
   ["d", "Write a note to the agents"],
+  ["u", "Undo the latest decision"],
   ["⌘↵ / Esc", "Confirm / back, in a preview or note"],
 ];
 

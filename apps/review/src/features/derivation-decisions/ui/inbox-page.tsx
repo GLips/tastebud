@@ -54,6 +54,20 @@ const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall"
   return outcomes[kind.recall];
 };
 
+/**
+ * The tab a bare `/` opens: the last one used if anything waits there, otherwise the busiest. Chosen
+ * once per visit, so deciding the last item in a tab shows its empty state rather than switching tabs.
+ */
+const arrivalKindOf = (
+  kinds: ReadonlyArray<DerivedKindView>,
+  pendingByKind: ReadonlyMap<string, number>,
+  remembered: string | undefined,
+): string | undefined => {
+  if (remembered !== undefined && (pendingByKind.get(remembered) ?? 0) > 0) return remembered;
+  const busiest = kinds.toSorted((a, b) => (pendingByKind.get(b.key) ?? 0) - (pendingByKind.get(a.key) ?? 0))[0];
+  return (pendingByKind.get(busiest?.key ?? "") ?? 0) > 0 ? busiest?.key : remembered;
+};
+
 function KindTabLabel({ kind, count }: { kind: DerivedKindView; count: number }) {
   const catalog = useQuery(reviewShellQuery).data?.catalog;
   return (
@@ -75,7 +89,13 @@ export function InboxPage() {
   const known = useKnownPlaces();
   const catalog = shell.data?.catalog;
   const kinds = catalog?.derivedKinds ?? [];
-  const requested = search.kind ?? readRememberedBrowserText(LAST_KIND_KEY);
+  const pendingByKind = new Map<string, number>();
+  for (const group of inbox.data?.groups ?? [])
+    pendingByKind.set(group.kind, (pendingByKind.get(group.kind) ?? 0) + group.cards.length);
+  const [arrivalKind, setArrivalKind] = useState<string | undefined>(undefined);
+  if (arrivalKind === undefined && inbox.data !== undefined && kinds.length > 0)
+    setArrivalKind(arrivalKindOf(kinds, pendingByKind, readRememberedBrowserText(LAST_KIND_KEY)) ?? kinds[0]?.key);
+  const requested = search.kind ?? arrivalKind;
   const kind = kinds.find((candidate) => candidate.key === requested) ?? kinds[0];
   const kindKey = kind?.key ?? "";
   const queue = useStableInboxQueue(inbox.data?.groups, kindKey);
@@ -89,13 +109,11 @@ export function InboxPage() {
   const [engagedIds, setEngagedIds] = useState<ReadonlySet<string>>(() => new Set());
   const cardRefs = useRef(new Map<string, HTMLDivElement>()).current;
 
+  // Only a tab actually chosen is remembered, not the placeholder shown before the arrival tab is.
+  const chosenKind = requested === undefined ? undefined : kind?.key;
   useEffect(() => {
-    if (kind !== undefined) rememberBrowserText(LAST_KIND_KEY, kind.key);
-  }, [kind]);
-
-  const pendingByKind = new Map<string, number>();
-  for (const group of inbox.data?.groups ?? [])
-    pendingByKind.set(group.kind, (pendingByKind.get(group.kind) ?? 0) + group.cards.length);
+    if (chosenKind !== undefined) rememberBrowserText(LAST_KIND_KEY, chosenKind);
+  }, [chosenKind]);
 
   // Cards decided here stay where they were, folded to their outcome with Undo, but j/k skip them.
   const [decidedHere, setDecidedHere] = useState<ReadonlySet<string>>(() => new Set());
@@ -146,6 +164,9 @@ export function InboxPage() {
     queue.remove(id);
     setDraft(id, undefined);
   };
+  // The newest decision made here, which `u` undoes.
+  const [latestDecidedId, setLatestDecidedId] = useState<string | undefined>(undefined);
+  // The scope draft is kept through a decision, so an Undo brings back the scope the owner had chosen.
   const markDecided = (id: string, decided: boolean) => {
     setDecidedHere((previous) => {
       const next = new Set(previous);
@@ -153,7 +174,7 @@ export function InboxPage() {
       else next.delete(id);
       return next;
     });
-    if (decided) setDraft(id, undefined);
+    setLatestDecidedId(decided ? id : undefined);
   };
 
   if (shell.error) return <QueryErrorAlert error={shell.error} />;
@@ -167,8 +188,10 @@ export function InboxPage() {
   }
 
   const othersWaiting = kinds.filter((other) => other.key !== kind.key && (pendingByKind.get(other.key) ?? 0) > 0);
+  // A card mid-decision stays mounted when the refresh finds it gone: its own decision made it so,
+  // and only the mounted card knows how to undo it.
   const renderEntry = (entry: InboxQueueEntry, queued: boolean) =>
-    entry.gone && !decidedHere.has(entry.id) ? (
+    entry.gone && !decidedHere.has(entry.id) && !engagedIds.has(entry.id) ? (
       <GoneProposalRow key={entry.id} entry={entry} onContinue={() => removeFromQueue(entry.id)} />
     ) : (
       <InboxCardSlot
@@ -183,6 +206,7 @@ export function InboxPage() {
         onDraftChange={(draft) => setDraft(entry.id, draft)}
         onEngagedChange={onEngagedChange}
         decided={decidedHere.has(entry.id)}
+        latestDecided={entry.id === latestDecidedId}
         onDecided={() => markDecided(entry.id, true)}
         onUndone={() => markDecided(entry.id, false)}
         cardRefs={cardRefs}

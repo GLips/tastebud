@@ -10,11 +10,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import {
-  type DerivationScope,
   describeScopeChange,
   isCompleteScope,
   isSameScope,
-  placeCovers,
+  isScopeNarrowing,
   type ScopeDraft,
 } from "@tastebud/core/places";
 import type { SourceView } from "@tastebud/core/record-views";
@@ -31,7 +30,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote, type SourceQuoteRole } from "#review/shared/ui/source-quote.tsx";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
-import { InboxDecidedRow } from "./inbox-decided-row.tsx";
+import { ignoringRepeatClicks, InboxDecidedRow } from "./inbox-decided-row.tsx";
 import { InboxNote, type InboxNoteState } from "./inbox-note.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { scopeButtonPhrase, scopeOverrideOf } from "./scope-draft.ts";
@@ -45,7 +44,8 @@ const styles = stylex.create({
     transitionProperty: "box-shadow, border-color",
     transitionDuration: "120ms",
     cursor: "default",
-    scrollMarginTop: "96px",
+    // Scrolled into view below the shell header and the sticky group header (about 56px) over it.
+    scrollMarginTop: "calc(var(--review-shell-header-height) + 64px)",
     scrollMarginBottom: "24px",
   },
   selected: { borderColor: "var(--mantine-color-tastebud-4)" },
@@ -93,16 +93,6 @@ function InboxCardQuotes({ view, backlog }: { view: InboxCard["derivation"]; bac
       </Stack>
     ));
 }
-
-/**
- * A scope change is safe to send without a preview when it only narrows: every place in the draft is
- * already covered by the proposed scope, so it can't reach anywhere the agent didn't ask for.
- */
-const scopeOnlyNarrows = (proposed: DerivationScope, draft: DerivationScope): boolean => {
-  if (proposed.scope === "global") return true;
-  if (draft.scope === "global") return false;
-  return draft.places.every((place) => proposed.places.some((wider) => placeCovers(wider, place)));
-};
 
 /** Said beside the buttons, so a past "no" or a near repeat is seen before the click, not only in the evidence. */
 const cautionsOf = (view: InboxCard["derivation"], overlaps: number): ReadonlyArray<string> => [
@@ -215,6 +205,7 @@ export function InboxProposalCard({
   onEngagedChange,
   onDecided,
   decided,
+  latestDecided,
   onUndone,
   ref,
 }: {
@@ -233,6 +224,8 @@ export function InboxProposalCard({
   onDecided: () => void;
   /** Decided from this card: it folds to its outcome with Undo, staying mounted so the undo survives. */
   decided: boolean;
+  /** The newest decision made in the inbox: `u` undoes it. */
+  latestDecided: boolean;
   /** The undo landed and the proposal is pending again. */
   onUndone: () => void;
   ref?: Ref<HTMLDivElement>;
@@ -263,7 +256,7 @@ export function InboxProposalCard({
   const changes = describeScopeChange(proposed, shownScope, known.labelOf);
   // A conflict always previews; an edit previews only when it reaches somewhere the agent didn't propose.
   const needsPreview =
-    card.needsAcknowledgement.length > 0 || (edited && !(isCompleteScope(draft) && scopeOnlyNarrows(proposed, draft)));
+    card.needsAcknowledgement.length > 0 || (edited && !(isCompleteScope(draft) && isScopeNarrowing(proposed, draft)));
   const engaged = mode !== "idle" || decision.pending || pickerOpen || note === "writing";
   // A card being worked on stays open even when another is clicked, so nothing half-done is hidden.
   const expanded = selected || engaged;
@@ -323,6 +316,7 @@ export function InboxProposalCard({
         undoable={decision.undoable}
         undoing={decision.pending}
         onUndo={() => void undo()}
+        latest={latestDecided}
       />
     );
 
@@ -383,8 +377,9 @@ export function InboxProposalCard({
           />
           {edited ? (
             <>
+              {/* The group header still names the proposed scope, so say the change is this card's alone. */}
               <Text size="xs" c="dark.4">
-                {changes.join(" · ") || "Edited"}
+                This one only: {changes.join(" · ") || "edited"}
               </Text>
               {mode === "idle" && !queued && (
                 <Anchor component="button" size="xs" c="dimmed" onClick={() => changeDraft(undefined)}>
@@ -423,7 +418,7 @@ export function InboxProposalCard({
               label={needsPreview ? `Review, then ${kind.acceptLabel.toLowerCase()} · A` : `${kind.acceptLabel} · A`}
               withArrow
             >
-              <Button size="xs" loading={decision.pending} onClick={accept}>
+              <Button size="xs" loading={decision.pending} onClick={ignoringRepeatClicks(accept)}>
                 {`${kind.acceptLabel} ${isCompleteScope(shownScope) ? scopeButtonPhrase(shownScope, known.labelOf) : ""}`.trim()}
                 {needsPreview && "…"}
               </Button>
@@ -435,7 +430,7 @@ export function InboxProposalCard({
                 color="gray"
                 px="xs"
                 leftSection={<X size={14} />}
-                onClick={startReject}
+                onClick={ignoringRepeatClicks(startReject)}
               >
                 Reject
               </Button>
