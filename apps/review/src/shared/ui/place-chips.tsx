@@ -1,8 +1,9 @@
 /**
  * Places and scopes as the reviewer reads them: a chip per place with an icon for its form, the
- * short label, and the full key one hover away. Global is always the orange chip, because it is the
- * scope that is easiest to approve by accident. Every chip opens its place on the Places page,
- * except where the chip is part of an editor and leaving would drop the draft.
+ * short label, and the full key one hover away. Global is a neutral chip like the rest, told apart by its
+ * globe and its word: a scope, not a warning, so it never competes with the one green accent. Every chip
+ * opens its place on the Places page, except where the chip is part of an editor and leaving would drop
+ * the draft.
  */
 import { Badge, CopyButton, Group, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -95,7 +96,7 @@ export function PlaceChip({
 
 function GlobalScopeChip({ label = "Everywhere", linked }: { label?: string; linked: boolean }) {
   const badge = {
-    color: "orange",
+    color: "gray",
     size: "md",
     variant: "light",
     tt: "none",
