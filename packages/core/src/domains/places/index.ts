@@ -17,6 +17,7 @@ export {
   scopePlacesOf,
   scopesOverlap,
 } from "./scope-match.ts";
+export { isScopeNarrowing } from "./scope-narrowing.ts";
 export { type ContextOrigin, type TasteContext, TasteContextSchema, UNKNOWN_TASTE_CONTEXT } from "./taste-context.ts";
 export {
   type GitCheckoutFacts,

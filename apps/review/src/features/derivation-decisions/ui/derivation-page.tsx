@@ -1,7 +1,7 @@
 import { Box, Alert, Center, Loader, Paper, Stack } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
+import { getRouteApi, useLocation } from "@tanstack/react-router";
 import { scopePlacesOf } from "@tastebud/core/places";
 import type { DerivationView, ShowResult } from "@tastebud/core/record-views";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
@@ -14,11 +14,14 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationEvidence, DerivationHeader, useDerivationBack } from "./derivation-header.tsx";
 import { useDerivationPageHotkeys } from "./derivation-review.tsx";
 import { DerivationSidebar } from "./derivation-sidebar.tsx";
-import { DerivationStatusCard } from "./derivation-status.tsx";
+import { DerivationStatusCard, newerPendingVersionOf } from "./derivation-status.tsx";
 import { DerivationThread } from "./derivation-thread.tsx";
 import { useDerivationReview } from "./use-derivation-review.ts";
 
 const Route = getRouteApi("/derivations/$id");
+
+/** The hash a link to discuss a derivation carries: `{ to: "/derivations/$id", hash: "thread" }`. */
+const DERIVATION_THREAD_HASH = "thread";
 
 const styles = stylex.create({
   layout: {
@@ -75,16 +78,31 @@ function DerivationDetail({
   const kind = findKindView(catalog, view.kind);
   const acceptLabel = kind?.acceptLabel ?? "Accept";
   const back = useDerivationBack(view.kind);
+  // Discuss links (the inbox's D) arrive at #thread: the composer takes focus, not the primary action.
+  const discussing = useLocation({ select: (location) => location.hash === DERIVATION_THREAD_HASH });
   useDerivationPageHotkeys(review, back.go);
 
   return (
     <Box {...stylex.props(styles.layout)}>
       <Stack gap="md">
         <DerivationHeader view={view} kind={kind} catalog={catalog} owner={owner} back={back} />
-        <DerivationStatusCard review={review} kind={kind} acceptLabel={acceptLabel} known={known} />
+        <DerivationStatusCard
+          review={review}
+          kind={kind}
+          acceptLabel={acceptLabel}
+          known={known}
+          newer={newerPendingVersionOf(view, detail.despitedBy)}
+          focusPrimary={!discussing}
+        />
         <DerivationEvidence view={view} kind={kind} />
-        <Paper p="md">
-          <DerivationThread derivationId={view.id} thread={view.thread} owner={owner} listeners={detail.listeners} />
+        <Paper p="md" id={DERIVATION_THREAD_HASH}>
+          <DerivationThread
+            derivationId={view.id}
+            thread={view.thread}
+            owner={owner}
+            listeners={detail.listeners}
+            focusComposer={discussing}
+          />
         </Paper>
       </Stack>
       <DerivationSidebar view={view} kind={kind} detail={detail} owner={owner} known={known} />

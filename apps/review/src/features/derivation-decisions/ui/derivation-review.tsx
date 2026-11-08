@@ -40,7 +40,7 @@ function RejectButton({ review }: { review: DerivationReview }) {
         variant="default"
         leftSection={<X size={14} />}
         rightSection={<Kbd size="xs">R</Kbd>}
-        onClick={() => review.setMode("rejecting")}
+        onClick={review.startReject}
       >
         Reject
       </Button>
@@ -64,32 +64,39 @@ function ReopenButton({ review }: { review: DerivationReview }) {
   );
 }
 
-/** Accept, named with where it will apply; a changed scope ends in "…" because the preview comes first. */
+/**
+ * Accept, named with where it will apply; a widened scope ends in "…" because the preview comes first.
+ * Secondary when a newer version waits: reviewing that comes first.
+ */
 function AcceptButton({
   review,
   acceptLabel,
   afterwards,
   known,
+  primary,
 }: {
   review: DerivationReview;
   acceptLabel: string;
   afterwards: string;
   known: KnownPlaces;
+  primary: boolean;
 }) {
-  const { shownScope, draft } = review;
+  const { shownScope } = review;
   const complete = isCompleteScope(shownScope);
   // Moving an accepted one is "Apply"; the kind's accept label would read as accepting it twice.
   const verb = review.accepted ? "Apply" : acceptLabel;
   const where = complete ? ` ${scopeButtonPhrase(shownScope, known.labelOf)}` : "";
   return (
     <Button
+      variant={primary ? "filled" : "default"}
+      data-primary-action={primary || undefined}
       leftSection={<Check size={14} />}
       rightSection={review.accepted ? undefined : <Kbd size="xs">A</Kbd>}
       loading={review.decision.pending}
       disabled={!complete}
       onClick={review.startAccept}
     >
-      {`${verb}${where}${afterwards}${draft === undefined ? "" : "…"}`}
+      {`${verb}${where}${afterwards}${review.needsPreview ? "…" : ""}`}
     </Button>
   );
 }
@@ -98,15 +105,23 @@ export function DerivationActions({
   review,
   acceptLabel,
   known,
+  acceptIsPrimary,
 }: {
   review: DerivationReview;
   acceptLabel: string;
   known: KnownPlaces;
+  acceptIsPrimary: boolean;
 }) {
   const { view, mode, draft } = review;
   if (mode !== "idle" || !canDecideDerivation(view)) return null;
   const accept = (afterwards: string) => (
-    <AcceptButton review={review} acceptLabel={acceptLabel} afterwards={afterwards} known={known} />
+    <AcceptButton
+      review={review}
+      acceptLabel={acceptLabel}
+      afterwards={afterwards}
+      known={known}
+      primary={acceptIsPrimary}
+    />
   );
   switch (view.status) {
     case "pending":
@@ -167,9 +182,7 @@ export function DerivationScopeRow({ review, known }: { review: DerivationReview
         {SCOPE_ROW_LABELS[view.status]}
       </Text>
       <ScopePicker
-        // Remounted open by the S key.
-        key={review.pickerRequest}
-        defaultOpened={review.pickerRequest > 0}
+        opened={review.pickerOpen}
         value={shownScope}
         proposed={view.proposedScope}
         known={known}
@@ -192,8 +205,9 @@ export function DerivationScopeRow({ review, known }: { review: DerivationReview
 }
 
 /**
- * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker, Esc drops
- * a changed scope first and otherwise goes back. Live only while no panel or list is open, so typing a reason or a place never decides anything.
+ * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker, U undoes
+ * the decision just made here, Esc drops a changed scope and otherwise goes back. Letters never fire from
+ * a text field (the library's default), and none fire while a panel or list is open.
  */
 export function useDerivationPageHotkeys(review: DerivationReview, goBack: () => void) {
   const { view, mode, pickerOpen } = review;
@@ -203,10 +217,11 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
     { hotkey: "A", callback: review.startAccept, options: { enabled: decidable && view.status !== "accepted" } },
     {
       hotkey: "R",
-      callback: () => review.setMode("rejecting"),
+      callback: review.startReject,
       options: { enabled: decidable && view.status !== "rejected" },
     },
     { hotkey: "S", callback: review.openPicker, options: { enabled: decidable } },
+    { hotkey: "U", callback: review.undo, options: { enabled: idle && review.undoable !== undefined } },
     // Escape fires in inputs by default; here it would go back the moment Esc closes the reject box.
     {
       hotkey: "Escape",

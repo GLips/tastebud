@@ -83,6 +83,7 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
       if (invalid !== undefined)
         return yield* new DecisionNotAllowed({
           target: derivation.id,
+          statement: derivation.statement,
           outcome: input.outcome,
           status: derivationStateOf(snapshot, derivation).status,
           problem: invalid,
@@ -96,6 +97,7 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
         if (state.status === "accepted" && scopeGroupKey(settled) === scopeGroupKey(state.effectiveScope))
           return yield* new DecisionNotAllowed({
             target: derivation.id,
+            statement: derivation.statement,
             outcome: input.outcome,
             status: state.status,
             problem: "it is already accepted with this scope",
@@ -104,7 +106,11 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
         const acknowledged = new Set(acknowledges.map((record) => record.id));
         const missing = pending.filter((match) => !acknowledged.has(match.id));
         if (missing.length > 0)
-          return yield* new WideningNeedsAcknowledgement({ target: derivation.id, matches: missing });
+          return yield* new WideningNeedsAcknowledgement({
+            target: derivation.id,
+            statement: derivation.statement,
+            matches: missing,
+          });
         const pendingIds = new Set(pending.map((match) => match.id));
         const stray = acknowledges.filter((record) => !pendingIds.has(record.id));
         if (stray.length > 0)

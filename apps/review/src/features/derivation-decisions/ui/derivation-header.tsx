@@ -1,5 +1,5 @@
-/** The top of the derivation page: what it says, what the page is for and the agent's case, then its evidence. */
-import { Anchor, Box, CopyButton, Group, Kbd, Paper, Stack, Text, Tooltip } from "@mantine/core";
+/** The top of the derivation page: what it says and what the page is for, then its evidence and the agent's reasoning. */
+import { Anchor, CopyButton, Group, Kbd, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -49,7 +49,6 @@ export function DerivationHeader({
   owner: string;
   back: DerivationBack;
 }) {
-  const reasoning = view.derivation.reasoning.trim();
   // SubjectLabel renders nothing for the owner; the space before it has to follow the same test.
   const aboutSomeoneElse = view.subject !== undefined && view.subject !== "owner" && view.subject !== owner;
   const retired = view.retired ? " (its kind is retired)" : "";
@@ -70,13 +69,6 @@ export function DerivationHeader({
           <SubjectLabel summary={view} owner={owner} />
           {retired}, what it rests on, and every decision you&apos;ve made on it.
         </>
-      }
-      details={
-        reasoning === "" ? undefined : (
-          <Box component="span" {...stylex.props(styles.prose)}>
-            Why the agent proposed it: {reasoning}
-          </Box>
-        )
       }
     />
   );
@@ -129,10 +121,11 @@ function DerivationIdCopy({ id }: { id: string }) {
   );
 }
 
-/** What it replaces or overrides, and the quotes and derivations it rests on. */
+/** What it replaces or overrides, then the agent's reasoning and the quotes and derivations it rests on. */
 export function DerivationEvidence({ view, kind }: { view: DerivationView; kind: DerivedKindView | undefined }) {
   const catalog = useReviewCatalog();
   const backlogKind = kind?.recall === "never";
+  const reasoning = view.derivation.reasoning.trim();
   const cited =
     view.supportingSources.length +
     view.contradictingSources.length +
@@ -146,12 +139,20 @@ export function DerivationEvidence({ view, kind }: { view: DerivationView; kind:
           {view.despite.length > 0 && <DespiteNotice despite={view.despite} agentCase={view.derivation.despite_case} />}
         </Stack>
       )}
-      {cited > 0 && (
+      {(cited > 0 || reasoning !== "") && (
         <Paper px="md" py="sm">
           <Stack gap="xs">
             <Text size="sm" fw={600}>
               {backlogKind ? "What prompted this" : "What it rests on"}
             </Text>
+            {reasoning !== "" && (
+              <Text size="sm" {...stylex.props(styles.prose)}>
+                <Text span size="sm" c="dimmed">
+                  The agent&apos;s reasoning:
+                </Text>{" "}
+                {reasoning}
+              </Text>
+            )}
             {view.supportingSources.map((source) => (
               <SourceQuote key={source.source.id} view={source} role={backlogKind ? "prompted" : "supports"} showKind />
             ))}
