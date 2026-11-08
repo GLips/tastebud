@@ -29,17 +29,32 @@ const styles = stylex.create({
   chevronOpen: { transform: "rotate(90deg)" },
 });
 
+/** A section of the answer; an empty one folds to a single line so the full ones lead. */
 function AnswerSection({
   title,
   count,
   hint,
+  empty,
   children,
 }: {
   title: string;
   count: number;
   hint: string;
+  /** What an empty section says, after its title. */
+  empty: string;
   children: ReactNode;
 }) {
+  if (count === 0)
+    return (
+      <Text size="sm">
+        <Text span size="sm" fw={600}>
+          {title}:
+        </Text>{" "}
+        <Text span size="sm" c="dimmed">
+          {empty}
+        </Text>
+      </Text>
+    );
   return (
     <Stack gap="2xs">
       <Stack gap="3xs">
@@ -125,105 +140,91 @@ export function RecallCandidateGroups({
   const lookUpCount = lookUp.length + recall.history.length;
   return (
     <Stack gap="lg">
-      <Text size="sm">
-        {hook.items.length === 0
-          ? `Nothing is sent with this prompt. ${hookSilenceWording(hook, catalog)}`
-          : `${plural(hook.items.length, "item is", "items are")} sent with this prompt.`}{" "}
-        {lookUpCount > 0 && `${lookUpCount} more an agent can look up. `}
-        {notSentCount > 0 && `${plural(notSentCount, "close match isn't sent", "close matches aren't sent")}.`}
-      </Text>
+      <Stack gap="3xs">
+        <Text size="md" fw={500}>
+          {hook.items.length === 0
+            ? "Nothing would be sent with this prompt."
+            : `${plural(hook.items.length, "item would be", "items would be")} sent with this prompt.`}
+          {lookUpCount > 0 && ` ${lookUpCount} more an agent can look up.`}
+          {notSentCount > 0 && ` ${plural(notSentCount, "close match is", "close matches are")} held back.`}
+        </Text>
+        {hook.items.length === 0 && (
+          <Text size="sm" c="dimmed">
+            {hookSilenceWording(hook, catalog)}
+          </Text>
+        )}
+      </Stack>
 
       <AnswerSection
         title="Sent with the prompt"
         count={hook.items.length}
         hint={`The prompt hook adds these before the agent reads the prompt: accepted, of a kind that may be sent, at most ${limit}.`}
+        empty="nothing for these words"
       >
-        {hook.items.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            Nothing for these words.
-          </Text>
-        ) : (
-          <>
-            <Box>
-              {hook.items.map((item) => (
-                <RecallItemRow
-                  key={item.id}
-                  item={item}
-                  reason={`Sent: ${matchedPlaceWording(item.explanation.matchedPlace, known)}`}
-                  reasonColor="tastebud.8"
-                />
-              ))}
-            </Box>
-            <Disclosure label="Show exactly what the hook adds">
-              <HookPayloadView hook={hook} />
-            </Disclosure>
-          </>
-        )}
+        <Box>
+          {hook.items.map((item) => (
+            <RecallItemRow
+              key={item.id}
+              item={item}
+              reason={`Sent: ${matchedPlaceWording(item.explanation.matchedPlace, known)}`}
+              reasonColor="tastebud.8"
+            />
+          ))}
+        </Box>
+        <Disclosure label="Show exactly what the hook adds">
+          <HookPayloadView hook={hook} />
+        </Disclosure>
       </AnswerSection>
 
       <AnswerSection
         title="An agent can look this up"
         count={lookUpCount}
         hint="Not sent on its own, but an agent that asks Tastebud about these words gets it."
+        empty="nothing else accepted here matches these words"
       >
-        {lookUpCount === 0 ? (
-          <Text size="sm" c="dimmed">
-            Nothing else accepted here matches these words.
-          </Text>
-        ) : (
-          <Box>
-            {lookUp.map((hit) => (
-              <RecallItemRow
-                key={hit.id}
-                item={hit}
-                reason={`${availableThroughRecallReason(hit, catalog, limit)}; ${matchedPlaceWording(hit.explanation.matchedPlace, known)}`}
-              />
-            ))}
-            {recall.history.map((hit) => (
-              <RecallItemRow
-                key={hit.id}
-                item={hit}
-                reason={`${hit.status === "superseded" ? "Replaced by a newer revision" : "Retracted"}; shown because you included them`}
-              />
-            ))}
-          </Box>
-        )}
-        {recall.sources.length > 0 && (
-          <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
-            <Stack gap="xxs">
-              {recall.sources.map((hit) => (
-                <SourceQuote key={hit.source.id} view={hit} role="plain" showKind />
-              ))}
-            </Stack>
-          </Disclosure>
-        )}
+        <Box>
+          {lookUp.map((hit) => (
+            <RecallItemRow
+              key={hit.id}
+              item={hit}
+              reason={`${availableThroughRecallReason(hit, catalog, limit)}; ${matchedPlaceWording(hit.explanation.matchedPlace, known)}`}
+            />
+          ))}
+          {recall.history.map((hit) => (
+            <RecallItemRow
+              key={hit.id}
+              item={hit}
+              reason={`${hit.status === "superseded" ? "Replaced by a newer revision" : "Retracted"}; shown because you included them`}
+            />
+          ))}
+        </Box>
       </AnswerSection>
 
       <AnswerSection
-        title="Matched but not sent, and why"
+        title="Held back, and why"
         count={notSentCount}
         hint="Close matches for these words that agents don't get as advice."
+        empty="no close match was left out"
       >
-        {notSentCount === 0 ? (
-          <Text size="sm" c="dimmed">
-            No close match was left out.
-          </Text>
-        ) : (
-          <Box>
-            {recall.rejected.map((hit) => (
-              <RecallItemRow key={hit.id} item={hit} reason={rejectedHitWording(hit)} reasonColor="red.7" />
-            ))}
-            {recall.excluded.map((hit) => (
-              <RecallItemRow
-                key={hit.id}
-                item={hit}
-                reason={exclusionReason(hit, catalog, recall.context, known)}
-                reasonColor="orange.8"
-              />
-            ))}
-          </Box>
-        )}
+        <Box>
+          {recall.rejected.map((hit) => (
+            <RecallItemRow key={hit.id} item={hit} reason={rejectedHitWording(hit)} />
+          ))}
+          {recall.excluded.map((hit) => (
+            <RecallItemRow key={hit.id} item={hit} reason={exclusionReason(hit, catalog, recall.context, known)} />
+          ))}
+        </Box>
       </AnswerSection>
+
+      {recall.sources.length > 0 && (
+        <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
+          <Stack gap="xxs">
+            {recall.sources.map((hit) => (
+              <SourceQuote key={hit.source.id} view={hit} role="plain" showKind />
+            ))}
+          </Stack>
+        </Disclosure>
+      )}
 
       {appliesUnmatched.length > 0 && (
         <Disclosure

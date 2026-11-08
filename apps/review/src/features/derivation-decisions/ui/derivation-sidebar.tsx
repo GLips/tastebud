@@ -1,6 +1,6 @@
 /**
- * The derivation page's sidebar, on every status: its properties, its decision history newest first
- * in plain words, its revision chain, and what points back at it.
+ * The derivation page's sidebar, on every status: the properties the status card doesn't state (where,
+ * kind, who proposed it and when), a one-line-per-decision history, its revisions, and what points back.
  */
 import { Box, Group, Paper, Stack, Text, Timeline } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -17,7 +17,6 @@ import { DerivationSummaryLine } from "#review/shared/ui/derivation-link.tsx";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
-import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 const styles = stylex.create({
   current: { fontWeight: 600 },
@@ -35,14 +34,6 @@ const DECISION_BULLET_COLORS: Record<DecisionRecord["outcome"], string> = {
   reject: "red",
   retract: "gray",
   reopen: "blue",
-};
-
-const STATUS_WORDS: Record<DerivationView["status"], string> = {
-  pending: "Waiting for you",
-  accepted: "Accepted",
-  rejected: "Rejected",
-  retracted: "Retracted",
-  superseded: "Replaced by a revision",
 };
 
 /** Where its scope stands, read with its status: only an accepted one applies anywhere right now. */
@@ -81,12 +72,6 @@ function DerivationProperties({
   return (
     <Paper p="md">
       <Box {...stylex.props(styles.facts)}>
-        <FactRow label="Status">
-          <Group gap="xs" wrap="nowrap">
-            <DerivationStatusDot status={view.status} />
-            <Text size="sm">{STATUS_WORDS[view.status]}</Text>
-          </Group>
-        </FactRow>
         <FactRow label={SCOPE_LABELS[view.status]}>
           <Stack gap="3xs">
             <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />
@@ -148,31 +133,52 @@ const decisionHeadline = (entry: DecisionRecord, previous: DecisionRecord | unde
   }
 };
 
-function DecisionEntryBody({ entry, owner, known }: { entry: DecisionRecord; owner: string; known: KnownPlaces }) {
+/** Who and when, on the headline's line. The owner goes unnamed: nearly every decision is theirs. */
+function EntryWhen({ by, at, owner }: { by: string; at: string; owner: string }) {
   return (
-    <Stack gap="3xs">
-      <Text size="xs" c="dimmed" title={formatReviewTime(entry.at)}>
-        {describeAuthor(entry.by, owner)} · {formatReviewDate(entry.at)}
-      </Text>
+    <Text span size="xs" c="dimmed" fw={400} title={formatReviewTime(at)}>
+      {" · "}
+      {by === owner ? "" : `${describeAuthor(by, owner)}, `}
+      {formatReviewDate(at)}
+    </Text>
+  );
+}
+
+/**
+ * A decision's quieter second line, when it has one: the scope an accept set, the near repeats it
+ * weighed, a reason. The current rejection's reason is left out: the status card already quotes it.
+ */
+function DecisionEntryDetail({
+  entry,
+  reasonQuotedAbove,
+  known,
+}: {
+  entry: DecisionRecord;
+  reasonQuotedAbove: boolean;
+  known: KnownPlaces;
+}) {
+  const reason = reasonQuotedAbove ? undefined : entry.reason;
+  if (entry.scope === undefined && entry.acknowledges === undefined && reason === undefined) return null;
+  return (
+    <Group gap="2xs" mt="3xs">
       {entry.scope !== undefined && (
-        <Group gap="2xs">
-          <Text size="xs" c="dimmed">
-            Applies in
-          </Text>
-          <ScopeChips
-            scope={scopeFromFields({ scope: entry.scope, ...(entry.places && { places: entry.places }) })}
-            labels={known.labels}
-            wrap="wrap"
-          />
-        </Group>
+        <ScopeChips
+          scope={scopeFromFields({ scope: entry.scope, ...(entry.places && { places: entry.places }) })}
+          labels={known.labels}
+          wrap="wrap"
+        />
       )}
       {entry.acknowledges !== undefined && (
         <Text size="xs" c="dimmed">
-          You weighed {entry.acknowledges.length} similar {entry.acknowledges.length === 1 ? "one" : "ones"} it overlaps
+          weighed {entry.acknowledges.length} similar
         </Text>
       )}
-      {entry.reason !== undefined && <Text size="sm">“{entry.reason}”</Text>}
-    </Stack>
+      {reason !== undefined && (
+        <Text size="xs" c="dark.4">
+          “{reason}”
+        </Text>
+      )}
+    </Group>
   );
 }
 
@@ -180,6 +186,7 @@ function DecisionHistory({ view, owner, known }: { view: DerivationView; owner: 
   const newestFirst = view.decisions
     .map((entry, index) => ({ entry, previous: view.decisions[index - 1] }))
     .toReversed();
+  const quotedByCard = view.status === "rejected" ? view.decisions.at(-1)?.id : undefined;
   return (
     <Paper p="md">
       <Text size="sm" fw={600} mb="sm">
@@ -194,10 +201,11 @@ function DecisionHistory({ view, owner, known }: { view: DerivationView; owner: 
             title={
               <Text size="sm" fw={600}>
                 {decisionHeadline(entry, previous)}
+                <EntryWhen by={entry.by} at={entry.at} owner={owner} />
               </Text>
             }
           >
-            <DecisionEntryBody entry={entry} owner={owner} known={known} />
+            <DecisionEntryDetail entry={entry} reasonQuotedAbove={entry.id === quotedByCard} known={known} />
           </Timeline.Item>
         ))}
         <Timeline.Item
@@ -205,13 +213,10 @@ function DecisionHistory({ view, owner, known }: { view: DerivationView; owner: 
           title={
             <Text size="sm" fw={600}>
               Proposed
+              <EntryWhen by={view.derivation.proposed_by} at={view.proposedAt} owner={owner} />
             </Text>
           }
-        >
-          <Text size="xs" c="dimmed" title={formatReviewTime(view.proposedAt)}>
-            {describeAuthor(view.derivation.proposed_by, owner)} · {formatReviewDate(view.proposedAt)}
-          </Text>
-        </Timeline.Item>
+        />
       </Timeline>
     </Paper>
   );

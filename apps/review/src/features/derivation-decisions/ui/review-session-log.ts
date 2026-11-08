@@ -1,7 +1,7 @@
 /**
- * The decisions made in this browser tab, newest first: recovery without a fake Undo. Decisions are
- * append-only, so the list links to each one instead of offering to take it back. Kept in
- * sessionStorage so it survives moving between screens and a reload.
+ * The decisions made in this browser tab, newest first, each its own line: an accept and the undo
+ * that put it back are two entries, as they are two records. Kept in sessionStorage so it survives
+ * moving between screens and a reload.
  */
 import { DerivationScopeSchema } from "@tastebud/core/places";
 import { DecisionOutcomeSchema } from "@tastebud/core/taste-vocabulary";
@@ -11,6 +11,7 @@ import { useSyncExternalStore } from "react";
 import { readTabSessionText, writeTabSessionText } from "#review/infrastructure/browser-storage.ts";
 
 const ReviewSessionDecisionSchema = Schema.Struct({
+  decisionId: Schema.String,
   derivationId: Schema.String,
   kind: Schema.String,
   statement: Schema.String,
@@ -37,7 +38,7 @@ const readStored = (): ReadonlyArray<ReviewSessionDecision> => {
 };
 
 export const recordSessionDecision = (decision: ReviewSessionDecision): void => {
-  cached = [decision, ...readStored().filter((entry) => entry.derivationId !== decision.derivationId)];
+  cached = [decision, ...readStored()];
   writeTabSessionText(STORAGE_KEY, JSON.stringify(cached));
   for (const listener of listeners) listener();
 };

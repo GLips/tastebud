@@ -1,1 +1,3 @@
-{}
+{
+  "derivation-library": "the library row menu decides through the same hook as the inbox and the page, so undo, session log and refresh behave alike"
+}

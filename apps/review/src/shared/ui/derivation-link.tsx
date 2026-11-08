@@ -38,13 +38,13 @@ export function DerivationSummaryLine({
           {summary.statement}
         </AnchorLink>
         {summary.reason !== undefined && (
-          <Text span size="xs" c="dimmed" title={decided}>
+          <Text span size="sm" c="gray.7" title={decided}>
             {" "}
             — “{summary.reason}”
           </Text>
         )}
         {note !== undefined && (
-          <Text span size="xs" c="dimmed">
+          <Text span size="sm" c="gray.7">
             {" "}
             · {note}
           </Text>

@@ -21,8 +21,8 @@ export function RecallAppliesPanel({
     <Stack gap="lg">
       <Text size="sm">
         {total === 0
-          ? "Nothing you've accepted applies here."
-          : `${total} accepted ${total === 1 ? "item applies" : "items apply"} ${nowhere ? "everywhere, so even nowhere in particular" : "here"}. Type a prompt to see which of them an agent would get for it.`}
+          ? "Nothing you've accepted reaches agents here."
+          : `${total} accepted ${total === 1 ? "item reaches" : "items reach"} agents ${nowhere ? "even nowhere in particular, because they apply everywhere" : "here"}. Type a prompt to see which of them an agent would get for it.`}
       </Text>
       {applies.byKind.map(({ kind, accepted }) => (
         <Stack key={kind.key} gap="2xs">

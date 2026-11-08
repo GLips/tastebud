@@ -3,14 +3,16 @@
  * an accept carries, and the decisions themselves. The owner can change their mind from any status
  * but superseded; `decisionInvalidReason` in core is the rule.
  */
-import { isCompleteScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
+import { isCompleteScope, isSameScope, isScopeNarrowing, type ScopeDraft } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { scopeOverrideOf } from "./scope-draft.ts";
 import { useReviewDecision } from "./use-review-decision.ts";
 
 type DerivationReviewMode = "idle" | "rejecting" | "previewing";
+
+const DECISION_SETTLE_MS = 400;
 
 /** Whether any decision is open to the owner: not on a superseded one (its revision governs) or a retired kind. */
 export const canDecideDerivation = (view: DerivationView): boolean => !view.retired && view.status !== "superseded";
@@ -24,10 +26,27 @@ export function useDerivationReview(view: DerivationView) {
   const [conflict, setConflict] = useState(false);
   // Kept here, not in the form, so closing the reject box keeps what was typed.
   const [rejectDraft, setRejectDraft] = useState("");
-  // Bumped by the S key: the picker remounts open. Its own open state is reported back for Esc.
-  const [pickerRequest, setPickerRequest] = useState(0);
+  // The picker's list, held here so the S key can open it and the page's Esc can wait for it.
   const [pickerOpen, setPickerOpen] = useState(false);
   const accepted = view.status === "accepted";
+  // Undo only while the decision made here is still the latest one on record.
+  const undoable =
+    decision.undoable !== undefined && view.decisions.at(-1)?.id === decision.undoable.decisionId
+      ? decision.undoable
+      : undefined;
+  /*
+   * A decision swaps the buttons under the cursor (Accept becomes Retract), so the second click of a
+   * double-click would decide again. Clicks and keys within a moment of a decision settling are dropped.
+   */
+  const settledAt = useRef(0);
+  useEffect(() => {
+    if (!decision.pending) settledAt.current = Date.now();
+  }, [decision.pending]);
+  const steady =
+    <Args extends ReadonlyArray<unknown>>(act: (...args: Args) => void) =>
+    (...args: Args) => {
+      if (Date.now() - settledAt.current >= DECISION_SETTLE_MS) act(...args);
+    };
   // Pending: the draft amends the proposed scope. Decided: it starts from where it applies, or applied.
   const baseScope = view.status === "pending" ? view.proposedScope : view.effectiveScope;
   const shownScope = draft ?? baseScope;
@@ -64,14 +83,16 @@ export function useDerivationReview(view: DerivationView) {
       changeDraft(undefined);
     } else if (outcome.failure.tag === "WideningNeedsAcknowledgement") openConflict();
   };
-  /** Unchanged, the accept is sent at once; a changed scope is previewed first. */
+  // Unchanged or only narrowed, an accept can't newly overlap anything, so it goes in one click.
+  const needsPreview = draft !== undefined && isCompleteScope(draft) && !isScopeNarrowing(baseScope, draft);
   const startAccept = () => {
     if (!isCompleteScope(shownScope)) return;
-    if (draft === undefined) void accept([]);
-    else setMode("previewing");
+    if (needsPreview) setMode("previewing");
+    else void accept([]);
   };
   /** An undo that lands on a new near repeat opens the preview to acknowledge it, like any accept. */
   const undo = async () => {
+    if (undoable === undefined) return;
     const outcome = await decision.undo();
     if (outcome !== undefined && !outcome.ok && outcome.failure.tag === "WideningNeedsAcknowledgement") openConflict();
   };
@@ -98,18 +119,20 @@ export function useDerivationReview(view: DerivationView) {
     baseScope,
     shownScope,
     accept,
-    startAccept,
-    undo,
+    startAccept: steady(startAccept),
+    needsPreview,
+    undoable,
+    undo: steady(() => void undo()),
     reject,
-    reopen,
-    retract: () => void decision.decide({ outcome: "retract" }),
+    reopen: steady(reopen),
+    retract: steady(() => void decision.decide({ outcome: "retract" })),
+    startReject: steady(() => setMode("rejecting")),
     rejectDraft,
     setRejectDraft,
     acknowledged,
     setAcknowledged,
     conflict,
-    pickerRequest,
-    openPicker: () => setPickerRequest((count) => count + 1),
+    openPicker: () => setPickerOpen(true),
     pickerOpen,
     setPickerOpen,
   };
