@@ -3,20 +3,22 @@
  * review, and the cards themselves. A batch locks the cards it queued until each one is written, so
  * nothing it counted as unchanged can be edited under it.
  */
-import { Alert, Button, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InboxGroup } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
-import { CheckCheck } from "lucide-react";
+import type { DerivationScope } from "@tastebud/core/places";
+import { CheckCheck, Globe } from "lucide-react";
 import { type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
+import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
-import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
-import { ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
+import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
 
 import type { InboxQueueEntry } from "./inbox-queue.ts";
 import { isSameScope, type ScopeDraft } from "./scope-draft.ts";
@@ -28,15 +30,63 @@ const styles = stylex.create({
     position: "sticky",
     top: "48px",
     zIndex: 5,
-    paddingBlock: "6px",
+    paddingTop: "12px",
+    paddingBottom: "6px",
     backgroundColor: "var(--mantine-color-gray-0)",
   },
   gone: { borderStyle: "dashed", backgroundColor: "var(--mantine-color-gray-0)" },
 });
 
-/** Groups about the owner need no label; only derivations about someone else say whom. */
-const subjectLabel = (subject: string | undefined, owner: string | undefined) =>
-  subject === undefined || subject === "owner" || subject === owner ? undefined : `About ${subject}`;
+/**
+ * Groups about the owner need no label; only derivations about someone else say whom. A person's
+ * name lives only on the words they said, so it comes from the group's quotes, falling back to the
+ * account id when none of them is theirs.
+ */
+const subjectLabel = (
+  subject: string | undefined,
+  owner: string | undefined,
+  entries: ReadonlyArray<InboxQueueEntry>,
+) => {
+  if (subject === undefined || subject === "owner" || subject === owner) return undefined;
+  const theirs = entries
+    .flatMap((entry) => [...entry.card.derivation.supportingSources, ...entry.card.derivation.contradictingSources])
+    .find((view) => view.source.said_by === subject);
+  return `About ${theirs?.source.said_by_label ?? subject}`;
+};
+
+/** The Places page node that lists what applies in a scope; a scope of several places has no one node. */
+const placesNodeOf = (scope: DerivationScope): string | undefined => {
+  if (scope.scope === "global") return GLOBAL_PLACE_NODE;
+  const [only, ...rest] = scope.places;
+  return rest.length === 0 ? only : undefined;
+};
+
+/** The group's scope as a section title: the place names themselves, not chips. */
+function ScopeTitle({ scope, known }: { scope: DerivationScope; known: KnownPlaces }) {
+  if (scope.scope === "global") {
+    return (
+      <Group gap="xxs" wrap="nowrap">
+        <Globe size={16} color="var(--mantine-color-orange-6)" aria-hidden />
+        <Title order={4}>Everywhere</Title>
+      </Group>
+    );
+  }
+  return (
+    <Group gap="xs" wrap="wrap">
+      {scope.places.map((place, index) => (
+        <Group key={place} gap="xxs" wrap="nowrap">
+          {index > 0 && (
+            <Text c="dimmed" fw={600}>
+              +
+            </Text>
+          )}
+          <PlaceFormIcon place={place} size={16} />
+          <Title order={4}>{known.labelOf(place)}</Title>
+        </Group>
+      ))}
+    </Group>
+  );
+}
 
 /** A card is batchable when the reviewer hasn't touched it: no edit, nothing to acknowledge, not open. */
 const isBatchAcceptable = (
@@ -151,46 +201,39 @@ export function InboxGroupSection({
   const live = entries.filter((entry) => !entry.gone).length;
   const ready = entries.filter((entry) => isBatchAcceptable(entry, drafts, engagedIds));
   const needReview = live - ready.length;
-  const about = subjectLabel(group.subject, owner);
+  const about = subjectLabel(group.subject, owner, entries);
+  const placesNode = placesNodeOf(group.scope);
   return (
-    <Stack gap="sm">
-      <Group justify="space-between" {...stylex.props(styles.groupHeader)}>
-        <Group gap="xs">
-          {about !== undefined && (
-            <Text size="sm" fw={600}>
-              {about}
-            </Text>
+    <Stack gap="sm" component="section">
+      <Group justify="space-between" wrap="nowrap" gap="md" {...stylex.props(styles.groupHeader)}>
+        <Group gap="sm" {...stylex.props(styles.shrinkable)}>
+          <ScopeTitle scope={group.scope} known={known} />
+          <Text c="dimmed">
+            {live} waiting{about !== undefined && ` · ${about}`}
+          </Text>
+          {placesNode !== undefined && (
+            <AnchorLink to="/places" search={{ place: placesNode }} size="sm">
+              What applies here
+            </AnchorLink>
           )}
-          <ScopeChips scope={group.scope} labels={known.labels} />
-          <Tooltip label={`${live} waiting in this scope`} withArrow>
-            <Text size="xs" c="dimmed">
-              {live}
-            </Text>
-          </Tooltip>
         </Group>
         {(ready.length > 1 || batch.pending) && (
-          <Group gap="xxs">
-            <Tooltip
-              label="Edited, open and overlapping cards are left for you to review one by one"
-              withArrow
-              multiline
-              w={260}
-              disabled={needReview === 0}
-            >
-              <Button
-                variant="subtle"
-                leftSection={<CheckCheck size={14} />}
-                loading={batch.pending}
-                onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
-              >
-                {kind.acceptLabel} {ready.length} unchanged proposals
-              </Button>
-            </Tooltip>
+          <Group gap="xs" wrap="nowrap">
             {needReview > 0 && !batch.pending && (
-              <Text size="xs" c="dimmed">
-                · {needReview} need review
-              </Text>
+              <Tooltip label="Edited, open and overlapping cards are left for you to decide one by one" withArrow>
+                <Text size="xs" c="dimmed">
+                  {needReview} to review
+                </Text>
+              </Tooltip>
             )}
+            <Button
+              variant="default"
+              leftSection={<CheckCheck size={14} />}
+              loading={batch.pending}
+              onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
+            >
+              {kind.acceptLabel} {ready.length} unchanged
+            </Button>
           </Group>
         )}
       </Group>

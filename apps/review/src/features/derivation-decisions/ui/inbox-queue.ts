@@ -4,7 +4,7 @@
  * decided elsewhere stays in place, marked gone, until the reviewer moves past it.
  */
 import type { InboxCard, InboxGroup } from "@tastebud/core/inbox";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface InboxQueueEntry {
   readonly id: string;
@@ -40,12 +40,32 @@ interface QueueMemory {
   readonly orders: ReadonlyMap<string, ReadonlyArray<string>>;
   /** Every card seen, so one decided elsewhere can still be shown as gone. */
   readonly latest: ReadonlyMap<string, { card: InboxCard; group: InboxGroup }>;
+  /** Restored after the inbox was away: the next poll drops what was decided meanwhile instead of showing it gone. */
+  readonly returning: boolean;
 }
+
+/**
+ * The queue as the reviewer left it, outside React so a trip to a card's page and back (to leave a
+ * note, say) finds the same order. Re-seeding instead would re-sort groups by their oldest card,
+ * and a group whose first card was decided would jump.
+ */
+let leftInboxQueue: QueueMemory | undefined;
 
 const liveEntriesOf = (groups: ReadonlyArray<InboxGroup> | undefined, kind: string) =>
   (groups ?? [])
     .filter((group) => group.kind === kind)
     .flatMap((group) => group.cards.map((card) => ({ id: card.derivation.id, card, group })));
+
+const keepOnlyLive = (
+  orders: ReadonlyMap<string, ReadonlyArray<string>>,
+  groups: ReadonlyArray<InboxGroup>,
+): ReadonlyMap<string, ReadonlyArray<string>> =>
+  new Map(
+    [...orders].map(([kind, ids]) => {
+      const live = new Set(liveEntriesOf(groups, kind).map((entry) => entry.id));
+      return [kind, ids.filter((id) => live.has(id))];
+    }),
+  );
 
 // The first data seen for a kind seeds its order; later arrivals only ever append, on request.
 const absorbInboxPoll = (
@@ -53,17 +73,18 @@ const absorbInboxPoll = (
   groups: ReadonlyArray<InboxGroup> | undefined,
   kind: string,
 ): QueueMemory => {
+  if (groups === undefined) return { ...memory, groups, kind };
   const live = liveEntriesOf(groups, kind);
   const latest = new Map(memory.latest);
   for (const entry of live) latest.set(entry.id, entry);
-  const orders =
-    memory.orders.has(kind) || groups === undefined
-      ? memory.orders
-      : new Map(memory.orders).set(
-          kind,
-          live.map((entry) => entry.id),
-        );
-  return { groups, kind, orders, latest };
+  const kept = memory.returning ? keepOnlyLive(memory.orders, groups) : memory.orders;
+  const orders = kept.has(kind)
+    ? kept
+    : new Map(kept).set(
+        kind,
+        live.map((entry) => entry.id),
+      );
+  return { groups, kind, orders, latest, returning: false };
 };
 
 // An arrival appended to the order can still belong to an earlier bucket, which is why the
@@ -81,12 +102,22 @@ const bucketQueueEntries = (entries: ReadonlyArray<InboxQueueEntry>): Array<Inbo
 
 export function useStableInboxQueue(groups: ReadonlyArray<InboxGroup> | undefined, kind: string): InboxQueue {
   const [stored, setStored] = useState<QueueMemory>(() =>
-    absorbInboxPoll({ groups: undefined, kind, orders: new Map(), latest: new Map() }, groups, kind),
+    absorbInboxPoll(
+      leftInboxQueue === undefined
+        ? { groups: undefined, kind, orders: new Map(), latest: new Map(), returning: false }
+        : { ...leftInboxQueue, returning: true },
+      groups,
+      kind,
+    ),
   );
   const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const stale = stored.groups !== groups || stored.kind !== kind;
   const memory = stale ? absorbInboxPoll(stored, groups, kind) : stored;
   if (stale) setStored(memory);
+  // Decided cards need no carrying over: they are no longer live, so the return trip drops them.
+  useEffect(() => {
+    leftInboxQueue = stored;
+  }, [stored]);
 
   const live = liveEntriesOf(groups, kind);
   const liveIds = new Set(live.map((entry) => entry.id));
