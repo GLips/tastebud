@@ -1,11 +1,11 @@
 /**
- * The derivation page's sidebar, on every status: the properties the status card doesn't state (where,
- * kind, who proposed it and when), a one-line-per-decision history, its revisions, and what points back.
+ * The derivation page's sidebar, on every status: the properties the status card doesn't state (kind,
+ * who proposed it and when), a one-line-per-decision history, its revisions, and what points back. The
+ * pending proposal the card notes is left out of "Proposed again despite this".
  */
 import { Box, Group, Paper, Stack, Text, Timeline } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
-import { isSameScope } from "@tastebud/core/places";
 import type { DerivationSummary, DerivationView, ShowResult } from "@tastebud/core/record-views";
 import { type DecisionRecord, scopeFromFields } from "@tastebud/core/records";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
@@ -36,15 +36,6 @@ const DECISION_BULLET_COLORS: Record<DecisionRecord["outcome"], string> = {
   reopen: "blue",
 };
 
-/** Where its scope stands, read with its status: only an accepted one applies anywhere right now. */
-const SCOPE_LABELS: Record<DerivationView["status"], string> = {
-  pending: "Proposed for",
-  accepted: "Applies in",
-  rejected: "Was proposed for",
-  retracted: "Applied in",
-  superseded: "Applied in",
-};
-
 const RECALL_WORDS: Record<RecallPolicy, string> = {
   inject: "agents are told it automatically",
   pull: "agents find it when they look",
@@ -61,37 +52,14 @@ function DerivationProperties({
   view,
   kind,
   owner,
-  known,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   owner: string;
-  known: KnownPlaces;
 }) {
-  const amended = !isSameScope(view.proposedScope, view.effectiveScope);
   return (
     <Paper p="md">
       <Box {...stylex.props(styles.facts)}>
-        <FactRow label={SCOPE_LABELS[view.status]}>
-          <Stack gap="3xs">
-            <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />
-            {view.status === "pending" && view.scopeSource === "defaulted" && (
-              <Text size="xs" c="dimmed">
-                Guessed from where the agent was working
-              </Text>
-            )}
-          </Stack>
-        </FactRow>
-        {amended && (
-          <FactRow label="Proposed for">
-            <Stack gap="3xs">
-              <ScopeChips scope={view.proposedScope} labels={known.labels} wrap="wrap" />
-              <Text size="xs" c="dimmed">
-                You changed where it applies
-              </Text>
-            </Stack>
-          </FactRow>
-        )}
         <FactRow label="Kind">
           <Text size="sm">
             {capitalize(view.kindLabel)}
@@ -267,17 +235,19 @@ export function DerivationSidebar({
   detail,
   owner,
   known,
+  notedByCard,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   detail: ShowResult;
   owner: string;
   known: KnownPlaces;
+  notedByCard: string | undefined;
 }) {
   const chain = revisionChainOf(view);
   return (
     <Stack gap="md">
-      <DerivationProperties view={view} kind={kind} owner={owner} known={known} />
+      <DerivationProperties view={view} kind={kind} owner={owner} />
       <DecisionHistory view={view} owner={owner} known={known} />
       {chain.length > 1 && (
         <Paper p="md">
@@ -301,7 +271,7 @@ export function DerivationSidebar({
       <SidebarList
         title="Proposed again despite this"
         explanation="Later proposals that came close to it and said what changed since."
-        items={detail.despitedBy}
+        items={detail.despitedBy.filter((item) => item.id !== notedByCard)}
       />
       <SidebarList
         title="Accepted despite this"

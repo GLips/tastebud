@@ -78,6 +78,7 @@ function DerivationDetail({
   const kind = findKindView(catalog, view.kind);
   const acceptLabel = kind?.acceptLabel ?? "Accept";
   const back = useDerivationBack(view.kind);
+  const newer = newerPendingVersionOf(view, detail.despitedBy);
   // Discuss links (the inbox's D) arrive at #thread: the composer takes focus, not the primary action.
   const discussing = useLocation({ select: (location) => location.hash === DERIVATION_THREAD_HASH });
   useDerivationPageHotkeys(review, back.go);
@@ -91,7 +92,7 @@ function DerivationDetail({
           kind={kind}
           acceptLabel={acceptLabel}
           known={known}
-          newer={newerPendingVersionOf(view, detail.despitedBy)}
+          newer={newer}
           focusPrimary={!discussing}
         />
         <DerivationEvidence view={view} kind={kind} />
@@ -105,7 +106,14 @@ function DerivationDetail({
           />
         </Paper>
       </Stack>
-      <DerivationSidebar view={view} kind={kind} detail={detail} owner={owner} known={known} />
+      <DerivationSidebar
+        view={view}
+        kind={kind}
+        detail={detail}
+        owner={owner}
+        known={known}
+        notedByCard={newer?.summary.id}
+      />
     </Box>
   );
 }

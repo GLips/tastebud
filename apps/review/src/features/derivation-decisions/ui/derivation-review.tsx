@@ -3,9 +3,9 @@
  * primary button follows, and whichever panel is open (reject reason or acceptance preview).
  * State lives in `use-derivation-review.ts`; `derivation-status.tsx` places these in the card.
  */
-import { Alert, Anchor, Button, Group, Kbd, Text, Tooltip } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Kbd, Stack, Text, Tooltip } from "@mantine/core";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
+import { describeScopeChange, isCompleteScope, isSameScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, Inbox, Undo2, X } from "lucide-react";
 
@@ -13,7 +13,7 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
-import { scopeButtonPhrase, scopeOverrideOf } from "./scope-draft.ts";
+import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePicker } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
 
@@ -65,70 +65,50 @@ function ReopenButton({ review }: { review: DerivationReview }) {
 }
 
 /**
- * Accept, named with where it will apply; a widened scope ends in "…" because the preview comes first.
- * Secondary when a newer version waits: reviewing that comes first.
+ * The kind's accept verb, kept short: the picker beside it says where. It ends in "…" when the
+ * preview comes first (a widened scope).
  */
-function AcceptButton({
-  review,
-  acceptLabel,
-  afterwards,
-  known,
-  primary,
-}: {
-  review: DerivationReview;
-  acceptLabel: string;
-  afterwards: string;
-  known: KnownPlaces;
-  primary: boolean;
-}) {
-  const { shownScope } = review;
-  const complete = isCompleteScope(shownScope);
-  // Moving an accepted one is "Apply"; the kind's accept label would read as accepting it twice.
-  const verb = review.accepted ? "Apply" : acceptLabel;
-  const where = complete ? ` ${scopeButtonPhrase(shownScope, known.labelOf)}` : "";
+function AcceptButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   return (
     <Button
-      variant={primary ? "filled" : "default"}
-      data-primary-action={primary || undefined}
+      data-primary-action
       leftSection={<Check size={14} />}
-      rightSection={review.accepted ? undefined : <Kbd size="xs">A</Kbd>}
+      rightSection={<Kbd size="xs">A</Kbd>}
       loading={review.decision.pending}
-      disabled={!complete}
+      disabled={!isCompleteScope(review.shownScope)}
       onClick={review.startAccept}
     >
-      {`${verb}${where}${afterwards}${review.needsPreview ? "…" : ""}`}
+      {`${acceptLabel}${review.needsPreview ? "…" : ""}`}
     </Button>
   );
 }
 
-export function DerivationActions({
-  review,
-  acceptLabel,
-  known,
-  acceptIsPrimary,
-}: {
-  review: DerivationReview;
-  acceptLabel: string;
-  known: KnownPlaces;
-  acceptIsPrimary: boolean;
-}) {
+function RetractButton({ review }: { review: DerivationReview }) {
+  return (
+    <Tooltip label="Stop applying it; you can accept it again later" withArrow>
+      <Button
+        variant="default"
+        leftSection={<Undo2 size={14} />}
+        loading={review.decision.pending}
+        onClick={review.retract}
+      >
+        Retract
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** The verbs that fit its status, in the pending page's words. An accepted one shows the accept verb only for a new scope. */
+export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   const { view, mode, draft } = review;
   if (mode !== "idle" || !canDecideDerivation(view)) return null;
-  const accept = (afterwards: string) => (
-    <AcceptButton
-      review={review}
-      acceptLabel={acceptLabel}
-      afterwards={afterwards}
-      known={known}
-      primary={acceptIsPrimary}
-    />
-  );
+  const accept = <AcceptButton review={review} acceptLabel={acceptLabel} />;
   switch (view.status) {
     case "pending":
       return (
         <Group gap="xxs" wrap="nowrap">
           <RejectButton review={review} />
-          {accept("")}
+          {accept}
         </Group>
       );
     case "accepted":
@@ -136,24 +116,15 @@ export function DerivationActions({
         <Group gap="xxs" wrap="nowrap">
           <ReopenButton review={review} />
           <RejectButton review={review} />
-          <Tooltip label="Stop applying it; you can accept it again later" withArrow>
-            <Button
-              variant="default"
-              leftSection={<Undo2 size={14} />}
-              loading={review.decision.pending}
-              onClick={review.retract}
-            >
-              Retract
-            </Button>
-          </Tooltip>
-          {draft !== undefined && accept("")}
+          <RetractButton review={review} />
+          {draft !== undefined && accept}
         </Group>
       );
     case "rejected":
       return (
         <Group gap="xxs" wrap="nowrap">
           <ReopenButton review={review} />
-          {accept(" after all")}
+          {accept}
         </Group>
       );
     case "retracted":
@@ -161,7 +132,7 @@ export function DerivationActions({
         <Group gap="xxs" wrap="nowrap">
           <ReopenButton review={review} />
           <RejectButton review={review} />
-          {accept(" again")}
+          {accept}
         </Group>
       );
     default:
@@ -171,36 +142,54 @@ export function DerivationActions({
 
 /**
  * Where it applies, as the picker: one click opens it, and the accept button follows the draft. An
- * accepted one keeps applying where it does until "Apply" is pressed.
+ * accepted one keeps applying where it does until the accept verb is pressed.
  */
 export function DerivationScopeRow({ review, known }: { review: DerivationReview; known: KnownPlaces }) {
   const { view, draft, shownScope, baseScope } = review;
   const restoreWords = view.status === "pending" ? "Restore proposed scope" : "Restore previous scope";
   return (
-    <Group gap="xs" wrap="wrap">
-      <Text size="xs" c="dimmed">
-        {SCOPE_ROW_LABELS[view.status]}
-      </Text>
-      <ScopePicker
-        opened={review.pickerOpen}
-        value={shownScope}
-        proposed={view.proposedScope}
-        known={known}
-        onChange={review.changeDraft}
-        onOpenedChange={review.setPickerOpen}
-        disabled={review.mode !== "idle" || review.decision.pending}
-      />
-      {draft !== undefined && (
-        <>
-          <Text size="xs" c="dimmed">
-            {describeScopeChange(baseScope, shownScope, known.labelOf).join(" · ")}
-          </Text>
-          <Anchor component="button" size="xs" c="dimmed" onClick={() => review.changeDraft(undefined)}>
-            {restoreWords}
-          </Anchor>
-        </>
-      )}
-    </Group>
+    <Stack gap="3xs">
+      <Group gap="xs" wrap="wrap">
+        <Text size="xs" c="dimmed">
+          {SCOPE_ROW_LABELS[view.status]}
+        </Text>
+        <ScopePicker
+          opened={review.pickerOpen}
+          value={shownScope}
+          proposed={view.proposedScope}
+          known={known}
+          onChange={review.changeDraft}
+          onOpenedChange={review.setPickerOpen}
+          disabled={review.mode !== "idle" || review.decision.pending}
+        />
+        {draft !== undefined && (
+          <>
+            <Text size="xs" c="dimmed">
+              {describeScopeChange(baseScope, shownScope, known.labelOf).join(" · ")}
+            </Text>
+            <Anchor component="button" size="xs" c="dimmed" onClick={() => review.changeDraft(undefined)}>
+              {restoreWords}
+            </Anchor>
+          </>
+        )}
+      </Group>
+      {draft === undefined && <ScopeProvenance view={view} known={known} />}
+    </Stack>
+  );
+}
+
+/** Where the shown scope came from, when that isn't simply "the agent proposed it". */
+function ScopeProvenance({ view, known }: { view: DerivationView; known: KnownPlaces }) {
+  const note =
+    view.status === "pending"
+      ? view.scopeSource === "defaulted" && "Guessed from where the agent was working"
+      : !isSameScope(view.proposedScope, view.effectiveScope) &&
+        `You changed what the agent proposed: ${describeScopeChange(view.proposedScope, view.effectiveScope, known.labelOf).join(" · ")}`;
+  if (note === false) return null;
+  return (
+    <Text size="xs" c="dimmed">
+      {note}
+    </Text>
   );
 }
 
@@ -241,7 +230,7 @@ export function DerivationReviewPanels({
   acceptLabel: string;
   known: KnownPlaces;
 }) {
-  const { view, accepted, mode, setMode, decision, baseScope, shownScope, acknowledged } = review;
+  const { view, mode, setMode, decision, baseScope, shownScope, acknowledged } = review;
   return (
     <>
       {decision.failure !== undefined && decision.failure.tag !== "WideningNeedsAcknowledgement" && (
@@ -265,7 +254,7 @@ export function DerivationReviewPanels({
           override={scopeOverrideOf(view.proposedScope, shownScope)}
           proposedScope={view.proposedScope}
           changes={describeScopeChange(baseScope, shownScope, known.labelOf)}
-          verb={accepted ? "Apply" : acceptLabel}
+          verb={acceptLabel}
           consequence={ACCEPT_CONSEQUENCES[view.status]}
           active
           acknowledged={acknowledged}

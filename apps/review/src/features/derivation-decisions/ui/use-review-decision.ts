@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DerivationScope } from "@tastebud/core/places";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
@@ -29,24 +29,34 @@ export interface DecisionStanding {
   readonly acknowledges?: ReadonlyArray<string> | undefined;
 }
 
+/** One decision, or two sent in order: an undo back to retracted re-accepts, then retracts. */
+type ReviewDecisionSequence = readonly [ReviewDecisionInput] | readonly [ReviewDecisionInput, ReviewDecisionInput];
+
+/** The accept that puts back where it applied, with the near repeats that accept had weighed. */
+const reacceptOf = (before: DecisionStanding): ReviewDecisionInput => ({
+  outcome: "accept",
+  ...scopeOverrideOf(before.proposedScope, before.effectiveScope),
+  ...(before.acknowledges !== undefined && { acknowledges: before.acknowledges }),
+});
+
 /**
- * The decision that returns a derivation from `after` to where it stood `before`, or undefined when
- * none can: only an accepted one can be retracted, and a superseded one is decided through its revision.
+ * The decisions, in order, that return a derivation from `after` to where it stood `before`, or
+ * undefined when none can (a superseded one is decided through its revision). Only an accepted one
+ * can be retracted, so getting back to retracted from anything else accepts first.
  */
-const reversingDecisionOf = (before: DecisionStanding, after: DerivationStatus): ReviewDecisionInput | undefined => {
+const reversingDecisionsOf = (
+  before: DecisionStanding,
+  after: DerivationStatus,
+): ReviewDecisionSequence | undefined => {
   switch (before.status) {
     case "pending":
-      return { outcome: "reopen" };
+      return [{ outcome: "reopen" }];
     case "accepted":
-      return {
-        outcome: "accept",
-        ...scopeOverrideOf(before.proposedScope, before.effectiveScope),
-        ...(before.acknowledges !== undefined && { acknowledges: before.acknowledges }),
-      };
+      return [reacceptOf(before)];
     case "rejected":
-      return before.reason === undefined ? undefined : { outcome: "reject", reason: before.reason };
+      return before.reason === undefined ? undefined : [{ outcome: "reject", reason: before.reason }];
     case "retracted":
-      return after === "accepted" ? { outcome: "retract" } : undefined;
+      return after === "accepted" ? [{ outcome: "retract" }] : [reacceptOf(before), { outcome: "retract" }];
     default:
       return undefined;
   }
@@ -85,7 +95,7 @@ export interface UndoableReviewDecision {
   /** The decision record's id, so a caller can tell whether it is still the latest. */
   readonly decisionId: string;
   readonly outcome: DecisionOutcome;
-  readonly reverse: ReviewDecisionInput;
+  readonly reverse: ReviewDecisionSequence;
 }
 
 /**
@@ -98,8 +108,12 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
   const [failure, setFailure] = useState<ReviewFailure | undefined>(undefined);
   const [undoable, setUndoable] = useState<UndoableReviewDecision | undefined>(undefined);
   const mutation = useMutation({
-    mutationFn: ({ input }: { input: ReviewDecisionInput; before: DecisionStanding | undefined }) =>
-      sendReviewDecision(target, input),
+    // Several decisions only for an undo; it stops at the first refusal, which is the outcome shown.
+    mutationFn: async ({ inputs }: { inputs: ReviewDecisionSequence; before: DecisionStanding | undefined }) => {
+      const [first, second] = inputs;
+      const outcome = await sendReviewDecision(target, first);
+      return second === undefined || !outcome.ok ? outcome : sendReviewDecision(target, second);
+    },
     onMutate: () => {
       setFailure(undefined);
       setUndoable(undefined);
@@ -107,20 +121,32 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
     onSuccess: (outcome, { before }) => {
       if (!outcome.ok) return setFailure(outcome.failure);
       const { decision, derivation } = outcome.value;
-      const reverse = before === undefined ? undefined : reversingDecisionOf(before, derivation.status);
+      const reverse = before === undefined ? undefined : reversingDecisionsOf(before, derivation.status);
       if (reverse !== undefined) setUndoable({ decisionId: decision.id, outcome: decision.outcome, reverse });
     },
     onError: (error) => setFailure({ sentence: error.message, category: "broken", tag: "Network" }),
     onSettled: () => refreshReviewQueriesAfterWrite(queryClient, STORE_WRITE_STALES),
   });
+  /*
+   * The decision in flight, set synchronously: a double-click's second click arrives before the
+   * button re-renders as loading, and would otherwise send the same decision twice. It gets the first one's outcome.
+   */
+  const inFlight = useRef<ReturnType<typeof mutation.mutateAsync> | undefined>(undefined);
+  const send = (variables: { inputs: ReviewDecisionSequence; before: DecisionStanding | undefined }) => {
+    if (inFlight.current !== undefined) return inFlight.current;
+    const sent = mutation.mutateAsync(variables).finally(() => {
+      inFlight.current = undefined;
+    });
+    inFlight.current = sent;
+    return sent;
+  };
   return {
-    decide: (input: ReviewDecisionInput) => mutation.mutateAsync({ input, before: standing }),
+    decide: (input: ReviewDecisionInput) => send({ inputs: [input], before: standing }),
     pending: mutation.isPending,
     failure,
     clearFailure: () => setFailure(undefined),
     undoable,
     /** Writes the reversing decision. It isn't itself undoable: the owner can just decide again. */
-    undo: () =>
-      undoable === undefined ? undefined : mutation.mutateAsync({ input: undoable.reverse, before: undefined }),
+    undo: () => (undoable === undefined ? undefined : send({ inputs: undoable.reverse, before: undefined })),
   };
 }
