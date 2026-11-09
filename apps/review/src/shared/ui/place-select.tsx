@@ -60,7 +60,6 @@ export function PlaceSelect({
     <Combobox store={combobox} onOptionSubmit={submit} width={360} position="bottom-start" shadow="md">
       <Combobox.Target targetType="button">
         <Button
-          size="xs"
           variant="default"
           leftSection={icon}
           rightSection={<ChevronDown size={13} />}
