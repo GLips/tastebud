@@ -13,6 +13,7 @@ import type { MouseEvent } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { DECISION_OUTCOME_LABELS } from "./review-session-list.tsx";
 import { scopeButtonPhrase } from "./scope-draft.ts";
@@ -83,9 +84,9 @@ export function InboxDecidedRow({
               </Badge>
             )}
             {acceptedScope !== undefined && (
-              <Text size="sm" fw={500} truncate>
+              <SupportingText tier="secondary" fw={500} truncate>
                 {scopeButtonPhrase(acceptedScope)}
-              </Text>
+              </SupportingText>
             )}
           </Group>
           <Text size="sm" c="dimmed" truncate>

@@ -18,6 +18,7 @@ import { formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { DerivationSummaryLine } from "#review/shared/ui/derivation-link.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { DerivationEvidence } from "./derivation-header.tsx";
@@ -116,9 +117,7 @@ function InboxScopeLine({
       />
       {triage.edited && (
         <>
-          <Text size="xs" c="dark.4">
-            {triage.changes.join(" · ") || "Edited"}
-          </Text>
+          <SupportingText tier="secondary">{triage.changes.join(" · ") || "Edited"}</SupportingText>
           {!locked && (
             <Anchor component="button" size="xs" c="dimmed" onClick={() => triage.changeDraft(undefined)}>
               Restore
@@ -127,9 +126,7 @@ function InboxScopeLine({
         </>
       )}
       {!triage.edited && view.scopeSource === "defaulted" && (
-        <Text size="xs" c="dimmed">
-          Guessed from where the agent was working
-        </Text>
+        <SupportingText tier="secondary">Guessed from where the agent was working</SupportingText>
       )}
     </Box>
   );
@@ -299,9 +296,9 @@ export function InboxProposalPane({
               {view.statement}
             </Text>
             <Group gap="xs">
-              <Text size="xs" c="dimmed" title={formatReviewTime(record.proposed_at)}>
+              <SupportingText tier="faint" title={formatReviewTime(record.proposed_at)}>
                 Proposed by {record.proposed_by} · {formatTimeAgo(record.proposed_at, nowMs)}
-              </Text>
+              </SupportingText>
               <AnchorLink to="/derivations/$id" params={{ id: view.id }} size="xs" c="dimmed">
                 <Group gap="3xs" wrap="nowrap" component="span">
                   Open full page

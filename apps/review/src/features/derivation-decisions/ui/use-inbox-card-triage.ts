@@ -14,6 +14,7 @@ import {
 } from "@tastebud/core/places";
 import { useEffect, useState } from "react";
 
+import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { acceptPreviewsStaleOf } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
@@ -104,9 +105,17 @@ export function useInboxCardTriage({
     const outcome = await decision.undo();
     if (outcome?.ok) onUndone();
   };
+  // A batch's Undo all makes the same check as a row's own Undo, read fresh: a card decided again
+  // since, in another tab or by an agent, keeps that newer decision.
+  const undoIfStillLatest = async () => {
+    const { undoable } = decision;
+    if (undoable === undefined) return;
+    const detail = await queryClient.fetchQuery(recordDetailQuery(view.id));
+    if (detail.derivation?.decisions.at(-1)?.id === undoable.decisionId) await undo();
+  };
   // Re-registered every render so a batch always calls the card as it now is.
   useEffect(() => {
-    cardHandles.set(view.id, { acceptAsProposed, undo });
+    cardHandles.set(view.id, { acceptAsProposed, undo: undoIfStillLatest });
     return () => void cardHandles.delete(view.id);
   });
 
