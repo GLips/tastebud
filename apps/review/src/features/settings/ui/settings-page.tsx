@@ -47,6 +47,7 @@ const styles = stylex.create({
   copy: { position: "absolute", top: "6px", right: "6px" },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
+  badge: { flexShrink: 0 },
 });
 
 function CopyableSnippet({ code, label }: { code: string; label: string }) {
@@ -295,12 +296,17 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
             </FactRow>
             {catalog.derivedKinds.map((kind) => (
               <FactRow key={kind.key} label={capitalize(kind.plural)}>
-                <Stack gap="3xs" align="flex-start">
-                  <Badge color={RECALL_POLICY_BADGE_COLORS[kind.recall]} tt="none" fw={500}>
+                <Group gap="xs" wrap="nowrap" align="baseline">
+                  <Badge
+                    color={RECALL_POLICY_BADGE_COLORS[kind.recall]}
+                    tt="none"
+                    fw={500}
+                    {...stylex.props(styles.badge)}
+                  >
                     {RECALL_POLICY_LABELS[kind.recall]}
                   </Badge>
                   <Text size="sm">{describeKindDelivery(kind)}</Text>
-                </Stack>
+                </Group>
               </FactRow>
             ))}
           </Box>
@@ -425,12 +431,7 @@ export function SettingsPage() {
       <ReviewPageHeader
         title="Settings"
         purpose="Connect your agents, and see how this store treats what they propose."
-        details={
-          <>
-            This page only reads. Your agent edits <Code fz="xs">tastebud.config.ts</Code> in the store (guided by{" "}
-            <Code fz="xs">tastebud config-show --guide</Code>), and this page picks the change up on save.
-          </>
-        }
+        details="Read-only: your agent edits the config, and this page picks up the change on save."
       />
       <AgentHostInstallLines storeRoot={storeIsDefault ? undefined : storeRoot} />
       <HowItBehaves catalog={catalog} configPath={configPath} />

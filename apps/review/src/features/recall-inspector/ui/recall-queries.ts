@@ -35,6 +35,10 @@ export const recallInspectionQuery = (request: RecallInspectionRequest) =>
     placeholderData: keepPreviousData,
   });
 
+/** An item id (or its first 8 characters) typed in the query bar looks the item up instead of matching words. */
+export const recallItemRefOf = (query: string): string | undefined =>
+  /^[0-9a-f]{8}(-[0-9a-f]{1,12}){0,4}$/i.test(query.trim()) ? query.trim() : undefined;
+
 export interface RecallExplanationRequest extends ReviewContextRequest {
   readonly lookup: RecallExplanationLookup;
   readonly kind?: string | undefined;

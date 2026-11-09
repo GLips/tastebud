@@ -1,7 +1,7 @@
 /**
- * The recall inspector's answer for one prompt, in plain sections: what the prompt hook sends, what
- * an agent can look up, what matched but isn't sent and why, and what applies here but didn't match
- * the words at all.
+ * The recall inspector's answer for one prompt: a headline that names every empty section, then what
+ * matched but is held back and why, what is sent with the prompt, what an agent can look up, and what
+ * applies here but didn't match the words at all.
  */
 import { Box, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -29,32 +29,19 @@ const styles = stylex.create({
   chevronOpen: { transform: "rotate(90deg)" },
 });
 
-/** A section of the answer; an empty one folds to a single line so the full ones lead. */
+/** A section of the answer; empty ones are left out, since the headline already says so. */
 function AnswerSection({
   title,
   count,
   hint,
-  empty,
   children,
 }: {
   title: string;
   count: number;
   hint: string;
-  /** What an empty section says, after its title. */
-  empty: string;
   children: ReactNode;
 }) {
-  if (count === 0)
-    return (
-      <Text size="sm">
-        <Text span size="sm" fw={600}>
-          {title}:
-        </Text>{" "}
-        <Text span size="sm" c="dimmed">
-          {empty}
-        </Text>
-      </Text>
-    );
+  if (count === 0) return null;
   return (
     <Stack gap="2xs">
       <Stack gap="3xs">
@@ -120,6 +107,17 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
+/** The answer in one sentence, naming the empty sections so they needn't be shown. */
+function recallHeadline(sent: number, lookUp: number, heldBack: number): string {
+  const sentPart = sent === 0 ? "Nothing would be sent" : `${plural(sent, "item would be", "items would be")} sent`;
+  const lookUpPart = lookUp === 0 ? "nothing to look up" : `${lookUp} more an agent can look up`;
+  const heldPart =
+    heldBack === 0
+      ? " Nothing close was held back."
+      : ` ${plural(heldBack, "close match is", "close matches are")} held back:`;
+  return `${sentPart} with this prompt, and ${lookUpPart}.${heldPart}`;
+}
+
 export function RecallCandidateGroups({
   recall,
   hook,
@@ -136,30 +134,37 @@ export function RecallCandidateGroups({
   const injected = new Set(hook.items.map((item) => item.id));
   const limit = catalog?.hook.limit ?? 3;
   const lookUp = recall.accepted.filter((hit) => !injected.has(hit.id));
-  const notSentCount = recall.rejected.length + recall.excluded.length;
+  const heldBackCount = recall.rejected.length + recall.excluded.length;
   const lookUpCount = lookUp.length + recall.history.length;
   return (
     <Stack gap="lg">
-      <Stack gap="3xs">
-        <Text size="md" fw={500}>
-          {hook.items.length === 0
-            ? "Nothing would be sent with this prompt."
-            : `${plural(hook.items.length, "item would be", "items would be")} sent with this prompt.`}
-          {lookUpCount > 0 && ` ${lookUpCount} more an agent can look up.`}
-          {notSentCount > 0 && ` ${plural(notSentCount, "close match is", "close matches are")} held back.`}
-        </Text>
-        {hook.items.length === 0 && (
-          <Text size="sm" c="dimmed">
-            {hookSilenceWording(hook, catalog)}
+      <Stack gap="xs">
+        <Stack gap="3xs">
+          <Text size="md" fw={500}>
+            {recallHeadline(hook.items.length, lookUpCount, heldBackCount)}
           </Text>
+          {hook.items.length === 0 && (
+            <Text size="sm" c="dimmed">
+              {hookSilenceWording(hook, catalog)}
+            </Text>
+          )}
+        </Stack>
+        {heldBackCount > 0 && (
+          <Box>
+            {recall.rejected.map((hit) => (
+              <RecallItemRow key={hit.id} item={hit} reason={rejectedHitWording(hit)} />
+            ))}
+            {recall.excluded.map((hit) => (
+              <RecallItemRow key={hit.id} item={hit} reason={exclusionReason(hit, catalog, recall.context, known)} />
+            ))}
+          </Box>
         )}
       </Stack>
 
       <AnswerSection
         title="Sent with the prompt"
         count={hook.items.length}
-        hint={`The prompt hook adds these before the agent reads the prompt: accepted, of a kind that may be sent, at most ${limit}.`}
-        empty="nothing for these words"
+        hint={`The agent reads these along with the prompt: accepted, of a kind that may be sent, at most ${limit}.`}
       >
         <Box>
           {hook.items.map((item) => (
@@ -171,7 +176,7 @@ export function RecallCandidateGroups({
             />
           ))}
         </Box>
-        <Disclosure label="Show exactly what the hook adds">
+        <Disclosure label="Show exactly what’s sent">
           <HookPayloadView hook={hook} />
         </Disclosure>
       </AnswerSection>
@@ -180,7 +185,6 @@ export function RecallCandidateGroups({
         title="An agent can look this up"
         count={lookUpCount}
         hint="Not sent on its own, but an agent that asks Tastebud about these words gets it."
-        empty="nothing else accepted here matches these words"
       >
         <Box>
           {lookUp.map((hit) => (
@@ -196,22 +200,6 @@ export function RecallCandidateGroups({
               item={hit}
               reason={`${hit.status === "superseded" ? "Replaced by a newer revision" : "Retracted"}; shown because you included them`}
             />
-          ))}
-        </Box>
-      </AnswerSection>
-
-      <AnswerSection
-        title="Held back, and why"
-        count={notSentCount}
-        hint="Close matches for these words that agents don't get as advice."
-        empty="no close match was left out"
-      >
-        <Box>
-          {recall.rejected.map((hit) => (
-            <RecallItemRow key={hit.id} item={hit} reason={rejectedHitWording(hit)} />
-          ))}
-          {recall.excluded.map((hit) => (
-            <RecallItemRow key={hit.id} item={hit} reason={exclusionReason(hit, catalog, recall.context, known)} />
           ))}
         </Box>
       </AnswerSection>
