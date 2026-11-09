@@ -8,40 +8,38 @@ import {
   Alert,
   Anchor,
   Badge,
-  Loader,
   Box,
-  Collapse,
   CopyButton,
   Group,
+  Loader,
   Menu,
   Stack,
+  Tabs,
   Text,
   Title,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import type { CatalogView } from "@tastebud/core/kind-catalog";
 import { placeCovers } from "@tastebud/core/places";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { Check, ChevronRight, Copy, Ellipsis, Globe, TriangleAlert } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
+import { Check, Copy, Ellipsis, Globe, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 
 import { derivationListQuery } from "#review/features/derivation-library/index.ts";
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { capitalize, findKindView, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { findKindView, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
-import { totalPlaceCount } from "./place-tree.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
@@ -50,22 +48,15 @@ const styles = stylex.create({
     gridTemplateColumns: "14px minmax(0, 1fr) 130px 190px",
     columnGap: "8px",
     alignItems: "baseline",
-    paddingBlock: "6px",
+    paddingBlock: "8px",
     borderTopWidth: "1px",
     borderTopStyle: "solid",
     borderTopColor: { default: "var(--mantine-color-gray-1)", ":first-child": "transparent" },
   },
   origin: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start" },
   columnHead: { paddingBlock: "2px" },
-  chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
-  chevronOpen: { transform: "rotate(90deg)" },
+  tabLink: { alignSelf: "center", paddingRight: "4px" },
 });
-
-const SETTLED_STATUS_WORDS: Partial<Record<DerivationStatus, string>> = {
-  rejected: "Rejected",
-  retracted: "Retracted",
-  superseded: "Replaced by a newer revision",
-};
 
 /** The full place key, copied on click; it shows only in the tooltip, never in the header line. */
 function PlaceKeyCopyButton({ place }: { place: string }) {
@@ -122,37 +113,31 @@ function ReachOrigin({
   );
 }
 
-/** The table's third column: how a row reaches agents, given which list it is in. */
+/** The table's third column: how a row reaches agents, given which tab it is in. */
 type ReachColumn = "delivery" | "waiting" | "settled";
 
 const REACH_COLUMN_TITLES: Record<ReachColumn, string> = {
   delivery: "How agents get it",
-  waiting: "How agents get it",
+  waiting: "Once accepted",
   settled: "Status",
 };
+
+const RECALL_POLICY_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
+
+/** A kind's delivery as a chip. Kept to one function so the shared PolicyChip can replace it in one place. */
+function PolicyChip({ policy }: { policy: RecallPolicy }) {
+  return (
+    <Badge color={RECALL_POLICY_COLORS[policy]} tt="none" fw={500} w="fit-content">
+      {RECALL_POLICY_LABELS[policy]}
+    </Badge>
+  );
+}
 
 function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn }) {
   const catalog = useReviewCatalog();
   const kind = findKindView(catalog, row.summary.kind);
-  if (column === "waiting")
-    return (
-      <SupportingText tier="secondary">
-        {kind?.recall === "never" ? `Never sent (${kind.plural} stay in your backlog)` : "Not until accepted"}
-      </SupportingText>
-    );
-  if (column === "settled")
-    return <SupportingText tier="secondary">{SETTLED_STATUS_WORDS[row.summary.status]}</SupportingText>;
-  if (kind === undefined) return null;
-  return (
-    // What is sent takes the accent; the rest reads in the secondary tier.
-    kind.recall === "inject" ? (
-      <Text size="sm" c="tastebud.8">
-        {RECALL_POLICY_LABELS[kind.recall]}
-      </Text>
-    ) : (
-      <SupportingText tier="secondary">{RECALL_POLICY_LABELS[kind.recall]}</SupportingText>
-    )
-  );
+  if (column === "settled") return <DerivationStatusBadge status={row.summary.status} />;
+  return kind === undefined ? null : <PolicyChip policy={kind.recall} />;
 }
 
 function ReachRows({
@@ -201,95 +186,68 @@ function ReachRows({
   );
 }
 
-function ReachSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  return (
-    <Stack gap="3xs">
-      <Group gap="xs">
-        <Text size="sm" fw={600}>
-          {title}
-        </Text>
-        <Badge color="gray" tt="none" fw={500}>
-          {count}
-        </Badge>
-      </Group>
-      {children}
-    </Stack>
-  );
-}
+type ReachTab = "applies" | "waiting" | "settled";
 
-interface ReachStat {
-  readonly label: string;
-  readonly about: string;
-  readonly color: string;
-}
-
-/**
- * The counts above the table. The first is the sidebar's (everything scoped to this place, any status);
- * "apply" adds what parents and Everywhere pass down, split into what reaches agents (Recall's number here)
- * and what stays in the backlog.
- */
-function reachStatsOf(
-  scopedCount: number,
-  rows: ReadonlyArray<PlaceReachRow>,
-  catalog: CatalogView | undefined,
-  isGlobal: boolean,
-): ReadonlyArray<ReachStat> {
-  const backlog = rows.filter((row) => findKindView(catalog, row.summary.kind)?.recall === "never").length;
-  return [
-    {
-      label: `${scopedCount} scoped ${isGlobal ? "everywhere" : "here"}`,
-      about: `Items whose scope names ${isGlobal ? "every place" : "this place"}, in any status`,
-      color: "gray",
-    },
-    {
-      label: `${rows.length} apply`,
-      about: isGlobal
-        ? "Accepted, and apply in every place"
-        : "Accepted, and apply here, including from parents and Everywhere",
-      color: "gray",
-    },
-    {
-      label: `${rows.length - backlog} sent`,
-      about: "Reach agents: sent with prompts, or looked up when asked",
-      color: "tastebud",
-    },
-    ...(backlog > 0
-      ? [{ label: `${backlog} backlog`, about: "Accepted, but never shown to agents", color: "gray" }]
-      : []),
+/** The detail's tab strip: what applies, what waits for you, what doesn't apply, each with its count. */
+function ReachTabs({
+  reach,
+  place,
+  known,
+  onSelect,
+}: {
+  reach: ReturnType<typeof placeReachOf>;
+  place: string;
+  known: KnownPlaces;
+  onSelect: (place: string) => void;
+}) {
+  const tabs: ReadonlyArray<{
+    value: ReachTab;
+    label: string;
+    rows: ReadonlyArray<PlaceReachRow>;
+    column: ReachColumn;
+  }> = [
+    { value: "applies", label: "Applies", rows: reach.applies, column: "delivery" },
+    { value: "waiting", label: "Waiting", rows: reach.waiting, column: "waiting" },
+    { value: "settled", label: "Doesn't apply", rows: reach.settledAgainst, column: "settled" },
   ];
-}
-
-function ReachStats({ stats }: { stats: ReadonlyArray<ReachStat> }) {
+  const [tab, setTab] = useState<ReachTab>(tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies");
   return (
-    <Group gap="xs">
-      {stats.map((stat) => (
-        <Tooltip key={stat.label} label={stat.about} withArrow openDelay={150}>
-          <Badge color={stat.color} tt="none" fw={500}>
-            {stat.label}
-          </Badge>
-        </Tooltip>
+    <Tabs
+      value={tab}
+      onChange={(value) => setTab(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
+    >
+      <Tabs.List>
+        {tabs.map((candidate) => (
+          <Tabs.Tab
+            key={candidate.value}
+            value={candidate.value}
+            rightSection={
+              <Badge color="gray" tt="none" fw={500} size="xs" circle={candidate.rows.length < 10}>
+                {candidate.rows.length}
+              </Badge>
+            }
+          >
+            {candidate.label}
+          </Tabs.Tab>
+        ))}
+        <Box ml="auto" {...stylex.props(styles.tabLink)}>
+          <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? { nowhere: true } : { at: place }} size="sm">
+            Open in Recall →
+          </AnchorLink>
+        </Box>
+      </Tabs.List>
+      {tabs.map((candidate) => (
+        <Tabs.Panel key={candidate.value} value={candidate.value} pt="xs">
+          {candidate.rows.length === 0 ? (
+            <Text size="sm" c="dimmed" py="sm">
+              Nothing here.
+            </Text>
+          ) : (
+            <ReachRows rows={candidate.rows} known={known} onSelect={onSelect} column={candidate.column} />
+          )}
+        </Tabs.Panel>
       ))}
-    </Group>
-  );
-}
-
-/** Each kind's library filtered to this place, and the recall inspector standing here. */
-function PlaceOnwardLinks({ place }: { place: string }) {
-  const catalog = useReviewCatalog();
-  return (
-    <Group gap="xs">
-      {(catalog?.derivedKinds ?? []).map((kind) => (
-        <AnchorLink key={kind.key} to="/kinds/$kind" params={{ kind: kind.key }} search={{ place }} size="xs">
-          <Group gap="2xs" wrap="nowrap" component="span">
-            <KindGlyph catalog={catalog} kind={kind.key} />
-            {capitalize(kind.plural)} here
-          </Group>
-        </AnchorLink>
-      ))}
-      <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? { nowhere: true } : { at: place }} size="xs">
-        Try recall here →
-      </AnchorLink>
-    </Group>
+    </Tabs>
   );
 }
 
@@ -328,48 +286,6 @@ function ProbeReachNotice({
   );
 }
 
-function SettledAgainst({
-  rows,
-  known,
-  onSelect,
-}: {
-  rows: ReadonlyArray<PlaceReachRow>;
-  known: KnownPlaces;
-  onSelect: (place: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  if (rows.length === 0) return null;
-  return (
-    <Stack gap="3xs">
-      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open}>
-        <Group gap="2xs">
-          <ChevronRight
-            size={13}
-            color="var(--mantine-color-gray-6)"
-            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
-          />
-          <Text size="sm" fw={600}>
-            Doesn't apply
-          </Text>
-          <Tooltip
-            label="Rejected, retracted or replaced. Agents are told about rejections so they don't propose them again."
-            withArrow
-            multiline
-            maw={300}
-          >
-            <Badge color="gray" tt="none" fw={500}>
-              {rows.length}
-            </Badge>
-          </Tooltip>
-        </Group>
-      </UnstyledButton>
-      <Collapse expanded={open}>
-        <ReachRows rows={rows} known={known} onSelect={onSelect} column="settled" />
-      </Collapse>
-    </Stack>
-  );
-}
-
 export function PlaceDetails({
   place,
   audit,
@@ -383,14 +299,10 @@ export function PlaceDetails({
   known: KnownPlaces;
   onSelect: (place: string) => void;
 }) {
-  const catalog = useReviewCatalog();
   const [repointing, setRepointing] = useState(false);
   const all = useQuery(derivationListQuery({}));
   const isGlobal = place === GLOBAL_PLACE_NODE;
   const reach = placeReachOf(place, all.data ?? []);
-  const scopedCount = totalPlaceCount(
-    isGlobal ? audit.globalCounts : (audit.places.find((entry) => entry.place === place)?.counts ?? []),
-  );
   const acceptedScopedHere = reach.applies.filter((row) => row.origin.from === "here");
   const unmatched = audit.audit.unmatched.find((candidate) => candidate.place === place);
   const matchingProbes = audit.audit.probes.filter((probe) =>
@@ -435,7 +347,6 @@ export function PlaceDetails({
             <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
           </Group>
         )}
-        <PlaceOnwardLinks place={place} />
       </Stack>
 
       {all.error && <QueryErrorAlert error={all.error} />}
@@ -443,8 +354,6 @@ export function PlaceDetails({
       {all.data === undefined && !all.error && <Loader size="sm" />}
       {all.data !== undefined && (
         <>
-          <ReachStats stats={reachStatsOf(scopedCount, reach.applies, catalog, isGlobal)} />
-
           {probes.length > 0 && !isGlobal && (
             <ProbeReachNotice
               probeCount={probes.length}
@@ -454,19 +363,7 @@ export function PlaceDetails({
             />
           )}
 
-          {reach.applies.length > 0 && (
-            <ReachSection title="Applies here" count={reach.applies.length}>
-              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} column="delivery" />
-            </ReachSection>
-          )}
-
-          {reach.waiting.length > 0 && (
-            <ReachSection title="Waiting for you" count={reach.waiting.length}>
-              <ReachRows rows={reach.waiting} known={known} onSelect={onSelect} column="waiting" />
-            </ReachSection>
-          )}
-
-          <SettledAgainst rows={reach.settledAgainst} known={known} onSelect={onSelect} />
+          <ReachTabs reach={reach} place={place} known={known} onSelect={onSelect} />
         </>
       )}
     </Stack>
