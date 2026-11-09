@@ -122,13 +122,13 @@ const ownerDecisionsOf = (catalog: CatalogView): string => {
   return `${actions.slice(0, -1).join(", ")} or ${actions.at(-1)}`;
 };
 
-/** The only way to change behaviour is to ask an agent, so Change… opens the prompt to paste to one. */
+/** The only way to change behaviour is to ask an agent, so the button opens the prompt to paste to one. */
 function ChangeBehaviourButton({ configPath }: { configPath: string }) {
   const [asking, setAsking] = useState(false);
   return (
     <>
       <Button variant="default" leftSection={<MessageSquare size={14} />} onClick={() => setAsking(true)}>
-        Change…
+        Ask an agent to change…
       </Button>
       <Modal opened={asking} onClose={() => setAsking(false)} title="Ask your agent to change this" size="xl">
         <Stack gap="xs">

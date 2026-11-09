@@ -243,24 +243,25 @@ function AgentHostRow({
             <Badge color={badge.color} w="fit-content">
               {badge.label}
             </Badge>
-            {connection.state === "unknown" && (
-              <Button
-                size="compact-sm"
-                variant="subtle"
-                leftSection={<RefreshCw size={12} />}
-                loading={rechecking}
-                onClick={() => void onRecheck().then(() => setRechecked(true))}
-              >
-                Recheck
-              </Button>
-            )}
             {rechecked && !rechecking && <SupportingText tier="faint">Checked just now</SupportingText>}
           </Group>
         )}
         {/* Set up only shows the steps, so it says so; a host with any Tastebud entry has details to read. */}
-        <Button variant="default" aria-expanded={open} onClick={() => setOpen(!open)} {...stylex.props(styles.action)}>
-          {hasTastebudEntry(connection) ? "Details" : "Set up"}
-        </Button>
+        <Group gap="xs" wrap="nowrap" {...stylex.props(styles.action)}>
+          {connection?.state === "unknown" && (
+            <Button
+              variant="default"
+              leftSection={<RefreshCw size={14} />}
+              loading={rechecking}
+              onClick={() => void onRecheck().then(() => setRechecked(true))}
+            >
+              Recheck
+            </Button>
+          )}
+          <Button variant="default" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {hasTastebudEntry(connection) ? "Details" : "Set up"}
+          </Button>
+        </Group>
       </Box>
       <Collapse expanded={open}>
         <Stack gap="md" {...stylex.props(styles.expansion)}>
