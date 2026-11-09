@@ -1,14 +1,17 @@
 /** The Places page's left column: a searchable tree of every place a scope names, with counts. */
 import { Box, Button, Group, Paper, ScrollArea, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useQuery } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import { Globe, Info, LocateFixed, Search, TriangleAlert } from "lucide-react";
+import { Globe, LocateFixed, Search, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
+import { derivationListQuery } from "#review/features/derivation-library/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 
+import { placeReachOf } from "./place-applicability.ts";
 import { buildPlaceTree, filterPlaceTree, firstPlaceShown, type PlaceTreeNode, totalPlaceCount } from "./place-tree.ts";
 
 const styles = stylex.create({
@@ -33,7 +36,6 @@ const styles = stylex.create({
   nodeLabel: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   count: { color: "var(--mantine-color-gray-6)", fontVariantNumeric: "tabular-nums" },
   unmatched: { color: "var(--mantine-color-orange-6)", flexShrink: 0 },
-  sectionInfo: { color: "var(--mantine-color-gray-5)", flexShrink: 0 },
   section: {
     display: "flex",
     alignItems: "center",
@@ -90,7 +92,7 @@ function TreeNodes({
           <Box
             component="span"
             fz="2xs"
-            title={`${countsByPlace.get(node.place) ?? 0} scoped here, in any status`}
+            title={`${countsByPlace.get(node.place) ?? 0} apply here`}
             {...stylex.props(styles.count)}
           >
             {countsByPlace.get(node.place) ?? 0}
@@ -113,10 +115,10 @@ function TreeNodes({
 
 /**
  * A named place is a scope that isn't a folder: an agent with no working folder, such as a chat app,
- * names it instead. Shown as the section's tooltip, since the term is Tastebud's own.
+ * names it instead. Shown under the section's title, since the term is Tastebud's own.
  */
 const NAMED_PLACE_MEANING =
-  "A name for work that isn't a folder, like a client (clients/acme). Agents with no folder, such as a chat app, name it.";
+  "Work that isn't a folder, like clients/acme. An agent outside a folder, such as a chat app, names it.";
 
 interface NavSection {
   readonly title: string;
@@ -162,9 +164,12 @@ export function PlaceTreeNav({
   const [needle, setNeedle] = useState("");
   const places = audit.places.map((entry) => entry.place);
   const tree = buildPlaceTree(places, known.labelOf);
-  const countsByPlace = new Map(audit.places.map((entry) => [entry.place, totalPlaceCount(entry.counts)]));
+  // Each count is the place's Applies tab, so the tree and the open place never disagree.
+  const rows = useQuery(derivationListQuery({})).data ?? [];
+  const countsByPlace = new Map(places.map((place) => [place, placeReachOf(place, rows).applies.length]));
   const unmatched = new Set(probed ? audit.audit.unmatched.map((entry) => entry.place) : []);
   const globalCount = totalPlaceCount(audit.globalCounts);
+  const globalApplies = placeReachOf(GLOBAL_PLACE_NODE, rows).applies.length;
   const unreached = unmatched.size;
   const sections: ReadonlyArray<NavSection> = [
     { title: "Repos", nodes: filterPlaceTree(tree.repos, needle) },
@@ -215,13 +220,8 @@ export function PlaceTreeNav({
             <Box component="span" {...stylex.props(styles.nodeLabel)}>
               Everywhere
             </Box>
-            <Box
-              component="span"
-              fz="2xs"
-              title={`${globalCount} scoped everywhere, in any status`}
-              {...stylex.props(styles.count)}
-            >
-              {globalCount}
+            <Box component="span" fz="2xs" title={`${globalApplies} apply everywhere`} {...stylex.props(styles.count)}>
+              {globalApplies}
             </Box>
           </UnstyledButton>
         )}
@@ -230,16 +230,12 @@ export function PlaceTreeNav({
             <Box key={title}>
               <Box fz="xs" {...stylex.props(styles.section, styles.indent(0))}>
                 {title}
-                {about !== undefined && (
-                  <Tooltip label={about} withArrow multiline maw={260}>
-                    <Info
-                      size={12}
-                      aria-label={`What ${title.toLowerCase()} are`}
-                      {...stylex.props(styles.sectionInfo)}
-                    />
-                  </Tooltip>
-                )}
               </Box>
+              {about !== undefined && (
+                <Text size="xs" c="dimmed" mb="2xs" {...stylex.props(styles.indent(0))}>
+                  {about}
+                </Text>
+              )}
               {nodes.length === 0 ? (
                 <Text size="xs" c="dimmed" {...stylex.props(styles.indent(0))}>
                   {empty}

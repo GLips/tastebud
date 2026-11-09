@@ -9,9 +9,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
 import type { PlaceResolverName } from "@tastebud/core/taste-vocabulary";
 import { ArrowRight, LocateFixed, Pin, X } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
-import { reviewContextQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
+import {
+  reviewContextQuery,
+  reviewShellQuery,
+  useKnownPlaces,
+  useReviewCatalog,
+} from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -25,7 +30,6 @@ const styles = stylex.create({
     borderBottomColor: "var(--mantine-color-gray-2)",
   },
   grow: { flex: 1 },
-  preWrap: { whiteSpace: "pre-wrap" },
   pathRow: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 0.9fr) 16px minmax(0, 1.1fr) auto",
@@ -33,14 +37,38 @@ const styles = stylex.create({
     alignItems: "center",
     paddingBlock: "4px",
   },
-  mono: { fontFamily: "var(--mantine-font-family-monospace)", wordBreak: "break-all" },
+  mono: { fontFamily: "var(--mantine-font-family-monospace)" },
 });
+
+// What a path is matched by, as the bench's header chip; the description is its tooltip.
+const PLACE_RESOLVER_NAMES: Record<PlaceResolverName, string> = {
+  git: "Matched by git repo",
+  directories: "Matched by folder",
+  custom: "Matched by your rule",
+};
 
 const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
   git: "Inside a git checkout, its repo (and subfolder); anywhere else, the folder itself",
   directories: "The folder itself",
   custom: "A rule in tastebud.config.ts decides",
 };
+
+/** A path in monospace that wraps only after a slash, never mid-name. */
+function PathText({ path }: { path: string }) {
+  return (
+    <Text fz="xs" {...stylex.props(styles.mono)}>
+      {path.split("/").map((part, index) => (
+        // Parts repeat ("a/a"), so the index is the only stable key.
+        // oxlint-disable-next-line react/no-array-index-key
+        <Fragment key={index}>
+          {index > 0 && "/"}
+          {index > 0 && <wbr />}
+          {part}
+        </Fragment>
+      ))}
+    </Text>
+  );
+}
 
 /** The places a path resolved to, or a quiet "no place" when the resolver returned none. */
 function ResolvedPlaces({ places, known }: { places: ReadonlyArray<string> | undefined; known: KnownPlaces }) {
@@ -80,14 +108,21 @@ export function PlacePathTester({
   const [draft, setDraft] = useState("");
   const [asked, setAsked] = useState<string | undefined>(undefined);
   const resolved = useQuery({ ...reviewContextQuery({ in: asked }), enabled: asked !== undefined });
+  // The store's folder always exists, so the placeholder resolves when tried as written.
+  const storeRoot = useQuery(reviewShellQuery).data?.storeRoot;
   const resolvedKnown = useKnownPlaces(resolved.data?.places ?? []);
   const unreached = probes.length === 0 ? 0 : (audit?.audit.unmatched.length ?? 0);
 
-  const test = async (path: string) => {
+  const test = (path: string) => {
     setAsked(path);
-    const context = await queryClient.fetchQuery(reviewContextQuery({ in: path }));
-    const place = placeToOpenOf(context.places, audit);
-    if (place !== undefined) onOpenPlace(place);
+    // A path that resolves nowhere is shown by `resolved`'s error, so the fetch's own rejection is dropped.
+    void queryClient
+      .fetchQuery(reviewContextQuery({ in: path }))
+      .then(
+        (context) => placeToOpenOf(context.places, audit),
+        () => undefined,
+      )
+      .then((place) => place !== undefined && onOpenPlace(place));
   };
 
   return (
@@ -97,7 +132,7 @@ export function PlacePathTester({
           <Text fw={600}>Test a path</Text>
           {catalog !== undefined && (
             <Tooltip label={PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]} withArrow multiline maw={300}>
-              <Badge color="gray">Resolver: {catalog.resolver}</Badge>
+              <Badge color="gray">{PLACE_RESOLVER_NAMES[catalog.resolver]}</Badge>
             </Tooltip>
           )}
         </Group>
@@ -110,17 +145,17 @@ export function PlacePathTester({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (draft.trim() !== "") void test(draft.trim());
+          if (draft.trim() !== "") test(draft.trim());
         }}
       >
         <Group gap="xs" wrap="nowrap">
           <TextInput
             aria-label="A folder or place to test"
-            placeholder="~/code/acme-web/apps/checkout"
+            placeholder={storeRoot ?? "A folder"}
             leftSection={<LocateFixed size={14} />}
             value={draft}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            data-autofocus
+            autoFocus
             {...stylex.props(styles.grow)}
           />
           <Button variant="default" type="submit" loading={resolved.isFetching}>
@@ -128,24 +163,21 @@ export function PlacePathTester({
           </Button>
         </Group>
       </form>
-      {asked !== undefined && resolved.error && (
-        <Text size="sm" c="red.7" {...stylex.props(styles.preWrap)}>
-          {resolved.error.message}
-        </Text>
-      )}
-      {asked !== undefined && !resolved.error && (
+      {asked !== undefined && (
         <Box {...stylex.props(styles.pathRow)}>
-          <Text fz="xs" {...stylex.props(styles.mono)}>
-            {asked}
-          </Text>
+          <PathText path={asked} />
           <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
-          <Group gap="2xs">
-            <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
-          </Group>
-          {probes.includes(asked) ? (
+          {resolved.error ? (
+            <SupportingText tier="secondary">{resolved.error.message}</SupportingText>
+          ) : (
+            <Group gap="2xs">
+              <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
+            </Group>
+          )}
+          {probes.includes(asked) || resolved.error ? (
             <Box />
           ) : (
-            <Tooltip label="Keep checking it: places none of your kept paths reach get a warning" withArrow multiline>
+            <Tooltip label="Warn me if a place stops being reached" withArrow>
               <Button variant="subtle" size="xs" leftSection={<Pin size={12} />} onClick={() => addProbe(asked)}>
                 Keep
               </Button>
@@ -167,9 +199,7 @@ export function PlacePathTester({
           </Group>
           {probes.map((probe) => (
             <Box key={probe} {...stylex.props(styles.pathRow)}>
-              <Text fz="xs" {...stylex.props(styles.mono)}>
-                {probe}
-              </Text>
+              <PathText path={probe} />
               <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
               <Group gap="2xs">
                 <ResolvedPlaces
