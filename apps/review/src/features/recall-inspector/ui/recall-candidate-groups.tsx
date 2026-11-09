@@ -3,7 +3,7 @@
  * words reached (sent first, then on request, rejected, not sent, history) with its status, outcome and why. What
  * applies here but didn't match folds away below.
  */
-import { Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Code, Collapse, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { HookPayload } from "@tastebud/core/recall";
@@ -12,6 +12,7 @@ import { ChevronRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
+import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
 import type { RecallOutcomeTone } from "#review/shared/ui/outcome-chip.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -67,11 +68,11 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
   const [view, setView] = useState<"context" | "stdout">("context");
   return (
     <Stack gap="2xs">
-      <SegmentedControl
-        w="fit-content"
+      <CountedTabs<"context" | "stdout">
+        label="Payload view"
         value={view}
-        onChange={(value) => setView(value === "stdout" ? "stdout" : "context")}
-        data={[
+        onChange={setView}
+        options={[
           { value: "context", label: "What the agent reads" },
           { value: "stdout", label: "Hook output" },
         ]}

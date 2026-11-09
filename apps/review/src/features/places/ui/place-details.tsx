@@ -13,7 +13,6 @@ import {
   Loader,
   Menu,
   Stack,
-  Tabs,
   Text,
   Title,
   Tooltip,
@@ -29,7 +28,7 @@ import { derivationListQuery } from "#review/features/derivation-library/index.t
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
 import { FactList, FactRow } from "#review/shared/ui/fact-row.tsx";
 import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
@@ -57,7 +56,6 @@ const styles = stylex.create({
   origin: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start" },
   columnHead: { paddingBlock: "2px" },
   key: { fontFamily: "var(--mantine-font-family-monospace)", overflowWrap: "anywhere" },
-  tabLink: { alignSelf: "center", paddingRight: "4px" },
 });
 
 /** The full place key, copied on click. */
@@ -179,6 +177,13 @@ function ReachRows({
   );
 }
 
+interface ReachTabView {
+  readonly value: PlaceReachTab;
+  readonly label: string;
+  readonly rows: ReadonlyArray<PlaceReachRow>;
+  readonly column: ReachColumn;
+}
+
 /** The detail's tab strip: what applies, what waits for you, what doesn't apply, each with its count. */
 function ReachTabs({
   reach,
@@ -196,50 +201,39 @@ function ReachTabs({
   tab: PlaceReachTab | undefined;
   onTabChange: (tab: PlaceReachTab) => void;
 }) {
-  const tabs: ReadonlyArray<{
-    value: PlaceReachTab;
-    label: string;
-    rows: ReadonlyArray<PlaceReachRow>;
-    column: ReachColumn;
-  }> = [
-    { value: "applies", label: "Applies", rows: reach.applies, column: "delivery" },
+  const applies: ReachTabView = { value: "applies", label: "Applies", rows: reach.applies, column: "delivery" };
+  const tabs: ReadonlyArray<ReachTabView> = [
+    applies,
     { value: "waiting", label: "Waiting", rows: reach.waiting, column: "waiting" },
     { value: "settled", label: "Doesn't apply", rows: reach.settledAgainst, column: "settled" },
   ];
-  const shown = tab ?? tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies";
+  const shown =
+    tabs.find((candidate) => candidate.value === tab) ?? tabs.find((candidate) => candidate.rows.length > 0) ?? applies;
   return (
-    <Tabs
-      value={shown}
-      onChange={(value) => onTabChange(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
-    >
-      <Tabs.List>
-        {tabs.map((candidate) => (
-          <Tabs.Tab
-            key={candidate.value}
-            value={candidate.value}
-            rightSection={<CountBadge count={candidate.rows.length} />}
-          >
-            {candidate.label}
-          </Tabs.Tab>
-        ))}
-        <Box ml="auto" {...stylex.props(styles.tabLink)}>
-          <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? { nowhere: true } : { at: place }} size="sm">
-            Open in Recall →
-          </AnchorLink>
-        </Box>
-      </Tabs.List>
-      {tabs.map((candidate) => (
-        <Tabs.Panel key={candidate.value} value={candidate.value} pt="xs">
-          {candidate.rows.length === 0 ? (
-            <Text size="sm" c="dimmed" py="sm">
-              Nothing here.
-            </Text>
-          ) : (
-            <ReachRows rows={candidate.rows} known={known} onSelect={onSelect} column={candidate.column} />
-          )}
-        </Tabs.Panel>
-      ))}
-    </Tabs>
+    <Stack gap="xs">
+      <Group gap="sm" justify="space-between">
+        <CountedTabs
+          label="Reach"
+          value={shown.value}
+          onChange={onTabChange}
+          options={tabs.map((candidate) => ({
+            value: candidate.value,
+            label: candidate.label,
+            count: candidate.rows.length,
+          }))}
+        />
+        <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? { nowhere: true } : { at: place }} size="sm">
+          Open in Recall →
+        </AnchorLink>
+      </Group>
+      {shown.rows.length === 0 ? (
+        <Text size="sm" c="dimmed" py="sm">
+          Nothing here.
+        </Text>
+      ) : (
+        <ReachRows rows={shown.rows} known={known} onSelect={onSelect} column={shown.column} />
+      )}
+    </Stack>
   );
 }
 

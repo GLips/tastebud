@@ -3,13 +3,15 @@ import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageSquare, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 
+import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatReviewDate } from "#review/shared/format.ts";
+import { DerivationRelationRow } from "#review/shared/ui/derivation-relation-row.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DERIVATION_STATUS_WORDS, DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
+import { DERIVATION_STATUS_WORDS } from "#review/shared/ui/status-chips.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 import { WordBoundaryText } from "#review/shared/ui/word-boundary-text.tsx";
@@ -46,7 +48,6 @@ const styles = stylex.create({
   },
   // The replacement's row hangs under the row it replaced, past the statement's indent.
   replacementCell: { paddingInlineStart: "44px" },
-  noWrap: { whiteSpace: "nowrap" },
   fitCell: { width: "1%", whiteSpace: "nowrap" },
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
 });
@@ -127,7 +128,7 @@ function DerivationRowWhy({ row }: { row: DerivationRow }) {
   return <LibraryRowLine label="Reasoning" text={row.reasoning} />;
 }
 
-/** The revision that replaced a superseded row, as a linked row hanging under it. */
+/** The revision that replaced a superseded row, as a related row hanging under it on the connector rail. */
 function ReplacedByRow({
   replacement,
   labels,
@@ -135,39 +136,18 @@ function ReplacedByRow({
   replacement: NonNullable<DerivationRow["replacedBy"]>;
   labels: ReadonlyMap<string, string>;
 }) {
+  const catalog = useReviewCatalog();
   return (
-    <Table.Tr {...stylex.props(styles.row)}>
-      <Table.Td {...stylex.props(styles.replacementCell)}>
-        <Group gap="xs" wrap="nowrap">
-          <CornerDownRight size={13} color="var(--mantine-color-gray-6)" aria-hidden />
-          <SupportingText tier="secondary" span {...stylex.props(styles.noWrap)}>
-            Replaced by
-          </SupportingText>
-          <DerivationStatusBadge status={replacement.status} />
-          <Tooltip label={replacement.statement} withArrow multiline maw={420} openDelay={400}>
-            <AnchorLink
-              to="/derivations/$id"
-              params={{ id: replacement.id }}
-              c="inherit"
-              size="sm"
-              underline="never"
-              lineClamp={2}
-              {...stylex.props(styles.rowLink)}
-            >
-              <WordBoundaryText text={replacement.statement} />
-            </AnchorLink>
-          </Tooltip>
-        </Group>
+    <Table.Tr>
+      <Table.Td colSpan={4} py={0} {...stylex.props(styles.replacementCell)}>
+        <DerivationRelationRow
+          summary={replacement}
+          catalog={catalog}
+          labels={labels}
+          place="child"
+          tag="Replaced by"
+        />
       </Table.Td>
-      <Table.Td>
-        <ScopeChips scope={replacement.effectiveScope} labels={labels} wrap="wrap" />
-      </Table.Td>
-      <Table.Td ta="right">
-        <SupportingText tier="secondary" title="Proposed" {...stylex.props(styles.numericNoWrap)}>
-          {formatReviewDate(replacement.proposedAt)}
-        </SupportingText>
-      </Table.Td>
-      <Table.Td />
     </Table.Tr>
   );
 }
