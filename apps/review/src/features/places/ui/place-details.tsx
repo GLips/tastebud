@@ -30,6 +30,7 @@ import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { FactList, FactRow } from "#review/shared/ui/fact-row.tsx";
 import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
@@ -55,15 +56,16 @@ const styles = stylex.create({
   },
   origin: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start" },
   columnHead: { paddingBlock: "2px" },
+  key: { fontFamily: "var(--mantine-font-family-monospace)", overflowWrap: "anywhere" },
   tabLink: { alignSelf: "center", paddingRight: "4px" },
 });
 
-/** The full place key, copied on click; it shows only in the tooltip, never in the header line. */
+/** The full place key, copied on click. */
 function PlaceKeyCopyButton({ place }: { place: string }) {
   return (
     <CopyButton value={place}>
       {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : `Copy the key: ${place}`} withArrow fz="xs">
+        <Tooltip label={copied ? "Copied" : "Copy the key"} withArrow fz="xs">
           <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the place key" onClick={copy}>
             {copied ? <Check size={12} /> : <Copy size={12} />}
           </ActionIcon>
@@ -145,7 +147,9 @@ function ReachRows({
     <Box>
       <Box {...stylex.props(styles.row, styles.columnHead)} aria-hidden>
         <Box />
-        <Box />
+        <Text size="xs" c="dimmed" fw={500}>
+          Statement
+        </Text>
         <Text size="xs" c="dimmed" fw={500}>
           Set on
         </Text>
@@ -305,11 +309,7 @@ export function PlaceDetails({
           <Group justify="space-between" wrap="nowrap" align="flex-start">
             <Group gap="xs" wrap="nowrap" {...stylex.props(styles.shrinkable)}>
               <PlaceFormIcon place={place} size={16} />
-              <Tooltip label={place} withArrow openDelay={300} fz="xs">
-                <Title order={4}>{known.labelOf(place)}</Title>
-              </Tooltip>
-              <SupportingText tier="secondary">{PLACE_FORM_NAMES[placeFormOf(place)]}</SupportingText>
-              <PlaceKeyCopyButton place={place} />
+              <Title order={4}>{known.labelOf(place)}</Title>
             </Group>
             {acceptedScopedHere.length > 0 && (
               <Menu position="bottom-end" withArrow>
@@ -331,6 +331,21 @@ export function PlaceDetails({
             )}
             <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
           </Group>
+        )}
+        {!isGlobal && (
+          <FactList>
+            <FactRow label="Type">
+              <Text size="sm">{PLACE_FORM_NAMES[placeFormOf(place)]}</Text>
+            </FactRow>
+            <FactRow label="Key">
+              <Group gap="2xs" wrap="nowrap">
+                <Text fz="xs" {...stylex.props(styles.key)}>
+                  {place}
+                </Text>
+                <PlaceKeyCopyButton place={place} />
+              </Group>
+            </FactRow>
+          </FactList>
         )}
       </Stack>
 

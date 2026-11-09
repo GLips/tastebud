@@ -107,9 +107,11 @@ export function PlacePathTester({
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [asked, setAsked] = useState<string | undefined>(undefined);
-  const resolved = useQuery({ ...reviewContextQuery({ in: asked }), enabled: asked !== undefined });
-  // The store's folder always exists, so the placeholder resolves when tried as written.
+  // The store's folder always exists, so the placeholder resolves; until a path is typed the bench shows it
+  // resolved, so it opens on a result rather than an empty field.
   const storeRoot = useQuery(reviewShellQuery).data?.storeRoot;
+  const shown = asked ?? storeRoot;
+  const resolved = useQuery({ ...reviewContextQuery({ in: shown }), enabled: shown !== undefined });
   const resolvedKnown = useKnownPlaces(resolved.data?.places ?? []);
   const unreached = probes.length === 0 ? 0 : (audit?.audit.unmatched.length ?? 0);
 
@@ -163,9 +165,9 @@ export function PlacePathTester({
           </Button>
         </Group>
       </form>
-      {asked !== undefined && (
+      {shown !== undefined && (
         <Box {...stylex.props(styles.pathRow)}>
-          <PathText path={asked} />
+          <PathText path={shown} />
           <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
           {resolved.error ? (
             <SupportingText tier="secondary">{resolved.error.message}</SupportingText>
@@ -174,7 +176,7 @@ export function PlacePathTester({
               <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
             </Group>
           )}
-          {probes.includes(asked) || resolved.error ? (
+          {asked === undefined || probes.includes(asked) || resolved.error ? (
             <Box />
           ) : (
             <Tooltip label="Warn me if a place stops being reached" withArrow>
