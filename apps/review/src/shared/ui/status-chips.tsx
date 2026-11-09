@@ -1,6 +1,7 @@
-import { Group, Text, Tooltip } from "@mantine/core";
+import { Badge, Group, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
+import { CornerDownRight } from "lucide-react";
 
 /** A derivation's status as one word: list sections, row marks and citations all read this. */
 export const DERIVATION_STATUS_WORDS: Record<DerivationStatus, string> = {
@@ -12,7 +13,7 @@ export const DERIVATION_STATUS_WORDS: Record<DerivationStatus, string> = {
 };
 
 /** What each status means for the owner, in a phrase: the tooltip on a status mark. */
-export const DERIVATION_STATUS_MEANINGS: Record<DerivationStatus, string> = {
+const DERIVATION_STATUS_MEANINGS: Record<DerivationStatus, string> = {
   pending: "Waiting for your decision",
   accepted: "You accepted these",
   rejected: "You turned these down; the reason stays on record",
@@ -50,6 +51,33 @@ export function DerivationStatusLabel({ status }: { status: DerivationStatus }) 
           {DERIVATION_STATUS_WORDS[status]}
         </Text>
       </Group>
+    </Tooltip>
+  );
+}
+
+// Waiting blue, in force green, refused red, out of force gray: colour is reserved for state.
+const STATUS_BADGE_COLORS: Record<DerivationStatus, string> = {
+  pending: "blue",
+  accepted: "teal",
+  rejected: "red",
+  retracted: "gray",
+  superseded: "gray",
+};
+
+/**
+ * Status as a coloured badge, where the state has to read at a glance: a detail's title row and its
+ * related rows. Superseded carries an arrow, since it points at whatever replaced it.
+ */
+export function DerivationStatusBadge({ status }: { status: DerivationStatus }) {
+  return (
+    <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
+      <Badge
+        color={STATUS_BADGE_COLORS[status]}
+        tt="none"
+        leftSection={status === "superseded" ? <CornerDownRight size={11} aria-hidden /> : undefined}
+      >
+        {DERIVATION_STATUS_WORDS[status]}
+      </Badge>
     </Tooltip>
   );
 }

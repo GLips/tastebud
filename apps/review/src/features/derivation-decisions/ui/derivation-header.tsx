@@ -1,24 +1,32 @@
-/** The top of the derivation page: what it says and what the page is for, then its evidence and the agent's reasoning. */
-import { Anchor, CopyButton, Group, Kbd, Paper, Stack, Text, Tooltip } from "@mantine/core";
+/**
+ * The parts a derivation's detail is built from, on its page and in the inbox pane alike: the way back,
+ * the title row with its state and actions, the section frame, and what it rests on.
+ */
+import { Anchor, Box, CopyButton, Group, Kbd, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useCanGoBack, useRouter } from "@tanstack/react-router";
-import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
+import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft, Copy } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { DerivationSummaryLine, DespiteNotice, SupersedesNotice } from "#review/shared/ui/derivation-link.tsx";
-import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
-import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
   id: { fontFamily: "var(--mantine-font-family-monospace)" },
   copy: { cursor: "copy" },
+  titleText: { minWidth: 0, flex: 1 },
+  actions: { flexShrink: 0 },
+  quoteRow: {
+    paddingBlock: "10px",
+    paddingInline: "12px",
+    borderTopWidth: { default: "1px", ":first-child": "0" },
+    borderTopStyle: "solid",
+    borderTopColor: "var(--mantine-color-gray-2)",
+  },
 });
 
 /**
@@ -36,32 +44,7 @@ export interface DerivationBack {
   readonly go: () => void;
 }
 
-export function DerivationHeader({
-  view,
-  kind,
-  catalog,
-  back,
-}: {
-  view: DerivationView;
-  kind: DerivedKindView | undefined;
-  catalog: CatalogView | undefined;
-  back: DerivationBack;
-}) {
-  return (
-    <ReviewPageHeader
-      crumb={
-        <Group justify="space-between">
-          <DerivationBackLink view={view} kind={kind} back={back} />
-          <DerivationIdCopy id={view.id} />
-        </Group>
-      }
-      icon={<KindGlyph catalog={catalog} kind={view.kind} />}
-      title={view.statement}
-    />
-  );
-}
-
-function DerivationBackLink({
+export function DerivationBackLink({
   view,
   kind,
   back,
@@ -90,14 +73,72 @@ function DerivationBackLink({
   );
 }
 
-function DerivationIdCopy({ id }: { id: string }) {
+/**
+ * The statement with its state under it and the actions that fit that state at the right, as Graphite
+ * and GitHub lay out a PR's head. `size` is the page's large title or the pane's card-sized one.
+ */
+export function DerivationTitleRow({
+  glyph,
+  statement,
+  meta,
+  actions,
+  size,
+}: {
+  glyph?: ReactNode;
+  statement: string;
+  /** The line under the statement: the status badge, or the pane's link to the full page. */
+  meta: ReactNode;
+  actions: ReactNode;
+  size: "page" | "pane";
+}) {
+  return (
+    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+      <Stack gap="xxs" {...stylex.props(styles.titleText)}>
+        <Group gap="xs" wrap="nowrap" align="baseline">
+          {glyph}
+          {size === "page" ? (
+            <Title order={3}>{statement}</Title>
+          ) : (
+            <Text fz="cardStatement" fw={600}>
+              {statement}
+            </Text>
+          )}
+        </Group>
+        <Group gap="xs">{meta}</Group>
+      </Stack>
+      <Box {...stylex.props(styles.actions)}>{actions}</Box>
+    </Group>
+  );
+}
+
+/** A titled section of the detail: a quiet heading, then its content. */
+export function DerivationSection({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  /** An anchor for links into the section. */
+  id?: string | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <Stack gap="xs" component="section" id={id}>
+      <Text size="sm" fw={600}>
+        {title}
+      </Text>
+      {children}
+    </Stack>
+  );
+}
+
+export function DerivationIdCopy({ id }: { id: string }) {
   return (
     <CopyButton value={id}>
       {({ copied, copy }) => (
         <Tooltip label={copied ? "Copied" : "Copy the full id, for the tastebud CLI"} withArrow>
           <Group gap="2xs" c="dimmed" onClick={copy} {...stylex.props(styles.copy)}>
-            <Text fz="2xs">ID</Text>
-            <Text fz="2xs" {...stylex.props(styles.id)}>
+            <Text fz="xs" {...stylex.props(styles.id)}>
               {shortIdOf(id)}
             </Text>
             <Copy size={11} />
@@ -108,53 +149,36 @@ function DerivationIdCopy({ id }: { id: string }) {
   );
 }
 
-/** What it replaces or overrides, then the agent's reasoning and the quotes and derivations it rests on. */
-export function DerivationEvidence({ view, kind }: { view: DerivationView; kind: DerivedKindView | undefined }) {
-  const catalog = useReviewCatalog();
+/** The agent's reasoning, labelled, then each quote it rests on as a row; a contradicting quote is chipped. */
+export function DerivationRestsOn({ view, kind }: { view: DerivationView; kind: DerivedKindView | undefined }) {
   const backlogKind = kind?.recall === "never";
   const reasoning = view.derivation.reasoning.trim();
-  const cited =
-    view.supportingSources.length +
-    view.contradictingSources.length +
-    view.supportingDerivations.length +
-    view.contradictingDerivations.length;
+  const quotes = view.supportingSources.length + view.contradictingSources.length;
+  if (quotes === 0 && reasoning === "") return null;
   return (
-    <>
-      {(view.supersedes !== undefined || view.despite.length > 0) && (
-        <Stack gap="xs">
-          {view.supersedes !== undefined && <SupersedesNotice replaces={view.supersedes} />}
-          {view.despite.length > 0 && <DespiteNotice despite={view.despite} agentCase={view.derivation.despite_case} />}
-        </Stack>
-      )}
-      {(cited > 0 || reasoning !== "") && (
-        <Paper px="md" py="sm">
-          <Stack gap="xs">
-            <Text size="sm" fw={600}>
-              {backlogKind ? "What prompted this" : "What it rests on"}
+    <DerivationSection title={backlogKind ? "What prompted this" : "What it rests on"}>
+      <Paper>
+        {reasoning !== "" && (
+          <Stack gap="3xs" {...stylex.props(styles.quoteRow)}>
+            <Text size="xs" c="dimmed" fw={500}>
+              Agent&apos;s reasoning
             </Text>
-            {reasoning !== "" && (
-              <Text size="sm" {...stylex.props(styles.prose)}>
-                <SupportingText tier="secondary" span>
-                  The agent&apos;s reasoning:
-                </SupportingText>{" "}
-                {reasoning}
-              </Text>
-            )}
-            {view.supportingSources.map((source) => (
-              <SourceQuote key={source.source.id} view={source} role={backlogKind ? "prompted" : "supports"} showKind />
-            ))}
-            {view.contradictingSources.map((source) => (
-              <SourceQuote key={source.source.id} view={source} role={backlogKind ? "plain" : "contradicts"} showKind />
-            ))}
-            {view.supportingDerivations.map((summary) => (
-              <DerivationSummaryLine catalog={catalog} key={summary.id} summary={summary} note="builds on" />
-            ))}
-            {view.contradictingDerivations.map((summary) => (
-              <DerivationSummaryLine catalog={catalog} key={summary.id} summary={summary} note="cuts against" />
-            ))}
+            <Text size="sm" {...stylex.props(styles.prose)}>
+              {reasoning}
+            </Text>
           </Stack>
-        </Paper>
-      )}
-    </>
+        )}
+        {view.supportingSources.map((source) => (
+          <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
+            <SourceQuote view={source} role={backlogKind ? "prompted" : "supports"} showKind />
+          </Box>
+        ))}
+        {view.contradictingSources.map((source) => (
+          <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
+            <SourceQuote view={source} role={backlogKind ? "plain" : "contradicts"} showKind />
+          </Box>
+        ))}
+      </Paper>
+    </DerivationSection>
   );
 }

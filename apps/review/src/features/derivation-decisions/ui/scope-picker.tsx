@@ -5,7 +5,7 @@
  * ✕ drops one of several. Esc closes and puts back the scope it opened with. It only edits a draft:
  * the host decides when the draft is used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { Button, Combobox, Text, useCombobox } from "@mantine/core";
+import { Anchor, Badge, Button, Combobox, Stack, Text, Tooltip, useCombobox } from "@mantine/core";
 import {
   applyScopePick,
   type DerivationScope,
@@ -45,15 +45,7 @@ interface ScopePickerProps {
   disabled?: boolean;
 }
 
-export function ScopePicker({
-  value,
-  proposed,
-  known,
-  onChange,
-  opened,
-  onOpenedChange,
-  disabled = false,
-}: ScopePickerProps) {
+function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange, disabled = false }: ScopePickerProps) {
   const combobox = useCombobox({
     ...(opened !== undefined && { opened }),
     ...(onOpenedChange !== undefined && { onOpenedChange }),
@@ -75,8 +67,8 @@ export function ScopePicker({
     <Combobox store={combobox} onOptionSubmit={submit} width={420} position="bottom-start" shadow="md">
       <Combobox.Target targetType="button">
         <Button
-          size="compact-sm"
           variant="default"
+          maw="100%"
           disabled={disabled}
           leftSection={triggerIcon}
           rightSection={<Chevron size={13} />}
@@ -107,5 +99,49 @@ export function ScopePicker({
         )}
       </Combobox.Dropdown>
     </Combobox>
+  );
+}
+
+/**
+ * The Scope property: the picker, then either what an edit changes with a way back to the scope it
+ * started from, or a "guessed" tag when the agent defaulted the scope to where it was working.
+ */
+export function ScopePropertyField({
+  picker,
+  changes,
+  guessed,
+  onRestore,
+}: {
+  picker: ScopePickerProps;
+  /** How the draft differs from where it started, a phrase each; empty when it doesn't. */
+  changes: ReadonlyArray<string>;
+  guessed: boolean;
+  /** Drops the draft; omitted while the draft can't be changed. */
+  onRestore: (() => void) | undefined;
+}) {
+  return (
+    <Stack gap="2xs" align="flex-start">
+      <ScopePicker {...picker} />
+      {guessed && changes.length === 0 && (
+        <Tooltip label="Guessed from where the agent was working" withArrow>
+          <Badge color="gray" tt="none" variant="outline">
+            Guessed
+          </Badge>
+        </Tooltip>
+      )}
+      {changes.length > 0 && (
+        <Text size="xs" c="gray.7">
+          {changes.join(" · ")}
+          {onRestore !== undefined && (
+            <>
+              {" · "}
+              <Anchor component="button" size="xs" onClick={onRestore}>
+                Restore
+              </Anchor>
+            </>
+          )}
+        </Text>
+      )}
+    </Stack>
   );
 }
