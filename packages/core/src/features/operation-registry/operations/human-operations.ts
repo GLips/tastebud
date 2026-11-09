@@ -45,6 +45,8 @@ export const HUMAN_TASTE_OPERATIONS = {
       derivation: DerivationSummarySchema,
       effectiveScope: DerivationScopeSchema,
       needsAcknowledgement: Schema.Array(RepeatMatchSchema),
+      /** Close records the proposal named in `despite`: answered already, so shown but not acknowledged. */
+      answeredByDespite: Schema.Array(RepeatMatchSchema),
     }),
     run: (input) => previewDerivationAcceptance(input),
     renderText: renderAcceptancePreviewText,

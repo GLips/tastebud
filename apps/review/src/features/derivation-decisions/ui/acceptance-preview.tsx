@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type DerivationScope, formatPlaceLabel } from "@tastebud/core/places";
 import type { RepeatMatch } from "@tastebud/core/record-views";
 import { TriangleAlert } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { formatReviewDate } from "#review/shared/format.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
@@ -96,11 +97,29 @@ function BlockingMatchRow({
   );
 }
 
-/** The near repeats an accept must acknowledge one by one, once the preview has found them. */
+/** A close record the proposal already answered by naming it in `despite`: shown, never a checkbox. */
+function AnsweredMatchLine({ match }: { match: RepeatMatch }) {
+  return (
+    <Text size="xs" c="dimmed">
+      Close to {match.status === "rejected" ? "your earlier rejection" : `a ${match.status} ${match.kindLabel}`}{" "}
+      <AnchorLink to="/derivations/$id" params={{ id: match.id }} c="inherit" target="_blank">
+        “{match.statement}”
+      </AnchorLink>
+      {match.decidedAt !== undefined && ` (${match.status} ${formatReviewDate(match.decidedAt)})`}; the agent proposed
+      it anyway and said what changed, so it needs no acknowledgement.
+    </Text>
+  );
+}
+
+/**
+ * The near repeats an accept must acknowledge one by one, once the preview has found them. The first
+ * box takes focus when they appear, so Space ticks it and ⌘↵ confirms.
+ */
 function NearRepeatAcknowledgements({
   error,
   loaded,
   matches,
+  answered,
   acknowledged,
   onAcknowledge,
   labels,
@@ -108,10 +127,16 @@ function NearRepeatAcknowledgements({
   error: Error | null;
   loaded: boolean;
   matches: ReadonlyArray<RepeatMatch>;
+  answered: ReadonlyArray<RepeatMatch>;
   acknowledged: ReadonlySet<string>;
   onAcknowledge: (id: string, checked: boolean) => void;
   labels: ReadonlyMap<string, string>;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  const hasMatches = matches.length > 0;
+  useEffect(() => {
+    if (hasMatches) list.current?.querySelector("input")?.focus();
+  }, [hasMatches]);
   if (error)
     return (
       <Alert color="red" variant="light" py="xxs">
@@ -127,14 +152,21 @@ function NearRepeatAcknowledgements({
         </Text>
       </Group>
     );
+  const answeredLines = answered.map((match) => <AnsweredMatchLine key={match.id} match={match} />);
   if (matches.length === 0)
     return (
-      <Text size="xs" c="dimmed">
-        Nothing close to it overlaps this scope.
-      </Text>
+      <Stack gap="3xs">
+        {answeredLines}
+        <Text size="xs" c="dimmed">
+          {answered.length > 0
+            ? "Nothing else close to it overlaps this scope."
+            : "Nothing close to it overlaps this scope."}
+        </Text>
+      </Stack>
     );
   return (
-    <Stack gap="xxs">
+    <Stack gap="xxs" ref={list}>
+      {answeredLines}
       <Text size="sm" fw={500}>
         {matches.length === 1
           ? "This scope overlaps something close to it"
@@ -241,6 +273,7 @@ export function AcceptancePreview({
           error={preview.error}
           loaded={preview.data !== undefined}
           matches={matches}
+          answered={preview.data?.answeredByDespite ?? []}
           acknowledged={acknowledged}
           onAcknowledge={onAcknowledge}
           labels={labels}
