@@ -1,4 +1,4 @@
-import { Anchor, Badge, Box, Button, Collapse, Paper, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { Anchor, Badge, Box, Button, Collapse, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -8,7 +8,7 @@ import {
   type AgentHostConnection,
   agentHostConnectLinesFor,
 } from "@tastebud/core/agent-hosts";
-import { ChevronDown } from "lucide-react";
+import { Code, MousePointer2, Plug, RefreshCw, SquareTerminal, Terminal, type LucideIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
@@ -18,21 +18,39 @@ import { CopyableSnippet } from "./copyable-snippet.tsx";
 import { agentHostConnectionsQuery } from "./settings-queries.ts";
 
 const styles = stylex.create({
-  // Host · what it gets · state · action, one grid so every row's columns line up.
+  // Tile · host · what it gets · state · action, one grid so every row's columns line up.
   row: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) 120px 112px",
-    columnGap: "16px",
+    gridTemplateColumns: "28px 150px 240px 120px minmax(0, 1fr)",
+    columnGap: "12px",
     alignItems: "center",
     paddingBlock: "12px",
     paddingInline: "16px",
   },
   divided: { borderTopWidth: "1px", borderTopStyle: "solid", borderTopColor: "var(--mantine-color-gray-2)" },
-  steps: { margin: 0, listStyle: "none", paddingTop: 0, paddingInline: "16px", paddingBottom: "16px" },
-  chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
-  chevronOpen: { transform: "rotate(180deg)" },
+  // The expansion lines up under the host name, past the tile.
+  expansion: { paddingLeft: "56px", paddingRight: "16px", paddingBottom: "16px" },
+  steps: { margin: 0, padding: 0, listStyle: "none" },
+  tile: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "var(--mantine-radius-sm)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "var(--mantine-color-gray-1)",
+    color: "var(--mantine-color-gray-7)",
+  },
   action: { justifySelf: "end" },
 });
+
+const HOST_ICONS: Record<AgentHost, LucideIcon> = {
+  "claude-code": Terminal,
+  codex: SquareTerminal,
+  cursor: MousePointer2,
+  vscode: Code,
+  "other-mcp": Plug,
+};
 
 const HOST_NAMES: Record<AgentHost, string> = {
   "claude-code": "Claude Code",
@@ -75,7 +93,7 @@ const connectionWhy = (connection: AgentHostConnection, home: string | undefined
     case "unreadable":
       return `${where} doesn't parse`;
     case "store-from-environment":
-      return `Tastebud is in ${where} but names no store, so the environment the host starts in picks it`;
+      return `In ${where}, but no store named: the host's environment picks one`;
     case "not-checked":
       return "Tastebud can't see this host's config";
   }
@@ -164,6 +182,8 @@ function AgentHostRow({
   home,
   lines,
   divided,
+  onRecheck,
+  rechecking,
 }: {
   host: AgentHost;
   /** Undefined while the readout loads. */
@@ -171,12 +191,18 @@ function AgentHostRow({
   home: string | undefined;
   lines: AgentHostConnectLines;
   divided: boolean;
+  onRecheck: () => void;
+  rechecking: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const badge = connection === undefined ? undefined : STATE_BADGES[connection.state];
+  const Icon = HOST_ICONS[host];
   return (
     <Box {...stylex.props(divided && styles.divided)}>
       <Box {...stylex.props(styles.row)}>
+        <Box {...stylex.props(styles.tile)} aria-hidden>
+          <Icon size={15} />
+        </Box>
         <Text size="sm" fw={500}>
           {HOST_NAMES[host]}
         </Text>
@@ -184,25 +210,34 @@ function AgentHostRow({
         {connection === undefined || badge === undefined ? (
           <Skeleton height={20} width={90} />
         ) : (
-          <Tooltip label={connectionWhy(connection, home)} withArrow multiline maw={320} openDelay={150}>
-            <Badge color={badge.color} tt="none" fw={500} w="fit-content">
-              {badge.label}
-            </Badge>
-          </Tooltip>
+          <Badge color={badge.color} tt="none" fw={500} w="fit-content">
+            {badge.label}
+          </Badge>
         )}
-        <Button
-          variant="subtle"
-          color="gray"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-          rightSection={<ChevronDown size={14} {...stylex.props(styles.chevron, open && styles.chevronOpen)} />}
-          {...stylex.props(styles.action)}
-        >
+        <Button variant="default" aria-expanded={open} onClick={() => setOpen(!open)} {...stylex.props(styles.action)}>
           {connection?.state === "connected" ? "Details" : "Connect"}
         </Button>
       </Box>
       <Collapse expanded={open}>
-        <ConnectSteps steps={connectStepsOf(host, lines)} />
+        <Stack gap="md" {...stylex.props(styles.expansion)}>
+          {connection !== undefined && (
+            <Group gap="xs" wrap="nowrap">
+              <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
+              {connection.state !== "connected" && (
+                <Button
+                  size="compact-sm"
+                  variant="subtle"
+                  leftSection={<RefreshCw size={12} />}
+                  loading={rechecking}
+                  onClick={onRecheck}
+                >
+                  Recheck
+                </Button>
+              )}
+            </Group>
+          )}
+          <ConnectSteps steps={connectStepsOf(host, lines)} />
+        </Stack>
       </Collapse>
     </Box>
   );
@@ -226,6 +261,8 @@ export function AgentHostConnections({ storeRoot }: { storeRoot: string | undefi
             home={home}
             lines={lines}
             divided={index > 0}
+            onRecheck={() => void readout.refetch()}
+            rechecking={readout.isFetching}
           />
         ))}
       </Paper>
