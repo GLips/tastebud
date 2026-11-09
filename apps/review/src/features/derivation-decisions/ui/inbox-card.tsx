@@ -11,10 +11,8 @@ import { Clock, MessageSquare, PencilLine } from "lucide-react";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 
-import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import type { DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
-import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
 
@@ -38,12 +36,15 @@ const rowCautionsOf = (
   return cautions.filter((caution) => caution !== false);
 };
 
-/** The row's neutral facts: queued in a bulk decision, its scope edited, its notes. */
-const rowNotesOf = (card: InboxCard, { edited, queued }: { edited: boolean; queued: boolean }) => {
+/**
+ * The row's neutral facts: queued in a bulk decision, its scope mid-edit, its notes. A scope edited to
+ * somewhere whole shows as its place chip instead, so "Scope edited" covers only a draft not yet a place.
+ */
+const rowNotesOf = (card: InboxCard, { editing, queued }: { editing: boolean; queued: boolean }) => {
   const notes = card.derivation.thread.length;
   const facts: ReadonlyArray<InboxRowNote | false> = [
     queued && { icon: Clock, text: "Queued", tooltip: "Waiting its turn in a bulk decision" },
-    edited && { icon: PencilLine, text: "Scope edited", tooltip: "You changed where it applies" },
+    editing && { icon: PencilLine, text: "Scope edited", tooltip: "You're changing where it applies" },
     notes > 0 && {
       icon: MessageSquare,
       text: String(notes),
@@ -115,7 +116,8 @@ export function InboxProposalCard({
     onUndone,
   });
   const view = card.derivation;
-  const catalog = useReviewCatalog();
+  // The section is the proposed scope, so only an edit puts a different place on the row.
+  const editedTo = triage.edited && isCompleteScope(triage.shownScope) ? triage.shownScope : undefined;
 
   if (decided)
     return (
@@ -134,13 +136,11 @@ export function InboxProposalCard({
       <InboxProposalRow
         ref={ref}
         statement={view.statement}
-        glyph={<KindGlyph catalog={catalog} kind={view.kind} size={13} />}
         chips={{
-          // The section is the proposed scope, so only an edit puts a different place on the row.
-          scope: triage.edited && isCompleteScope(triage.shownScope) ? triage.shownScope : undefined,
+          scope: editedTo,
           subject: otherSubjectOf(view, owner) === undefined ? null : <SubjectChip summary={view} owner={owner} />,
           cautions: rowCautionsOf(card, { edited: triage.edited, backlog: kind.recall === "never" }),
-          notes: rowNotesOf(card, { edited: triage.edited, queued }),
+          notes: rowNotesOf(card, { editing: triage.edited && editedTo === undefined, queued }),
         }}
         selected={selected}
         onSelect={onSelect}

@@ -1,5 +1,5 @@
 /**
- * A pending proposal as one row of the inbox's list: its kind glyph (a checkbox on hover or while rows are
+ * A pending proposal as one row of the inbox's list: a checkbox slot (shown on hover or while rows are
  * checked), its statement, and chips only for what sets it apart: a scope other than its section's, who
  * it is about, cautions and notes. Selecting it opens it in the detail pane, where it is decided.
  */
@@ -34,17 +34,14 @@ const styles = stylex.create({
     backgroundColor: { default: "var(--mantine-color-tastebud-0)", ":hover": "var(--mantine-color-tastebud-0)" },
     borderInlineStartColor: "var(--mantine-color-tastebud-5)",
   },
-  // The glyph and the checkbox share one cell, so the row never carries an empty checkbox column.
-  lead: { display: "grid", placeItems: "center", width: "16px", height: "16px", marginTop: "10px", flexShrink: 0 },
-  layer: { gridArea: "1 / 1" },
-  glyph: {
-    opacity: {
-      default: 1,
-      [stylex.when.ancestor(":hover")]: 0,
-      [stylex.when.ancestor(":focus-within")]: 0,
-    },
-  },
-  check: {
+  // Empty at rest: the tab above already names the kind, so a glyph here would repeat it on every row.
+  lead: {
+    display: "grid",
+    placeItems: "center",
+    width: "16px",
+    height: "16px",
+    marginTop: "10px",
+    flexShrink: 0,
     opacity: {
       default: 0,
       [stylex.when.ancestor(":hover")]: 1,
@@ -52,7 +49,6 @@ const styles = stylex.create({
     },
   },
   // Selection mode: every row shows its checkbox, so what is checked reads at a glance.
-  glyphHidden: { opacity: 0 },
   checkShown: { opacity: 1 },
   body: {
     display: "flex",
@@ -115,7 +111,6 @@ export interface InboxRowCheck {
 
 export function InboxProposalRow({
   statement,
-  glyph,
   chips,
   selected,
   check,
@@ -123,8 +118,6 @@ export function InboxProposalRow({
   ref,
 }: {
   statement: string;
-  /** The kind's glyph, which the checkbox replaces on hover and in selection mode. */
-  glyph: ReactNode;
   chips: InboxRowChips;
   selected: boolean;
   check: InboxRowCheck;
@@ -145,17 +138,14 @@ export function InboxProposalRow({
         selected && styles.selected,
       )}
     >
-      <Box {...stylex.props(styles.lead)}>
-        <Box {...stylex.props(styles.layer, styles.glyph, selecting && styles.glyphHidden)}>{glyph}</Box>
-        <Box {...stylex.props(styles.layer, styles.check, selecting && styles.checkShown)}>
-          <Checkbox
-            size="xs"
-            checked={checked}
-            aria-label="Select for a bulk decision"
-            // React fires a checkbox's change from its click, so the native event carries the shift key.
-            onChange={(event) => onCheck("shiftKey" in event.nativeEvent && event.nativeEvent.shiftKey === true)}
-          />
-        </Box>
+      <Box {...stylex.props(styles.lead, selecting && styles.checkShown)}>
+        <Checkbox
+          size="xs"
+          checked={checked}
+          aria-label="Select for a bulk decision"
+          // React fires a checkbox's change from its click, so the native event carries the shift key.
+          onChange={(event) => onCheck("shiftKey" in event.nativeEvent && event.nativeEvent.shiftKey === true)}
+        />
       </Box>
       <Box
         component="button"
