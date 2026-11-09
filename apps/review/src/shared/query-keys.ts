@@ -3,7 +3,6 @@
  * first element is the family a refresh targets; the rest narrow it.
  */
 import type { DerivationScope } from "@tastebud/core/places";
-import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 /** What Recall's explanation looks up: a derivation by ref, or by words from its statement. */
 export type RecallExplanationLookup = { readonly ref: string } | { readonly text: string };
@@ -17,12 +16,8 @@ export const REVIEW_QUERY_KEYS = {
   acceptPreviews: () => ["accept-preview"] as const,
   acceptPreviewsOf: (ref: string) => ["accept-preview", ref] as const,
   acceptPreview: (ref: string, scope: DerivationScope | undefined) => ["accept-preview", ref, scope ?? null] as const,
-  derivationList: (
-    kind: string | undefined,
-    status: DerivationStatus | undefined,
-    place: string | undefined,
-    text: string | undefined,
-  ) => ["derivations", kind ?? null, status ?? null, place ?? null, text ?? null] as const,
+  derivationList: (kind: string | undefined, place: string | undefined, text: string | undefined) =>
+    ["derivations", kind ?? null, place ?? null, text ?? null] as const,
   records: () => ["record"] as const,
   record: (ref: string) => ["record", ref] as const,
   sources: (kind: string | undefined, text: string | undefined) => ["sources", kind ?? null, text ?? null] as const,

@@ -86,7 +86,7 @@ function DerivationDetail({
   return (
     <Box {...stylex.props(styles.layout)}>
       <Stack gap="md">
-        <DerivationHeader view={view} kind={kind} catalog={catalog} owner={owner} back={back} />
+        <DerivationHeader view={view} kind={kind} catalog={catalog} back={back} />
         <DerivationStatusCard review={review} kind={kind} acceptLabel={acceptLabel} known={known} newer={newer} />
         <DerivationEvidence view={view} kind={kind} />
         <Paper p="md" id={DERIVATION_THREAD_HASH}>

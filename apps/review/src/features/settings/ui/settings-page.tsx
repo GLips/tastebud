@@ -295,10 +295,7 @@ export function SettingsPage() {
   const configPath = `${storeRoot.replace(/\/+$/, "")}/tastebud.config.ts`;
   return (
     <Stack gap="xl">
-      <ReviewPageHeader
-        title="Settings"
-        purpose="Connect your agents, and see how this store treats what they propose."
-      />
+      <ReviewPageHeader title="Settings" />
       <AgentHostConnections storeRoot={storeIsDefault ? undefined : storeRoot} />
       <HowItBehaves catalog={catalog} configPath={configPath} />
       <StoreFacts catalog={catalog} storeRoot={storeRoot} configPath={configPath} />

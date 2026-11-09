@@ -11,7 +11,7 @@ export const DERIVATION_STATUS_WORDS: Record<DerivationStatus, string> = {
   superseded: "Superseded",
 };
 
-/** What each status means for the owner, in a phrase: a status word's tooltip and a list section's subtitle. */
+/** What each status means for the owner, in a phrase: the tooltip on a status mark. */
 export const DERIVATION_STATUS_MEANINGS: Record<DerivationStatus, string> = {
   pending: "Waiting for your decision",
   accepted: "You accepted these",

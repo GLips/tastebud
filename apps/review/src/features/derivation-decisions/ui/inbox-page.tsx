@@ -1,8 +1,7 @@
-import { Box, Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Schema } from "effect";
 import { ArrowDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,8 +18,11 @@ import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { InboxHeaderActions } from "./inbox-header-actions.tsx";
 import { InboxKindTabs } from "./inbox-kind-tabs.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
+import { InboxSelectionBar } from "./inbox-selection-bar.tsx";
+import { isBelievableAsProposed, useInboxBatch } from "./use-inbox-batch.ts";
 import { useInboxCardStates } from "./use-inbox-card-states.ts";
-import type { InboxBatch, InboxCardHandle } from "./use-inbox-card-triage.ts";
+import type { InboxCardHandle } from "./use-inbox-card-triage.ts";
+import { useInboxCheckedRows } from "./use-inbox-checked-rows.ts";
 import { useInboxKind } from "./use-inbox-kind.ts";
 import { useInboxSelection } from "./use-inbox-selection.ts";
 
@@ -48,16 +50,6 @@ const styles = stylex.create({
   },
 });
 
-/** What accepting does for the selected kind, finishing the page's one-line job. */
-const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
-  const outcomes: Record<DerivedKindView["recall"], string> = {
-    inject: `Accepted ${kind.plural} are told to agents wherever they apply.`,
-    pull: `Agents can look up accepted ${kind.plural} wherever they apply.`,
-    never: `Accepted ${kind.plural} go to your backlog; agents aren't told them.`,
-  };
-  return outcomes[kind.recall];
-};
-
 export function InboxPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -76,7 +68,14 @@ export function InboxPage() {
     linkedCard: search.card,
     holdsKeyboard: (id) => cards.engagedIds.has(id),
   });
-  const cardHandles = useRef(new Map<string, InboxCardHandle>()).current;
+  // One map for the page's life, mutated by the cards: each registers its handle from an effect.
+  const [cardHandles] = useState(() => new Map<string, InboxCardHandle>());
+  const checked = useInboxCheckedRows({
+    order: queue.entries.filter((entry) => !entry.gone && !cards.decidedIds.has(entry.id)).map((entry) => entry.id),
+    focusedId: selection.effectiveId,
+    holdsKeyboard: selection.effectiveId !== undefined && cards.engagedIds.has(selection.effectiveId),
+  });
+  const bulk = useInboxBatch(cardHandles);
   const [pane, setPane] = useState<HTMLDivElement | null>(null);
 
   if (shell.error) return <QueryErrorAlert error={shell.error} />;
@@ -94,15 +93,16 @@ export function InboxPage() {
     kinds,
     kind,
     pendingByKind,
-    onShowKind: (key: string) => void navigate({ search: { kind: key }, replace: true }),
+    onShowKind: (key: string) => {
+      // A selection belongs to the kind it was made in; it doesn't wait hidden behind another tab.
+      checked.clear();
+      void navigate({ search: { kind: key }, replace: true });
+    },
   };
-  // A batch decides through each card; a card no longer mounted (its kind was switched away mid-batch) is skipped.
-  const acceptOne = async (id: string, batch: InboxBatch) => {
-    const handle = cardHandles.get(id);
-    return handle === undefined
-      ? "Left undecided: the inbox moved to another kind before its turn."
-      : handle.acceptAsProposed(batch);
-  };
+  const believableIds = queue.entries
+    .filter((entry) => checked.isChecked(entry.id) && isBelievableAsProposed(entry, cards.drafts, cards.engagedIds))
+    .map((entry) => entry.id);
+  const rejectableIds = checked.checkedIds.filter((id) => !cards.engagedIds.has(id));
   // One at a time, newest first: the reverse of the order they were decided in.
   const undoInTurn = async ([id, ...rest]: ReadonlyArray<string>): Promise<void> => {
     if (id === undefined) return;
@@ -122,7 +122,7 @@ export function InboxPage() {
       : undefined;
   // A card mid-decision stays mounted when the refresh finds it gone: its own decision made it so,
   // and only the mounted card knows how to undo it.
-  const renderEntry = (entry: InboxQueueEntry, queued: boolean) =>
+  const renderEntry = (entry: InboxQueueEntry) =>
     entry.gone && !cards.decidedIds.has(entry.id) && !cards.engagedIds.has(entry.id) ? (
       <GoneProposalRow
         key={entry.id}
@@ -137,8 +137,14 @@ export function InboxPage() {
         key={entry.id}
         entry={entry}
         kind={kind}
+        owner={catalog?.owner}
         selected={entry.id === selection.effectiveId}
-        queued={queued}
+        check={{
+          checked: checked.isChecked(entry.id),
+          shown: checked.checkedIds.length > 0,
+          onCheck: (range) => (range ? checked.extendTo(entry.id) : checked.toggle(entry.id)),
+        }}
+        queued={bulk.queued.has(entry.id)}
         draft={cards.drafts.get(entry.id)}
         known={known}
         pane={pane}
@@ -156,13 +162,12 @@ export function InboxPage() {
 
   return (
     <Stack gap="lg">
-      <ReviewPageHeader
-        title="Inbox"
-        purpose={`Proposals waiting on you. ${describeAcceptedOutcome(kind)}`}
-        actions={<InboxHeaderActions />}
-      />
+      <ReviewPageHeader title="Inbox" />
       <Stack gap="md">
-        <InboxKindTabs {...kindsProps} />
+        <Group justify="space-between" wrap="nowrap" gap="md">
+          <InboxKindTabs {...kindsProps} />
+          <InboxHeaderActions />
+        </Group>
         {queue.incomingCount > 0 && (
           <Button
             variant="light"
@@ -179,20 +184,46 @@ export function InboxPage() {
         ) : (
           <Group align="flex-start" wrap="nowrap" gap="lg">
             <Stack gap="xs" {...stylex.props(styles.queue)}>
+              {bulk.failures.length > 0 && (
+                <Alert color="red" variant="light" title="Some weren't decided">
+                  <Stack gap="2xs">
+                    {bulk.failures.map((failure) => (
+                      <Text key={failure.id} size="sm">
+                        {failure.sentence}
+                      </Text>
+                    ))}
+                  </Stack>
+                </Alert>
+              )}
               {queue.buckets.map((bucket) => (
                 <InboxGroupSection
                   key={bucket.key}
-                  group={bucket.group}
+                  scope={bucket.scope}
                   entries={bucket.entries}
-                  kind={kind}
-                  owner={catalog?.owner}
-                  drafts={cards.drafts}
-                  engagedIds={cards.engagedIds}
                   known={known}
                   renderEntry={renderEntry}
-                  acceptOne={acceptOne}
                 />
               ))}
+              {checked.checkedIds.length > 0 && (
+                <InboxSelectionBar
+                  kind={kind}
+                  counts={{
+                    checked: checked.checkedIds.length,
+                    believable: believableIds.length,
+                    rejectable: rejectableIds.length,
+                  }}
+                  pending={bulk.pending}
+                  onBelieve={() => {
+                    checked.uncheck(believableIds);
+                    void bulk.believeAsProposed(believableIds);
+                  }}
+                  onReject={(reason) => {
+                    checked.uncheck(rejectableIds);
+                    void bulk.rejectWithReason(rejectableIds, reason);
+                  }}
+                  onClear={checked.clear}
+                />
+              )}
             </Stack>
             {/* The selected card renders its detail in here (see InboxProposalCard). */}
             <Box ref={setPane} {...stylex.props(styles.pane)}>

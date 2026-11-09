@@ -49,8 +49,8 @@ const Route = getRouteApi("/sources/");
 
 /** The list's two sections, in this order: words a conclusion cites, then words nothing cites yet. */
 const SOURCE_SECTIONS = [
-  { key: "led-to", title: "Led to something", meaning: "Conclusions cite these words", cited: true },
-  { key: "unused", title: "Not used yet", meaning: "Nothing cites these yet", cited: false },
+  { key: "led-to", title: "Led to something", cited: true },
+  { key: "unused", title: "Not used yet", cited: false },
 ] as const;
 
 /** Rows in their sections, newest first inside each; a section with no rows has no header. */
@@ -66,8 +66,8 @@ const groupSourceRowsByUse = (rows: ReadonlyArray<SourceRow>) =>
     ),
   ).filter((section) => section.rows.length > 0);
 
-/** A section's header row: its title, count and what it means. */
-function SourceSectionHeader({ title, meaning, count }: { title: string; meaning: string; count: number }) {
+/** A section's header row: its title and count. */
+function SourceSectionHeader({ title, count }: { title: string; count: number }) {
   return (
     <Table.Tr {...stylex.props(styles.groupRow)}>
       <Table.Td colSpan={4} py="xxs">
@@ -78,7 +78,6 @@ function SourceSectionHeader({ title, meaning, count }: { title: string; meaning
           <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
             {count}
           </SupportingText>
-          <SupportingText tier="secondary">{meaning}</SupportingText>
         </Group>
       </Table.Td>
     </Table.Tr>
@@ -112,11 +111,12 @@ function SourceListRow({ view }: { view: SourceRow }) {
             params={{ id: view.source.id }}
             hash="led-to"
             size="sm"
-            fw={500}
+            c="gray.7"
+            underline="hover"
             title="See what these words led to"
             {...stylex.props(styles.numericNoWrap, styles.aboveRowLink)}
           >
-            {view.citedByCount} {view.citedByCount === 1 ? "conclusion" : "conclusions"}
+            {view.citedByCount}
           </AnchorLink>
         )}
       </Table.Td>
@@ -166,10 +166,7 @@ export function SourceListPage() {
 
   return (
     <Stack gap="md">
-      <ReviewPageHeader
-        title="Sources"
-        purpose="People's exact words, as your agents saved them. Every conclusion cites at least one; open one to see what it led to."
-      />
+      <ReviewPageHeader title="Sources" />
       <Group gap="sm">
         <TextInput
           w={320}
@@ -194,7 +191,6 @@ export function SourceListPage() {
         )}
         <Select
           w={220}
-          variant="filled"
           leftSection={<UserRound size={14} />}
           placeholder="Said by anyone"
           aria-label="Said by"
@@ -246,12 +242,7 @@ export function SourceListPage() {
                 <Table.Tbody>
                   {groupSourceRowsByUse(rows).flatMap((section) =>
                     [
-                      <SourceSectionHeader
-                        key={section.key}
-                        title={section.title}
-                        meaning={section.meaning}
-                        count={section.rows.length}
-                      />,
+                      <SourceSectionHeader key={section.key} title={section.title} count={section.rows.length} />,
                     ].concat(section.rows.map((view) => <SourceListRow key={view.source.id} view={view} />)),
                   )}
                 </Table.Tbody>
