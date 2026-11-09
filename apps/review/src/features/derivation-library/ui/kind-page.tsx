@@ -128,9 +128,18 @@ function LibraryStatusTabs({
 }
 
 /** A column's name over the library table. */
-function LibraryColumnHead({ label, align = "left" }: { label: string; align?: "left" | "right" }) {
+function LibraryColumnHead({
+  label,
+  align = "left",
+  w,
+}: {
+  label: string;
+  align?: "left" | "right";
+  /** Fixed, so the columns hold still when a section folds; the statement column takes the rest. */
+  w?: number;
+}) {
   return (
-    <Table.Th ta={align} {...stylex.props(styles.columnHead)}>
+    <Table.Th ta={align} {...(w !== undefined && { w })} {...stylex.props(styles.columnHead)}>
       <Text size="xs" c="gray.7" fw={600}>
         {label}
       </Text>
@@ -268,14 +277,14 @@ export function KindLibraryPage() {
             </Center>
           ) : (
             <Paper p={0}>
-              <Table verticalSpacing="xs" horizontalSpacing="md">
+              <Table verticalSpacing="xs" horizontalSpacing="md" layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
                     <LibraryColumnHead label={capitalize(kind?.singular ?? kindKey)} />
-                    <LibraryColumnHead label="Notes" />
-                    <LibraryColumnHead label="Applies in" />
-                    <LibraryColumnHead label="Proposed" align="right" />
-                    <Table.Th />
+                    <LibraryColumnHead label="Notes" w={96} />
+                    <LibraryColumnHead label="Applies in" w={280} />
+                    <LibraryColumnHead label="Proposed" align="right" w={120} />
+                    <Table.Th w={44} />
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
