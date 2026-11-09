@@ -14,6 +14,11 @@ export const formatReviewTime = (iso: string | undefined): string =>
 export const formatReviewDate = (iso: string | undefined): string =>
   iso === undefined ? "" : dateOnly.format(new Date(iso));
 
+const clockOnly = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
+/** The time of day alone, for a moment whose date is already on screen. */
+export const formatReviewClock = (iso: string): string => clockOnly.format(new Date(iso));
+
 /**
  * "3m ago" style, coarse on purpose: the screens poll every second and a ticking clock would jitter.
  * `now` comes from the caller so this stays pure.

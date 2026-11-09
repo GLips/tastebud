@@ -6,6 +6,7 @@ import { ChevronDown, Settings, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { reviewShellQuery } from "./review-shell-queries.ts";
 
@@ -139,9 +140,7 @@ function ReviewerIdentity() {
       >
         <Box component="span" {...stylex.props(styles.who)}>
           <UserRound size={14} color="var(--mantine-color-gray-6)" />
-          <Text size="xs" c="dimmed">
-            {shell.data.catalog.owner}
-          </Text>
+          <SupportingText tier="secondary">{shell.data.catalog.ownerName}</SupportingText>
         </Box>
       </Tooltip>
     );

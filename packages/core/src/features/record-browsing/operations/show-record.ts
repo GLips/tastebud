@@ -38,6 +38,17 @@ const sourcesSaidAlongside = (view: ViewSource, source: SourceRecord) => {
     .map((other) => viewSource(view, other));
 };
 
+/** How many of a speaker's other sources `moreFromSpeaker` carries. */
+const MORE_FROM_SPEAKER_LIMIT = 5;
+
+/** The same speaker's latest other sources, newest first. */
+const moreFromSpeakerOf = (view: ViewSource, source: SourceRecord) =>
+  view.snapshot.sources
+    .filter((other) => other.id !== source.id && other.said_by === source.said_by)
+    .toSorted((left, right) => compareIsoTimes(right.said_at, left.said_at))
+    .slice(0, MORE_FROM_SPEAKER_LIMIT)
+    .map((other) => viewSource(view, other));
+
 export const showTasteRecord = Effect.fn("record-browsing.showTasteRecord")(function* (input: ShowRecordInput) {
   const store = yield* TasteStore;
   const snapshot = yield* store.snapshot;
@@ -64,6 +75,7 @@ export const showTasteRecord = Effect.fn("record-browsing.showTasteRecord")(func
     }),
     revisedBy: snapshot.sources.filter((source) => source.revises === id),
     saidAlongside: record.type === "Source" ? sourcesSaidAlongside(view, record) : [],
+    moreFromSpeaker: record.type === "Source" ? moreFromSpeakerOf(view, record) : [],
     despitedBy: summaries((derivation) => derivation.despite?.includes(id) === true),
     acknowledgedBy: summaries((derivation) => acknowledgingTargets.has(derivation.id)),
   };

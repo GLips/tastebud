@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Group, Menu, Table, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Menu, Table, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
@@ -10,7 +10,9 @@ import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DERIVATION_STATUS_WORDS } from "#review/shared/ui/status-chips.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
+import { LibraryAcceptOverlaps } from "./library-accept-overlaps.tsx";
 import type { LibraryDecisionRequest } from "./use-library-decision.ts";
 
 const styles = stylex.create({
@@ -49,9 +51,9 @@ function DerivationRowWhy({ row }: { row: DerivationRow }) {
     return (
       <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.aboveRowLink)}>
         <CornerDownRight size={12} color="var(--mantine-color-gray-6)" />
-        <Text size="sm" c="gray.7" span {...stylex.props(styles.noWrap)}>
+        <SupportingText tier="secondary" span {...stylex.props(styles.noWrap)}>
           Replaced by
-        </Text>
+        </SupportingText>
         <AnchorLink to="/derivations/$id" params={{ id: row.replacedBy.id }} size="sm" c="gray.7" lineClamp={1}>
           “{row.replacedBy.statement}”
         </AnchorLink>
@@ -59,21 +61,21 @@ function DerivationRowWhy({ row }: { row: DerivationRow }) {
     );
   if (row.status === "rejected" || row.status === "retracted")
     return (
-      <Text size="sm" c="gray.7" lineClamp={1}>
+      <SupportingText tier="secondary" lineClamp={1}>
         {DERIVATION_STATUS_WORDS[row.status]} {formatReviewDate(row.decidedAt)}
         {row.reason !== undefined && `: “${row.reason}”`}
-      </Text>
+      </SupportingText>
     );
   if (row.status === "accepted" && row.leadQuote !== undefined)
     return (
-      <Text size="sm" c="gray.7" lineClamp={1}>
+      <SupportingText tier="secondary" lineClamp={1}>
         “{row.leadQuote}”
-      </Text>
+      </SupportingText>
     );
   return (
-    <Text size="sm" c="gray.7" lineClamp={1}>
+    <SupportingText tier="secondary" lineClamp={1}>
       {row.reasoning}
-    </Text>
+    </SupportingText>
   );
 }
 
@@ -120,6 +122,17 @@ function InlineRejectReason({
   );
 }
 
+/** The page's decision as one row sees it. */
+interface LibraryRowDecision {
+  /** A decision on this row is being written. */
+  readonly deciding: boolean;
+  /** This row's accept is waiting on its overlaps being looked over. */
+  readonly overlapping: boolean;
+  readonly onActivate: () => void;
+  readonly onDecide: (request: LibraryDecisionRequest) => Promise<void>;
+  readonly onCancelAccept: () => void;
+}
+
 /**
  * One library row: the statement (the whole row opens it), why it stands where it does, its notes, places and
  * date, and a quiet ⋯ menu of the decisions valid from its status. Opening the menu makes this the row the page
@@ -130,20 +143,16 @@ export function KindLibraryRow({
   labels,
   owner,
   acceptLabel,
-  deciding,
-  onActivate,
-  onDecide,
+  decision,
 }: {
   row: DerivationRow;
   labels: ReadonlyMap<string, string>;
   owner: string | undefined;
   /** The kind's word for accepting ("Believe"); absent for a retired kind, which can't be decided. */
   acceptLabel: string | undefined;
-  /** A decision on this row is being written. */
-  deciding: boolean;
-  onActivate: () => void;
-  onDecide: (request: LibraryDecisionRequest) => Promise<void>;
+  decision: LibraryRowDecision;
 }) {
+  const { deciding, overlapping, onActivate, onDecide, onCancelAccept } = decision;
   const [rejecting, setRejecting] = useState(false);
   const actions = acceptLabel === undefined ? [] : LIBRARY_ACTIONS[row.status];
   const actionLabels: Record<DecisionOutcome, string> = {
@@ -171,9 +180,9 @@ export function KindLibraryRow({
         >
           {row.statement}
         </AnchorLink>{" "}
-        <Text span size="sm" c="gray.7">
+        <SupportingText tier="secondary" span>
           <SubjectLabel summary={row} owner={owner} />
-        </Text>
+        </SupportingText>
         <DerivationRowWhy row={row} />
         {rejecting && (
           <InlineRejectReason
@@ -183,14 +192,24 @@ export function KindLibraryRow({
             onReject={(reason) => void onDecide({ outcome: "reject", reason }).then(() => setRejecting(false))}
           />
         )}
+        {overlapping && acceptLabel !== undefined && (
+          <LibraryAcceptOverlaps
+            row={row}
+            acceptLabel={acceptLabel}
+            labels={labels}
+            pending={deciding}
+            onConfirm={(acknowledges) => void onDecide({ outcome: "accept", acknowledges })}
+            onBack={onCancelAccept}
+          />
+        )}
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)}>
         {row.threadCount > 0 && (
           <Group gap="3xs" wrap="nowrap" c="gray.7">
             <MessageSquare size={13} aria-hidden />
-            <Text size="sm">
+            <SupportingText tier="secondary">
               {row.threadCount} {row.threadCount === 1 ? "note" : "notes"}
-            </Text>
+            </SupportingText>
           </Group>
         )}
       </Table.Td>
@@ -200,9 +219,9 @@ export function KindLibraryRow({
         </Box>
       </Table.Td>
       <Table.Td w={104} ta="right">
-        <Text size="sm" c="gray.7" title="Proposed" {...stylex.props(styles.numericNoWrap)}>
+        <SupportingText tier="secondary" title="Proposed" {...stylex.props(styles.numericNoWrap)}>
           {formatReviewDate(row.proposedAt)}
-        </Text>
+        </SupportingText>
       </Table.Td>
       <Table.Td w={44} px="xxs">
         {actions.length > 0 && (

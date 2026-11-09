@@ -21,6 +21,7 @@ export type TastebudConfigView = typeof TastebudConfigViewSchema.Type;
 export const tastebudConfigViewOf = (config: LoadedTastebudConfig): TastebudConfigView => ({
   catalog: buildCatalogView({
     owner: config.owner,
+    ownerName: config.ownerName,
     resolver: config.resolver.name,
     catalog: config.catalog,
     hook: config.hook,

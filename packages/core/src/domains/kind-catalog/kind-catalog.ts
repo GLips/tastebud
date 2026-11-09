@@ -131,11 +131,13 @@ export const selectRecallKinds = (
 /** Plain data for the browser and agents: no resolver function, only its name. */
 export const buildCatalogView = (input: {
   readonly owner: string;
+  readonly ownerName: string;
   readonly resolver: PlaceResolverName;
   readonly catalog: TasteCatalog;
   readonly hook: HookSettings;
 }): CatalogView => ({
   owner: input.owner,
+  ownerName: input.ownerName,
   resolver: input.resolver,
   sourceKinds: input.catalog.sourceKinds.map((kind) => ({ ...kind })),
   derivedKinds: input.catalog.derivedKinds.map((kind) => ({ ...kind, sources: [...kind.sources] })),

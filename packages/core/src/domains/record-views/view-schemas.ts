@@ -161,6 +161,8 @@ export const ShowResultSchema = Schema.Struct({
    * session), oldest first. Empty for a derivation or a source with no address.
    */
   saidAlongside: Schema.Array(SourceViewSchema),
+  /** For a source: the same speaker's latest other sources, newest first, at most five. Empty for a derivation. */
+  moreFromSpeaker: Schema.Array(SourceViewSchema),
   /** Derivations proposed `despite` this one. */
   despitedBy: Schema.Array(DerivationSummarySchema),
   /** Accept decisions that acknowledged this one as a near repeat. */

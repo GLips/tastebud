@@ -14,6 +14,7 @@ import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { sourceListQuery } from "./source-queries.ts";
 
@@ -30,6 +31,7 @@ const styles = stylex.create({
     },
   },
   // Cells with their own link sit above the row's cover.
+  groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
   aboveRowLink: { position: "relative", zIndex: 1 },
   rowLink: {
     "::after": { content: "''", position: "absolute", inset: 0 },
@@ -45,7 +47,45 @@ export const SourceListSearch = Schema.Struct({
 
 const Route = getRouteApi("/sources/");
 
-/** One saved quote: the words (the row opens them), who said them, kind, what they led to and when. */
+/** The list's two sections, in this order: words a conclusion cites, then words nothing cites yet. */
+const SOURCE_SECTIONS = [
+  { key: "led-to", title: "Led to something", meaning: "Conclusions cite these words", cited: true },
+  { key: "unused", title: "Not used yet", meaning: "Nothing cites these yet", cited: false },
+] as const;
+
+/** Rows in their sections, newest first inside each; a section with no rows has no header. */
+const groupSourceRowsByUse = (rows: ReadonlyArray<SourceRow>) =>
+  SOURCE_SECTIONS.map((section) =>
+    Object.assign(
+      {
+        rows: rows
+          .filter((row) => row.citedByCount > 0 === section.cited)
+          .toSorted((left, right) => right.source.said_at.localeCompare(left.source.said_at)),
+      },
+      section,
+    ),
+  ).filter((section) => section.rows.length > 0);
+
+/** A section's header row: its title, count and what it means. */
+function SourceSectionHeader({ title, meaning, count }: { title: string; meaning: string; count: number }) {
+  return (
+    <Table.Tr {...stylex.props(styles.groupRow)}>
+      <Table.Td colSpan={4} py="xxs">
+        <Group gap="xs" wrap="nowrap">
+          <Text size="sm" fw={600}>
+            {title}
+          </Text>
+          <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
+            {count}
+          </SupportingText>
+          <SupportingText tier="secondary">{meaning}</SupportingText>
+        </Group>
+      </Table.Td>
+    </Table.Tr>
+  );
+}
+
+/** One saved quote: the words (the row opens them), who said them, what they led to and when. */
 function SourceListRow({ view }: { view: SourceRow }) {
   return (
     <Table.Tr {...stylex.props(styles.row)}>
@@ -63,22 +103,10 @@ function SourceListRow({ view }: { view: SourceRow }) {
         </AnchorLink>
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)}>
-        <Text size="sm" c="gray.7">
-          {view.source.said_by_label}
-        </Text>
-      </Table.Td>
-      <Table.Td {...stylex.props(styles.fitCell)}>
-        <Text size="sm" c="gray.7">
-          {capitalize(view.kindLabel)}
-          {view.retired && " (retired)"}
-        </Text>
+        <SupportingText tier="secondary">{view.source.said_by_label}</SupportingText>
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)} ta="right">
-        {view.citedByCount === 0 ? (
-          <Text size="sm" c="gray.7" {...stylex.props(styles.numericNoWrap)}>
-            Not used yet
-          </Text>
-        ) : (
+        {view.citedByCount > 0 && (
           <AnchorLink
             to="/sources/$id"
             params={{ id: view.source.id }}
@@ -93,14 +121,13 @@ function SourceListRow({ view }: { view: SourceRow }) {
         )}
       </Table.Td>
       <Table.Td w={96} ta="right">
-        <Text
-          size="sm"
-          c="gray.7"
+        <SupportingText
+          tier="secondary"
           title={formatReviewTime(view.source.said_at)}
           {...stylex.props(styles.numericNoWrap)}
         >
           {formatReviewDate(view.source.said_at)}
-        </Text>
+        </SupportingText>
       </Table.Td>
     </Table.Tr>
   );
@@ -204,11 +231,6 @@ export function SourceListPage() {
                         Said by
                       </Text>
                     </Table.Th>
-                    <Table.Th {...stylex.props(styles.fitCell)}>
-                      <Text size="xs" c="gray.7" fw={600}>
-                        Kind
-                      </Text>
-                    </Table.Th>
                     <Table.Th {...stylex.props(styles.fitCell)} ta="right">
                       <Text size="xs" c="gray.7" fw={600} title="How many conclusions cite these words">
                         Cited by
@@ -222,9 +244,16 @@ export function SourceListPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {rows.map((view) => (
-                    <SourceListRow key={view.source.id} view={view} />
-                  ))}
+                  {groupSourceRowsByUse(rows).flatMap((section) =>
+                    [
+                      <SourceSectionHeader
+                        key={section.key}
+                        title={section.title}
+                        meaning={section.meaning}
+                        count={section.rows.length}
+                      />,
+                    ].concat(section.rows.map((view) => <SourceListRow key={view.source.id} view={view} />)),
+                  )}
                 </Table.Tbody>
               </Table>
             </Paper>
