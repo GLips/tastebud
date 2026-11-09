@@ -1,5 +1,4 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 import { REVIEW_POLL_MS, REVIEW_QUERY_KEYS } from "#review/shared/query-keys.ts";
 import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";
@@ -8,20 +7,18 @@ import { fetchDerivationList } from "../controllers/derivation-list.ts";
 
 export interface DerivationListFilter {
   readonly kind?: string | undefined;
-  readonly status?: DerivationStatus | undefined;
   readonly place?: string | undefined;
   readonly text?: string | undefined;
 }
 
 export const derivationListQuery = (filter: DerivationListFilter) =>
   queryOptions({
-    queryKey: REVIEW_QUERY_KEYS.derivationList(filter.kind, filter.status, filter.place, filter.text),
+    queryKey: REVIEW_QUERY_KEYS.derivationList(filter.kind, filter.place, filter.text),
     queryFn: async () =>
       unwrapReviewOutcome(
         await fetchDerivationList({
           data: {
             ...(filter.kind !== undefined && { kind: [filter.kind] }),
-            ...(filter.status !== undefined && { status: filter.status }),
             ...(filter.place !== undefined && { place: filter.place }),
             ...(filter.text !== undefined && { text: filter.text }),
           },

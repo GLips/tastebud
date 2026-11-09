@@ -5,12 +5,12 @@ import {
   Center,
   Group,
   Paper,
-  SegmentedControl,
   Select,
   Stack,
   Table,
   Text,
   TextInput,
+  UnstyledButton,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import {
   DerivationStatusSchema,
 } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
-import { MapPin, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
@@ -30,11 +30,7 @@ import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import {
-  DERIVATION_STATUS_MEANINGS,
-  DERIVATION_STATUS_WORDS,
-  DerivationStatusDot,
-} from "#review/shared/ui/status-chips.tsx";
+import { DERIVATION_STATUS_WORDS, DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
@@ -45,6 +41,7 @@ import { useLibraryDecision } from "./use-library-decision.ts";
 const styles = stylex.create({
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
+  sectionToggle: { width: "100%" },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
   stickyNotice: { position: "sticky", top: "calc(var(--review-shell-header-height) + 8px)", zIndex: 5 },
   columnHead: { whiteSpace: "nowrap" },
@@ -57,10 +54,9 @@ const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
   reopen: "pending",
 };
 
-const STATUS_CHOICES = ["all", ...DERIVATION_STATUSES] as const;
-
 export const KindLibrarySearch = Schema.Struct({
-  status: Schema.optionalKey(DerivationStatusSchema),
+  /** Status sections folded shut; every section is open by default. */
+  closed: Schema.optionalKey(Schema.Array(DerivationStatusSchema)),
   place: Schema.optionalKey(Schema.String),
   text: Schema.optionalKey(Schema.String),
 });
@@ -70,15 +66,6 @@ const groupDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
   DERIVATION_STATUSES.map((status) => ({ status, rows: rows.filter((row) => row.status === status) })).filter(
     (group) => group.rows.length > 0,
   );
-
-/**
- * The accepted section's subtitle in the kind's own words: a one-word label is a verb ("Believe" reads "You
- * believe these"); a longer one is a judgement ("Worth doing" reads "You marked these worth doing").
- */
-const acceptedMeaningOf = (acceptLabel: string) => {
-  const words = acceptLabel.toLowerCase();
-  return words.includes(" ") ? `You marked these ${words}` : `You ${words} these`;
-};
 
 /** A column's name over the library table. */
 function LibraryColumnHead({ label, align = "left" }: { label: string; align?: "left" | "right" }) {
@@ -91,33 +78,34 @@ function LibraryColumnHead({ label, align = "left" }: { label: string; align?: "
   );
 }
 
-/** A status section's header row: its mark, word, count and what the status means. */
+/** A status section's header row, which folds the section: its chevron, mark, word and count. */
 function LibrarySectionHeader({
   status,
   count,
-  acceptLabel,
+  open,
+  onToggle,
 }: {
   status: DerivationStatus;
   count: number;
-  acceptLabel: string | undefined;
+  open: boolean;
+  onToggle: () => void;
 }) {
+  const Chevron = open ? ChevronDown : ChevronRight;
   return (
     <Table.Tr {...stylex.props(styles.groupRow)}>
-      <Table.Td colSpan={5} py="xxs">
-        <Group gap="xs" wrap="nowrap">
-          <DerivationStatusDot status={status} />
-          <Text size="sm" fw={600}>
-            {DERIVATION_STATUS_WORDS[status]}
-          </Text>
-          <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
-            {count}
-          </SupportingText>
-          <SupportingText tier="secondary">
-            {status === "accepted" && acceptLabel !== undefined
-              ? acceptedMeaningOf(acceptLabel)
-              : DERIVATION_STATUS_MEANINGS[status]}
-          </SupportingText>
-        </Group>
+      <Table.Td colSpan={5} py="xxs" pl="xs">
+        <UnstyledButton onClick={onToggle} aria-expanded={open} {...stylex.props(styles.sectionToggle)}>
+          <Group gap="xs" wrap="nowrap">
+            <Chevron size={14} color="var(--mantine-color-gray-6)" aria-hidden />
+            <DerivationStatusDot status={status} />
+            <Text size="sm" fw={600}>
+              {DERIVATION_STATUS_WORDS[status]}
+            </Text>
+            <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
+              {count}
+            </SupportingText>
+          </Group>
+        </UnstyledButton>
       </Table.Td>
     </Table.Tr>
   );
@@ -156,7 +144,7 @@ function LibraryDecisionNotice({ decision }: { decision: ReturnType<typeof useLi
 }
 
 export function KindLibraryPage() {
-  const { kindKey, search, text, setFilter, typeText } = useKindLibraryFilters();
+  const { kindKey, search, text, setFilter, typeText, isSectionOpen, toggleSection } = useKindLibraryFilters();
   const catalog = useReviewCatalog();
   const known = useKnownPlaces();
   const kind = findKindView(catalog, kindKey);
@@ -164,14 +152,13 @@ export function KindLibraryPage() {
   const list = useQuery(
     derivationListQuery({
       kind: kindKey,
-      status: search.status,
       place: search.place,
       text: search.text,
     }),
   );
 
   const plural = kind?.plural ?? kindKey;
-  const filtered = search.status !== undefined || search.place !== undefined || search.text !== undefined;
+  const filtered = search.place !== undefined || search.text !== undefined;
 
   return (
     <Stack gap="md">
@@ -185,11 +172,6 @@ export function KindLibraryPage() {
           leftSection={<Search size={14} />}
           value={text}
           onChange={(event) => typeText(event.currentTarget.value)}
-        />
-        <SegmentedControl
-          value={search.status ?? "all"}
-          data={STATUS_CHOICES.map((value) => ({ value, label: capitalize(value) }))}
-          onChange={(value) => setFilter({ status: value === "all" ? undefined : value })}
         />
         <Select
           w={220}
@@ -209,12 +191,6 @@ export function KindLibraryPage() {
           onChange={(value) => setFilter({ place: value ?? undefined })}
         />
       </Group>
-      {search.place !== undefined && (
-        <SupportingText tier="secondary">
-          Showing what would apply at {known.labelOf(search.place)}: its own places, the places containing it, and
-          everything global.
-        </SupportingText>
-      )}
 
       <Box {...stylex.props(styles.stickyNotice)}>
         <LibraryDecisionNotice decision={decision} />
@@ -245,10 +221,11 @@ export function KindLibraryPage() {
                         key={`section-${status}`}
                         status={status}
                         count={group.length}
-                        acceptLabel={kind?.acceptLabel}
+                        open={isSectionOpen(status)}
+                        onToggle={() => toggleSection(status)}
                       />,
                     ].concat(
-                      group.map((row) => (
+                      (isSectionOpen(status) ? group : []).map((row) => (
                         <KindLibraryRow
                           key={row.id}
                           row={row}
