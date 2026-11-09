@@ -13,6 +13,7 @@ import { type ReactNode, useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallItemRow } from "./recall-item-row.tsx";
 import {
@@ -48,9 +49,7 @@ function AnswerSection({
         <Text size="sm" fw={600}>
           {title} ({count})
         </Text>
-        <Text size="xs" c="dimmed">
-          {hint}
-        </Text>
+        <SupportingText tier="secondary">{hint}</SupportingText>
       </Stack>
       {children}
     </Stack>
@@ -68,9 +67,7 @@ function Disclosure({ label, children }: { label: string; children: ReactNode })
             color="var(--mantine-color-gray-6)"
             {...stylex.props(styles.chevron, open && styles.chevronOpen)}
           />
-          <Text size="xs" c="dimmed">
-            {label}
-          </Text>
+          <SupportingText tier="secondary">{label}</SupportingText>
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>{children}</Collapse>
@@ -131,9 +128,7 @@ export function RecallCandidateGroups({
           {recallHeadline(hook.items.length)}
         </Text>
         {hook.items.length === 0 && (
-          <Text size="sm" c="dimmed">
-            {hookSilenceWording(hook, catalog)}
-          </Text>
+          <SupportingText tier="secondary">{hookSilenceWording(hook, catalog)}</SupportingText>
         )}
       </Stack>
 
@@ -167,7 +162,7 @@ export function RecallCandidateGroups({
               key={item.id}
               item={item}
               reason={`Sent: ${matchedPlaceWording(item.explanation.matchedPlace, known)}`}
-              reasonColor="tastebud.8"
+              sent
             />
           ))}
         </Box>

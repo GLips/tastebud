@@ -7,6 +7,7 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   row: {
@@ -25,11 +26,12 @@ const styles = stylex.create({
 export function RecallItemRow({
   item,
   reason,
-  reasonColor = "dimmed",
+  sent = false,
 }: {
   item: DerivationSummary;
   reason?: string;
-  reasonColor?: string;
+  /** Sent with the prompt: the reason takes the accent, the one thing on the page that reaches agents. */
+  sent?: boolean;
 }) {
   const catalog = useReviewCatalog();
   const known = useKnownPlaces();
@@ -41,11 +43,14 @@ export function RecallItemRow({
           {item.statement}
         </AnchorLink>
         <Group gap="xs">
-          {reason !== undefined && (
-            <Text size="xs" c={reasonColor}>
-              {reason}
-            </Text>
-          )}
+          {reason !== undefined &&
+            (sent ? (
+              <Text size="sm" c="tastebud.8">
+                {reason}
+              </Text>
+            ) : (
+              <SupportingText tier="secondary">{reason}</SupportingText>
+            ))}
           <ScopeChips scope={item.effectiveScope} labels={known.labels} />
         </Group>
       </Box>

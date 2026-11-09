@@ -2,6 +2,7 @@
 import { Box, Stack, Text } from "@mantine/core";
 
 import { capitalize, describeKindDelivery } from "#review/shared/ui/kind-identity.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import type { RecallAppliesHere } from "./recall-applies.ts";
 import { RecallItemRow } from "./recall-item-row.tsx";
@@ -33,10 +34,10 @@ export function RecallAppliesPanel({
                 {accepted.length}
               </Text>
             </Text>
-            <Text size="xs" c="dimmed">
+            <SupportingText tier="secondary">
               {describeKindDelivery(kind)}
               {kind.recall === "inject" && ` At most ${hookLimit} go with one prompt.`}
-            </Text>
+            </SupportingText>
           </Stack>
           <Box>
             {accepted.map((item) => (
@@ -54,10 +55,10 @@ export function RecallAppliesPanel({
                 {applies.rejected.length}
               </Text>
             </Text>
-            <Text size="xs" c="dimmed">
+            <SupportingText tier="secondary">
               Rejected here. When an agent asks about matching words it is told you said no, so it doesn't propose them
               again.
-            </Text>
+            </SupportingText>
           </Stack>
           <Box>
             {applies.rejected.map((item) => (
