@@ -28,6 +28,8 @@ export type HookSettings = typeof HookSettingsSchema.Type;
 
 export const CatalogViewSchema = Schema.Struct({
   owner: Schema.String,
+  /** What to call the owner on screen ("Dana"): `ownerName` from the config, else the id after `human:`. */
+  ownerName: Schema.String,
   resolver: Schema.Literals(PLACE_RESOLVER_NAMES),
   sourceKinds: Schema.Array(SourceKindViewSchema),
   derivedKinds: Schema.Array(DerivedKindViewSchema),

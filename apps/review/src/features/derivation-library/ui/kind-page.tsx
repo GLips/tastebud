@@ -1,5 +1,6 @@
 import {
   Alert,
+  Box,
   Button,
   Center,
   Group,
@@ -34,6 +35,7 @@ import {
   DERIVATION_STATUS_WORDS,
   DerivationStatusDot,
 } from "#review/shared/ui/status-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 import { KindLibraryRow } from "./kind-library-row.tsx";
@@ -43,6 +45,9 @@ import { useLibraryDecision } from "./use-library-decision.ts";
 const styles = stylex.create({
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
+  // The decision notice and its Undo stay in view under the shell header while the list scrolls.
+  stickyNotice: { position: "sticky", top: "calc(var(--review-shell-header-height) + 8px)", zIndex: 5 },
+  columnHead: { whiteSpace: "nowrap" },
 });
 
 const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
@@ -66,8 +71,36 @@ const groupDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
     (group) => group.rows.length > 0,
   );
 
+/**
+ * The accepted section's subtitle in the kind's own words: a one-word label is a verb ("Believe" reads "You
+ * believe these"); a longer one is a judgement ("Worth doing" reads "You marked these worth doing").
+ */
+const acceptedMeaningOf = (acceptLabel: string) => {
+  const words = acceptLabel.toLowerCase();
+  return words.includes(" ") ? `You marked these ${words}` : `You ${words} these`;
+};
+
+/** A column's name over the library table. */
+function LibraryColumnHead({ label, align = "left" }: { label: string; align?: "left" | "right" }) {
+  return (
+    <Table.Th ta={align} {...stylex.props(styles.columnHead)}>
+      <Text size="xs" c="gray.7" fw={600}>
+        {label}
+      </Text>
+    </Table.Th>
+  );
+}
+
 /** A status section's header row: its mark, word, count and what the status means. */
-function LibrarySectionHeader({ status, count }: { status: DerivationStatus; count: number }) {
+function LibrarySectionHeader({
+  status,
+  count,
+  acceptLabel,
+}: {
+  status: DerivationStatus;
+  count: number;
+  acceptLabel: string | undefined;
+}) {
   return (
     <Table.Tr {...stylex.props(styles.groupRow)}>
       <Table.Td colSpan={5} py="xxs">
@@ -76,12 +109,14 @@ function LibrarySectionHeader({ status, count }: { status: DerivationStatus; cou
           <Text size="sm" fw={600}>
             {DERIVATION_STATUS_WORDS[status]}
           </Text>
-          <Text size="sm" c="gray.7" {...stylex.props(styles.numericNoWrap)}>
+          <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
             {count}
-          </Text>
-          <Text size="sm" c="gray.7">
-            {DERIVATION_STATUS_MEANINGS[status]}
-          </Text>
+          </SupportingText>
+          <SupportingText tier="secondary">
+            {status === "accepted" && acceptLabel !== undefined
+              ? acceptedMeaningOf(acceptLabel)
+              : DERIVATION_STATUS_MEANINGS[status]}
+          </SupportingText>
         </Group>
       </Table.Td>
     </Table.Tr>
@@ -166,7 +201,6 @@ export function KindLibraryPage() {
         />
         <Select
           w={220}
-          variant="filled"
           leftSection={<MapPin size={14} />}
           placeholder="Any place"
           aria-label="Only what applies at this place"
@@ -184,13 +218,15 @@ export function KindLibraryPage() {
         />
       </Group>
       {search.place !== undefined && (
-        <Text size="sm" c="gray.7">
+        <SupportingText tier="secondary">
           Showing what would apply at {known.labelOf(search.place)}: its own places, the places containing it, and
           everything global.
-        </Text>
+        </SupportingText>
       )}
 
-      <LibraryDecisionNotice decision={decision} />
+      <Box {...stylex.props(styles.stickyNotice)}>
+        <LibraryDecisionNotice decision={decision} />
+      </Box>
 
       <LoadedQueryContent query={list}>
         {(rows) =>
@@ -201,9 +237,25 @@ export function KindLibraryPage() {
           ) : (
             <Paper p={0}>
               <Table verticalSpacing="xs" horizontalSpacing="md">
+                <Table.Thead>
+                  <Table.Tr>
+                    <LibraryColumnHead label={capitalize(kind?.singular ?? kindKey)} />
+                    <LibraryColumnHead label="Notes" />
+                    <LibraryColumnHead label="Applies in" />
+                    <LibraryColumnHead label="Proposed" align="right" />
+                    <Table.Th />
+                  </Table.Tr>
+                </Table.Thead>
                 <Table.Tbody>
                   {groupDerivationRowsByStatus(rows).flatMap(({ status, rows: group }) =>
-                    [<LibrarySectionHeader key={`section-${status}`} status={status} count={group.length} />].concat(
+                    [
+                      <LibrarySectionHeader
+                        key={`section-${status}`}
+                        status={status}
+                        count={group.length}
+                        acceptLabel={kind?.acceptLabel}
+                      />,
+                    ].concat(
                       group.map((row) => (
                         <KindLibraryRow
                           key={row.id}
@@ -211,9 +263,13 @@ export function KindLibraryPage() {
                           labels={known.labels}
                           owner={catalog?.owner}
                           acceptLabel={kind?.acceptLabel}
-                          deciding={decision.decidingId === row.id}
-                          onActivate={() => decision.activate(row)}
-                          onDecide={(request) => decision.decide(row, request)}
+                          decision={{
+                            deciding: decision.decidingId === row.id,
+                            overlapping: decision.overlappingId === row.id,
+                            onActivate: () => decision.activate(row),
+                            onDecide: (request) => decision.decide(row, request),
+                            onCancelAccept: decision.cancelAccept,
+                          }}
                         />
                       )),
                     ),

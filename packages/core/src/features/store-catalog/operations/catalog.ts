@@ -43,6 +43,7 @@ export const readStoreCatalog = Effect.fn("store-catalog.readStoreCatalog")(func
     pendingByKind: countPendingByKind({ snapshot, catalog: config.catalog }),
     catalog: buildCatalogView({
       owner: config.owner,
+      ownerName: config.ownerName,
       resolver: config.resolver.name,
       catalog: config.catalog,
       hook: config.hook,

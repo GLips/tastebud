@@ -9,6 +9,7 @@ import { formatReviewDate } from "#review/shared/format.ts";
 import { KindGlyph } from "./kind-identity.tsx";
 import { AnchorLink } from "./router-links.tsx";
 import { DerivationStatusLabel } from "./status-chips.tsx";
+import { SupportingText } from "./supporting-text.tsx";
 
 const styles = stylex.create({
   aside: { display: "flex", gap: "8px", alignItems: "flex-start" },
@@ -38,16 +39,16 @@ export function DerivationSummaryLine({
           {summary.statement}
         </AnchorLink>
         {summary.reason !== undefined && (
-          <Text span size="sm" c="gray.7" title={decided}>
+          <SupportingText tier="secondary" span title={decided}>
             {" "}
             — “{summary.reason}”
-          </Text>
+          </SupportingText>
         )}
         {note !== undefined && (
-          <Text span size="sm" c="gray.7">
+          <SupportingText tier="secondary" span>
             {" "}
             · {note}
-          </Text>
+          </SupportingText>
         )}
       </Text>
     </Group>
@@ -104,10 +105,10 @@ export function DespiteNotice({
               “{earlier.statement}”
             </AnchorLink>
             {earlier.decidedAt !== undefined && (
-              <Text span size="xs" c="dimmed">
+              <SupportingText tier="faint" span>
                 {" "}
                 {formatReviewDate(earlier.decidedAt)}
-              </Text>
+              </SupportingText>
             )}
             {earlier.reason !== undefined && (
               <Text span c="dimmed">
