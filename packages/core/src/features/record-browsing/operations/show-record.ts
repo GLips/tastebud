@@ -1,6 +1,7 @@
 /** `show`: one record with its evidence, decisions, thread, reverse links, and proposed and effective scope. */
 import { Effect, Schema } from "effect";
 
+import { claudeCodeTranscriptSessionOf } from "#core/domains/claude-code-transcript/index.ts";
 import { resolveAnyRecordRef } from "#core/domains/record-snapshot/index.ts";
 import {
   buildDerivationView,
@@ -10,13 +11,32 @@ import {
   viewSource,
   type ViewSource,
 } from "#core/domains/record-views/index.ts";
+import type { SourceRecord } from "#core/domains/records/index.ts";
 import { TasteStore } from "#core/features/record-store/index.server.ts";
 import { TrimmedText } from "#core/shared/input-text.ts";
+import { compareIsoTimes } from "#core/shared/iso-times.ts";
 
 export const ShowRecordInput = Schema.Struct({
   ref: TrimmedText.annotate({ description: "A full id, the short id from a file name, or a unique prefix" }),
 });
 export type ShowRecordInput = typeof ShowRecordInput.Type;
+
+/**
+ * The conversation a source was said in: its Claude Code session when the address is a transcript (each
+ * message has its own address there), otherwise the address itself. Undefined without an address.
+ */
+const conversationOf = (source: SourceRecord): string | undefined =>
+  source.address === undefined ? undefined : (claudeCodeTranscriptSessionOf(source.address) ?? source.address);
+
+/** The other sources said in the same conversation as `source`, oldest first. */
+const sourcesSaidAlongside = (view: ViewSource, source: SourceRecord) => {
+  const conversation = conversationOf(source);
+  if (conversation === undefined) return [];
+  return view.snapshot.sources
+    .filter((other) => other.id !== source.id && conversationOf(other) === conversation)
+    .toSorted((left, right) => compareIsoTimes(left.said_at, right.said_at))
+    .map((other) => viewSource(view, other));
+};
 
 export const showTasteRecord = Effect.fn("record-browsing.showTasteRecord")(function* (input: ShowRecordInput) {
   const store = yield* TasteStore;
@@ -43,6 +63,7 @@ export const showTasteRecord = Effect.fn("record-browsing.showTasteRecord")(func
       return [];
     }),
     revisedBy: snapshot.sources.filter((source) => source.revises === id),
+    saidAlongside: record.type === "Source" ? sourcesSaidAlongside(view, record) : [],
     despitedBy: summaries((derivation) => derivation.despite?.includes(id) === true),
     acknowledgedBy: summaries((derivation) => acknowledgingTargets.has(derivation.id)),
   };

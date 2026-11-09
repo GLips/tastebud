@@ -156,6 +156,11 @@ export const ShowResultSchema = Schema.Struct({
   citedBy: Schema.Array(CitationSchema),
   /** Sources whose `revises` names this one. */
   revisedBy: Schema.Array(SourceRecordSchema),
+  /**
+   * For a source: the other sources said in the same conversation (the same address, or the same Claude Code
+   * session), oldest first. Empty for a derivation or a source with no address.
+   */
+  saidAlongside: Schema.Array(SourceViewSchema),
   /** Derivations proposed `despite` this one. */
   despitedBy: Schema.Array(DerivationSummarySchema),
   /** Accept decisions that acknowledged this one as a near repeat. */

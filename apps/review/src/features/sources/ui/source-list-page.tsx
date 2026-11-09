@@ -3,8 +3,9 @@ import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
+import type { SourceRow } from "@tastebud/core/record-browsing";
 import { Schema } from "effect";
-import { Search } from "lucide-react";
+import { Search, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -28,6 +29,8 @@ const styles = stylex.create({
       ":focus-within": "var(--mantine-color-tastebud-0)",
     },
   },
+  // Cells with their own link sit above the row's cover.
+  aboveRowLink: { position: "relative", zIndex: 1 },
   rowLink: {
     "::after": { content: "''", position: "absolute", inset: 0 },
     ":focus-visible": { outline: "none" },
@@ -41,6 +44,67 @@ export const SourceListSearch = Schema.Struct({
 });
 
 const Route = getRouteApi("/sources/");
+
+/** One saved quote: the words (the row opens them), who said them, kind, what they led to and when. */
+function SourceListRow({ view }: { view: SourceRow }) {
+  return (
+    <Table.Tr {...stylex.props(styles.row)}>
+      <Table.Td>
+        <AnchorLink
+          to="/sources/$id"
+          params={{ id: view.source.id }}
+          c={view.citedByCount === 0 ? "gray.7" : "inherit"}
+          size="sm"
+          underline="never"
+          lineClamp={2}
+          {...stylex.props(styles.rowLink)}
+        >
+          “{view.source.quote}”
+        </AnchorLink>
+      </Table.Td>
+      <Table.Td {...stylex.props(styles.fitCell)}>
+        <Text size="sm" c="gray.7">
+          {view.source.said_by_label}
+        </Text>
+      </Table.Td>
+      <Table.Td {...stylex.props(styles.fitCell)}>
+        <Text size="sm" c="gray.7">
+          {capitalize(view.kindLabel)}
+          {view.retired && " (retired)"}
+        </Text>
+      </Table.Td>
+      <Table.Td {...stylex.props(styles.fitCell)} ta="right">
+        {view.citedByCount === 0 ? (
+          <Text size="sm" c="gray.7" {...stylex.props(styles.numericNoWrap)}>
+            Not used yet
+          </Text>
+        ) : (
+          <AnchorLink
+            to="/sources/$id"
+            params={{ id: view.source.id }}
+            hash="led-to"
+            size="sm"
+            fw={500}
+            title="See what these words led to"
+            {...stylex.props(styles.numericNoWrap, styles.aboveRowLink)}
+          >
+            {view.citedByCount} {view.citedByCount === 1 ? "conclusion" : "conclusions"}
+          </AnchorLink>
+        )}
+      </Table.Td>
+      <Table.Td w={96} ta="right">
+        <Text
+          size="sm"
+          c="gray.7"
+          title={formatReviewTime(view.source.said_at)}
+          {...stylex.props(styles.numericNoWrap)}
+        >
+          {formatReviewDate(view.source.said_at)}
+        </Text>
+      </Table.Td>
+    </Table.Tr>
+  );
+}
 
 export function SourceListPage() {
   const search = Route.useSearch();
@@ -81,11 +145,10 @@ export function SourceListPage() {
       />
       <Group gap="sm">
         <TextInput
-          size="xs"
-          w={280}
+          w={320}
           aria-label="Search the words"
           placeholder="Search the words"
-          leftSection={<Search size={13} />}
+          leftSection={<Search size={14} />}
           value={text}
           onChange={(event) => {
             setText(event.currentTarget.value);
@@ -94,7 +157,6 @@ export function SourceListPage() {
         />
         {sourceKinds.length > 1 && (
           <SegmentedControl
-            size="xs"
             value={search.kind ?? "all"}
             data={[
               { value: "all", label: "All" },
@@ -104,8 +166,9 @@ export function SourceListPage() {
           />
         )}
         <Select
-          size="xs"
-          w={240}
+          w={220}
+          variant="filled"
+          leftSection={<UserRound size={14} />}
           placeholder="Said by anyone"
           aria-label="Said by"
           clearable
@@ -160,52 +223,7 @@ export function SourceListPage() {
                 </Table.Thead>
                 <Table.Tbody>
                   {rows.map((view) => (
-                    <Table.Tr key={view.source.id} {...stylex.props(styles.row)}>
-                      <Table.Td>
-                        <AnchorLink
-                          to="/sources/$id"
-                          params={{ id: view.source.id }}
-                          c="inherit"
-                          size="sm"
-                          underline="never"
-                          lineClamp={2}
-                          {...stylex.props(styles.rowLink)}
-                        >
-                          “{view.source.quote}”
-                        </AnchorLink>
-                      </Table.Td>
-                      <Table.Td {...stylex.props(styles.fitCell)}>
-                        <Text size="sm" c="gray.7">
-                          {view.source.said_by_label}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td {...stylex.props(styles.fitCell)}>
-                        <Text size="sm" c="gray.7">
-                          {capitalize(view.kindLabel)}
-                          {view.retired && " (retired)"}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td {...stylex.props(styles.fitCell)} ta="right">
-                        <Text
-                          size="sm"
-                          fw={500}
-                          c={view.citedByCount === 0 ? "dimmed" : "dark"}
-                          {...stylex.props(styles.numericNoWrap)}
-                        >
-                          {view.citedByCount}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td w={96} ta="right">
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          title={formatReviewTime(view.source.said_at)}
-                          {...stylex.props(styles.numericNoWrap)}
-                        >
-                          {formatReviewDate(view.source.said_at)}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
+                    <SourceListRow key={view.source.id} view={view} />
                   ))}
                 </Table.Tbody>
               </Table>

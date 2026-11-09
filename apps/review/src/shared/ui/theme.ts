@@ -7,6 +7,7 @@ import {
   type MantineColorsTuple,
   Paper,
   rem,
+  SegmentedControl,
   Text,
   Tooltip,
 } from "@mantine/core";
@@ -51,11 +52,12 @@ const reviewFontSizes = {
 };
 
 /**
- * Every shadow the review UI draws, applied by name through a component's `shadow` prop. Both are
- * 3px rings: one marks the selected Inbox card, one a thread listener that is live.
+ * Every shadow the review UI draws, applied by name through a component's `shadow` prop. The selected
+ * Inbox card gets one 1px green ring that thickens its border into a single outline (not a halo stacked
+ * on a border and a focus ring); a live thread listener gets a soft 3px ring.
  */
 const reviewShadows = {
-  selectedCard: "0 0 0 3px var(--mantine-color-tastebud-1)",
+  selectedCard: "0 0 0 1px var(--mantine-color-tastebud-6)",
   listeningDot: "0 0 0 3px var(--mantine-color-teal-1)",
 };
 
@@ -83,7 +85,8 @@ export const tastebudMantineTheme = createTheme({
   fontFamilyMonospace: 'ui-monospace, "SF Mono", Menlo, monospace',
   headings: { fontWeight: "650" },
   components: {
-    Button: Button.extend({ defaultProps: { size: "xs" } }),
+    Button: Button.extend({ defaultProps: { size: "sm" } }),
+    SegmentedControl: SegmentedControl.extend({ defaultProps: { size: "sm" } }),
     Container: Container.extend({ defaultProps: { size: reviewPageWidth } }),
     ActionIcon: ActionIcon.extend({ defaultProps: { radius: "md" } }),
     Badge: Badge.extend({ defaultProps: { radius: "sm", variant: "light", size: "sm" } }),

@@ -1,19 +1,34 @@
-import { Alert, Center, Group, Paper, SegmentedControl, Select, Stack, Table, Text, TextInput } from "@mantine/core";
-import { useDebouncedCallback } from "@mantine/hooks";
+import {
+  Alert,
+  Button,
+  Center,
+  Group,
+  Paper,
+  SegmentedControl,
+  Select,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
-import { DERIVATION_STATUSES, type DerivationStatus, DerivationStatusSchema } from "@tastebud/core/taste-vocabulary";
+import {
+  type DecisionOutcome,
+  DERIVATION_STATUSES,
+  type DerivationStatus,
+  DerivationStatusSchema,
+} from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { MapPin, Search } from "lucide-react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
+import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import {
   DERIVATION_STATUS_MEANINGS,
   DERIVATION_STATUS_WORDS,
@@ -22,11 +37,20 @@ import {
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 import { KindLibraryRow } from "./kind-library-row.tsx";
+import { useKindLibraryFilters } from "./use-kind-library-filters.ts";
+import { useLibraryDecision } from "./use-library-decision.ts";
 
 const styles = stylex.create({
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
 });
+
+const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
+  accept: "accepted",
+  reject: "rejected",
+  retract: "retracted",
+  reopen: "pending",
+};
 
 const STATUS_CHOICES = ["all", ...DERIVATION_STATUSES] as const;
 
@@ -35,8 +59,6 @@ export const KindLibrarySearch = Schema.Struct({
   place: Schema.optionalKey(Schema.String),
   text: Schema.optionalKey(Schema.String),
 });
-
-const Route = getRouteApi("/kinds/$kind");
 
 /** Rows in status sections, in lifecycle order; a status with no rows has no section. */
 const groupDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
@@ -66,14 +88,44 @@ function LibrarySectionHeader({ status, count }: { status: DerivationStatus; cou
   );
 }
 
+/**
+ * What the last decision made from a row did, with Undo, under the filters: it stays when the row leaves the
+ * filter or moves section. A refusal says why and links to the page, which can preview what accepting needs.
+ */
+function LibraryDecisionNotice({ decision }: { decision: ReturnType<typeof useLibraryDecision> }) {
+  if (decision.failure !== undefined)
+    return (
+      <Alert color="red" variant="light" py="xs" role="alert">
+        <Text size="sm">
+          {decision.failure.sentence}{" "}
+          <AnchorLink to="/derivations/$id" params={{ id: decision.failure.row.id }} size="sm">
+            Decide on its page
+          </AnchorLink>
+        </Text>
+      </Alert>
+    );
+  if (decision.undoable === undefined) return null;
+  return (
+    <Alert color="tastebud" variant="light" py="xs" aria-live="polite">
+      <Group gap="sm" wrap="nowrap" justify="space-between">
+        <Text size="sm" lineClamp={1}>
+          “{decision.undoable.row.statement}” moved to{" "}
+          {DERIVATION_STATUS_WORDS[STATUS_AFTER_OUTCOME[decision.undoable.outcome]]}.
+        </Text>
+        <Button variant="subtle" loading={decision.undoing} onClick={() => void decision.undo()}>
+          Undo
+        </Button>
+      </Group>
+    </Alert>
+  );
+}
+
 export function KindLibraryPage() {
-  const { kind: kindKey } = Route.useParams();
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
+  const { kindKey, search, text, setFilter, typeText } = useKindLibraryFilters();
   const catalog = useReviewCatalog();
   const known = useKnownPlaces();
   const kind = findKindView(catalog, kindKey);
-  const [text, setText] = useState(search.text ?? "");
+  const decision = useLibraryDecision();
   const list = useQuery(
     derivationListQuery({
       kind: kindKey,
@@ -82,26 +134,6 @@ export function KindLibraryPage() {
       text: search.text,
     }),
   );
-  const setFilter = (next: {
-    status?: DerivationStatus | undefined;
-    place?: string | undefined;
-    text?: string | undefined;
-  }) =>
-    void navigate({
-      search: (previous) => {
-        const merged = { ...previous, ...next };
-        return {
-          ...(merged.status !== undefined && { status: merged.status }),
-          ...(merged.place !== undefined && { place: merged.place }),
-          ...(merged.text !== undefined && merged.text !== "" && { text: merged.text }),
-        };
-      },
-      replace: true,
-    });
-  const setTextFilter = useDebouncedCallback((value: string) => {
-    const trimmed = value.trim();
-    setFilter({ text: trimmed === "" ? undefined : trimmed });
-  }, 250);
 
   const plural = kind?.plural ?? kindKey;
   const filtered = search.status !== undefined || search.place !== undefined || search.text !== undefined;
@@ -114,20 +146,28 @@ export function KindLibraryPage() {
         purpose={
           kind === undefined
             ? "This kind is no longer in tastebud.config.ts; its records can be read but not decided."
-            : `Every ${kind.singular} your agents have proposed, grouped by where it stands. Open one to see why; change your mind from its ⋯ menu.`
+            : `Every ${kind.singular} your agents have proposed, grouped by where it stands, with why it is there.`
         }
       />
 
       <Group gap="sm" wrap="wrap">
+        <TextInput
+          w={320}
+          aria-label="Filter by words"
+          placeholder="Search the statement or reasoning"
+          leftSection={<Search size={14} />}
+          value={text}
+          onChange={(event) => typeText(event.currentTarget.value)}
+        />
         <SegmentedControl
-          size="xs"
           value={search.status ?? "all"}
           data={STATUS_CHOICES.map((value) => ({ value, label: capitalize(value) }))}
           onChange={(value) => setFilter({ status: value === "all" ? undefined : value })}
         />
         <Select
-          size="xs"
-          w={240}
+          w={220}
+          variant="filled"
+          leftSection={<MapPin size={14} />}
           placeholder="Any place"
           aria-label="Only what applies at this place"
           clearable
@@ -137,22 +177,10 @@ export function KindLibraryPage() {
           renderOption={({ option }) => (
             <Group gap="xxs" wrap="nowrap">
               <PlaceFormIcon place={option.value} />
-              <Text size="xs">{option.label}</Text>
+              <Text size="sm">{option.label}</Text>
             </Group>
           )}
           onChange={(value) => setFilter({ place: value ?? undefined })}
-        />
-        <TextInput
-          size="xs"
-          w={280}
-          aria-label="Filter by words"
-          placeholder="Words in the statement or reasoning"
-          leftSection={<Search size={13} />}
-          value={text}
-          onChange={(event) => {
-            setText(event.currentTarget.value);
-            setTextFilter(event.currentTarget.value);
-          }}
         />
       </Group>
       {search.place !== undefined && (
@@ -161,6 +189,8 @@ export function KindLibraryPage() {
           everything global.
         </Text>
       )}
+
+      <LibraryDecisionNotice decision={decision} />
 
       <LoadedQueryContent query={list}>
         {(rows) =>
@@ -171,8 +201,6 @@ export function KindLibraryPage() {
           ) : (
             <Paper p={0}>
               <Table verticalSpacing="xs" horizontalSpacing="md">
-                {/* One body with the section headers interleaved: a row keeps its key, and so its Undo, as a
-                    decision moves it to another section. */}
                 <Table.Tbody>
                   {groupDerivationRowsByStatus(rows).flatMap(({ status, rows: group }) =>
                     [<LibrarySectionHeader key={`section-${status}`} status={status} count={group.length} />].concat(
@@ -183,6 +211,9 @@ export function KindLibraryPage() {
                           labels={known.labels}
                           owner={catalog?.owner}
                           acceptLabel={kind?.acceptLabel}
+                          deciding={decision.decidingId === row.id}
+                          onActivate={() => decision.activate(row)}
+                          onDecide={(request) => decision.decide(row, request)}
                         />
                       )),
                     ),
