@@ -3,16 +3,17 @@
  * words reached (sent first, then on request, rejected, not sent, history) with its status, outcome and why. What
  * applies here but didn't match folds away below.
  */
-import { Box, Code, Collapse, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Code, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { HookPayload } from "@tastebud/core/recall";
 import type { DerivationSummary, RecallResult } from "@tastebud/core/record-views";
 import { ChevronRight } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
+import { InlineDisclosure } from "#review/shared/ui/inline-disclosure.tsx";
 import type { RecallOutcomeTone } from "#review/shared/ui/outcome-chip.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -43,25 +44,6 @@ const styles = stylex.create({
     borderTopColor: "var(--mantine-color-gray-2)",
   },
 });
-
-function Disclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Stack gap="2xs">
-      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
-        <Group gap="2xs">
-          <ChevronRight
-            size={12}
-            color="var(--mantine-color-gray-6)"
-            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
-          />
-          <SupportingText tier="secondary">{label}</SupportingText>
-        </Group>
-      </UnstyledButton>
-      <Collapse expanded={open}>{children}</Collapse>
-    </Stack>
-  );
-}
 
 /** The exact text the hook adds, or what it prints on stdout, for the curious. */
 function HookPayloadView({ hook }: { hook: HookPayload }) {
@@ -200,18 +182,20 @@ export function RecallCandidateGroups({
         </Box>
       )}
       {hook.items.length > 0 && (
-        <Disclosure label="Show exactly what’s sent">
+        <InlineDisclosure label="Show exactly what’s sent">
           <HookPayloadView hook={hook} />
-        </Disclosure>
+        </InlineDisclosure>
       )}
       {recall.sources.length > 0 && (
-        <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
+        <InlineDisclosure
+          label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}
+        >
           <Stack gap="xxs">
             {recall.sources.map((hit) => (
               <SourceQuote key={hit.source.id} view={hit} owner={catalog?.owner ?? ""} role="plain" showKind />
             ))}
           </Stack>
-        </Disclosure>
+        </InlineDisclosure>
       )}
     </Stack>
   );

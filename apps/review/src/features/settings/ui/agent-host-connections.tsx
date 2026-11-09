@@ -1,4 +1,4 @@
-import { Anchor, Badge, Box, Button, Collapse, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Button, Collapse, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -12,6 +12,7 @@ import { Code, MousePointer2, Plug, RefreshCw, SquareTerminal, Terminal, type Lu
 import { type ReactNode, useState } from "react";
 
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
+import { HostConnectionChip } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { CopyableSnippet } from "./copyable-snippet.tsx";
@@ -69,12 +70,6 @@ const HOST_GETS: Record<AgentHost, string> = {
   vscode: "Capture · recall",
   "other-mcp": "Capture · recall",
 };
-
-const STATE_BADGES = {
-  connected: { label: "Connected", color: "tastebud" },
-  "not-connected": { label: "Not connected", color: "gray" },
-  unknown: { label: "Can't tell", color: "yellow" },
-} as const satisfies Record<AgentHostConnection["state"], { label: string; color: string }>;
 
 /**
  * Whether the host's config mentions Tastebud at all, even when it can't be confirmed as this store: then the
@@ -226,7 +221,6 @@ function AgentHostRow({
 }) {
   const [open, setOpen] = useState(false);
   const [rechecked, setRechecked] = useState(false);
-  const badge = connection === undefined ? undefined : STATE_BADGES[connection.state];
   const Icon = HOST_ICONS[host];
   return (
     <Box {...stylex.props(divided && styles.divided)}>
@@ -240,13 +234,11 @@ function AgentHostRow({
         <SupportingText tier="secondary" {...stylex.props(styles.oneLine)}>
           {HOST_GETS[host]}
         </SupportingText>
-        {connection === undefined || badge === undefined ? (
+        {connection === undefined ? (
           <Skeleton height={20} width={90} />
         ) : (
           <Group gap="xs" wrap="nowrap">
-            <Badge color={badge.color} w="fit-content">
-              {badge.label}
-            </Badge>
+            <HostConnectionChip state={connection.state} />
             {rechecked && !rechecking && <SupportingText tier="faint">Checked just now</SupportingText>}
           </Group>
         )}
