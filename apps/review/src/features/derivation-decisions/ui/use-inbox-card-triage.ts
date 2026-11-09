@@ -20,17 +20,18 @@ import { acceptPreviewsStaleOf } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 
 import { scopeOverrideOf } from "./scope-draft.ts";
-import { useReviewDecision } from "./use-review-decision.ts";
+import { type ReviewDecisionInput, useReviewDecision } from "./use-review-decision.ts";
 
 export type InboxCardMode = "idle" | "rejecting" | "previewing";
 
-/** A batch: the ids one batch Believe accepted together, so they are undone together. */
+/** A batch: the ids one bulk decision decided together, so they are undone together. */
 export type InboxBatch = ReadonlyArray<string>;
 
-/** What the page can ask of a mounted card, so batch Believe and batch Undo go through each card. */
+/** What the page can ask of a mounted card, so a bulk decision and its Undo all go through each card. */
 export type InboxCardHandle = {
-  /** Accepts as proposed; resolves to the refusal sentence, or undefined once it landed. */
+  /** Each resolves to the refusal sentence, or undefined once it landed. */
   acceptAsProposed: (batch: InboxBatch) => Promise<string | undefined>;
+  rejectWithReason: (reason: string, batch: InboxBatch) => Promise<string | undefined>;
   undo: () => Promise<void>;
 };
 
@@ -95,8 +96,8 @@ export function useInboxCardTriage({
     onDecided(batch);
   };
 
-  const acceptAsProposed = async (batch: InboxBatch) => {
-    const outcome = await decision.decide({ outcome: "accept" });
+  const decideInBatch = async (input: ReviewDecisionInput, batch: InboxBatch) => {
+    const outcome = await decision.decide(input);
     if (!outcome.ok) return outcome.failure.sentence;
     settleDecided(batch);
     return undefined;
@@ -115,7 +116,11 @@ export function useInboxCardTriage({
   };
   // Re-registered every render so a batch always calls the card as it now is.
   useEffect(() => {
-    cardHandles.set(view.id, { acceptAsProposed, undo: undoIfStillLatest });
+    cardHandles.set(view.id, {
+      acceptAsProposed: (batch) => decideInBatch({ outcome: "accept" }, batch),
+      rejectWithReason: (reason, batch) => decideInBatch({ outcome: "reject", reason }, batch),
+      undo: undoIfStillLatest,
+    });
     return () => void cardHandles.delete(view.id);
   });
 
