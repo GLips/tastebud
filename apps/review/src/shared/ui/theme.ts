@@ -4,6 +4,7 @@ import {
   Button,
   Container,
   createTheme,
+  Input,
   type MantineColorsTuple,
   Paper,
   rem,
@@ -70,6 +71,36 @@ const reviewPageWidth = 1120;
 const remScale = (scale: Readonly<Record<string, number>>): Record<string, string> =>
   Object.fromEntries(Object.entries(scale).map(([name, px]) => [name, rem(px)]));
 
+/**
+ * The control ladder, in px: at each size, a Button, an ActionIcon sized `input-<size>`, a TextInput or Select,
+ * and a SegmentedControl stand the same height, so controls in one row line up. `sm` is the default.
+ * `compact-sm` keeps its tighter padding but takes the `sm` height, so it can sit in a row too.
+ */
+const controlHeights = { xs: 28, sm: 32, md: 36 } as const;
+
+/** A control's `size` prop as Mantine types it: a named size or a number of px. */
+type MantineControlSize = string | number | undefined;
+
+const buttonHeights = new Map<MantineControlSize, number>([
+  ...Object.entries(controlHeights),
+  ["compact-sm", controlHeights.sm],
+]);
+const actionIconHeights = new Map<MantineControlSize, number>(
+  Object.entries(controlHeights).map(([size, px]) => [`input-${size}`, px]),
+);
+
+/** A size's ladder height; none for sizes off the ladder, which keep Mantine's own. */
+const ladderHeightOf = (heights: ReadonlyMap<MantineControlSize, number>, size: MantineControlSize) => {
+  const px = heights.get(size);
+  return px === undefined ? undefined : rem(px);
+};
+
+/**
+ * A SegmentedControl has no height variable: its 4px track padding plus each label's line (14px type at
+ * Mantine's 1.55 line height) set it, so the label's vertical padding makes up the rest of the `sm` height.
+ */
+const segmentedLabelPaddingY = (controlHeights.sm - 8 - 14 * 1.55) / 2;
+
 /** A quiet, light reviewing tool: neutral ground, the logo's green as the one accent, colour reserved for state. */
 export const tastebudMantineTheme = createTheme({
   primaryColor: "tastebud",
@@ -85,10 +116,24 @@ export const tastebudMantineTheme = createTheme({
   fontFamilyMonospace: 'ui-monospace, "SF Mono", Menlo, monospace',
   headings: { fontWeight: "650" },
   components: {
-    Button: Button.extend({ defaultProps: { size: "sm" } }),
-    SegmentedControl: SegmentedControl.extend({ defaultProps: { size: "sm" } }),
+    Button: Button.extend({
+      defaultProps: { size: "sm" },
+      vars: (_theme, props) => ({ root: { "--button-height": ladderHeightOf(buttonHeights, props.size) } }),
+    }),
+    Input: Input.extend({
+      vars: (_theme, props) => ({ wrapper: { "--input-height": ladderHeightOf(buttonHeights, props.size ?? "sm") } }),
+    }),
+    SegmentedControl: SegmentedControl.extend({
+      defaultProps: { size: "sm" },
+      vars: (_theme, props) => ({
+        root: props.size === "sm" ? { "--sc-padding": `${rem(segmentedLabelPaddingY)} ${rem(10)}` } : {},
+      }),
+    }),
     Container: Container.extend({ defaultProps: { size: reviewPageWidth } }),
-    ActionIcon: ActionIcon.extend({ defaultProps: { radius: "md" } }),
+    ActionIcon: ActionIcon.extend({
+      defaultProps: { radius: "md" },
+      vars: (_theme, props) => ({ root: { "--ai-size": ladderHeightOf(actionIconHeights, props.size) } }),
+    }),
     Badge: Badge.extend({ defaultProps: { radius: "sm", variant: "light", size: "sm" } }),
     Text: Text.extend({ defaultProps: { size: "sm" } }),
     Paper: Paper.extend({ defaultProps: { withBorder: true, radius: "md" } }),

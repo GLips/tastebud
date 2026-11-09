@@ -66,7 +66,6 @@ export function PlacesPage() {
     <Stack gap="md">
       <ReviewPageHeader
         title="Places"
-        purpose="The repos, folders and names your items are scoped to. Pick one to see everything that applies there and where each item comes from."
         actions={
           <Button
             variant={unreached > 0 ? "light" : "default"}

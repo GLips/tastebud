@@ -1,50 +1,32 @@
-import { Group, Stack, Text, Title } from "@mantine/core";
+import { Group, Stack, Title } from "@mantine/core";
 import type { ReactNode } from "react";
 
 /**
- * Every page's header: a crumb back to where it sits, its name, and one plain sentence saying what the
- * page is for, where the eye lands first. `purpose` is required so no page ships without saying its job.
+ * Every page's header: a crumb back to where it sits, its name, and its controls. No sentence under the
+ * title: the page's structure (columns, groups, labelled properties) says what it is for.
  */
 export function ReviewPageHeader({
   title,
-  purpose,
   icon,
   crumb,
-  details,
   actions,
 }: {
   title: ReactNode;
-  /** One sentence: what this page is for and what you can do here. */
-  purpose?: ReactNode;
   /** Sits before the title, such as a kind's glyph. */
   icon?: ReactNode;
   /** A link back up, above the title, on detail pages. */
   crumb?: ReactNode;
-  /** Rare: a quieter line under the purpose, only when a page has a fact the purpose cannot carry. */
-  details?: ReactNode;
   /** Controls aligned to the header's right edge. */
   actions?: ReactNode;
 }) {
   return (
     <Stack gap="2xs" component="header">
       {crumb}
-      <Group justify="space-between" align="flex-end" wrap="nowrap" gap="md">
-        <Stack gap="3xs">
-          <Group gap="xs" wrap="nowrap">
-            {icon}
-            <Title order={3}>{title}</Title>
-          </Group>
-          {purpose !== undefined && (
-            <Text size="sm" c="gray.7">
-              {purpose}
-            </Text>
-          )}
-          {details !== undefined && (
-            <Text size="xs" c="dimmed">
-              {details}
-            </Text>
-          )}
-        </Stack>
+      <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+        <Group gap="xs" wrap="nowrap">
+          {icon}
+          <Title order={3}>{title}</Title>
+        </Group>
         {actions}
       </Group>
     </Stack>
