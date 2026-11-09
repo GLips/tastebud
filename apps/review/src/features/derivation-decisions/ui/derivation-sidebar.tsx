@@ -17,6 +17,7 @@ import { DerivationSummaryLine } from "#review/shared/ui/derivation-link.tsx";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   current: { fontWeight: 600 },
@@ -64,10 +65,10 @@ function DerivationProperties({
           <Text size="sm">
             {capitalize(view.kindLabel)}
             {kind !== undefined && (
-              <Text span size="xs" c="dimmed">
+              <SupportingText tier="secondary" span>
                 {" "}
                 · {RECALL_WORDS[kind.recall]}
-              </Text>
+              </SupportingText>
             )}
           </Text>
         </FactRow>
@@ -104,11 +105,11 @@ const decisionHeadline = (entry: DecisionRecord, previous: DecisionRecord | unde
 /** Who and when, on the headline's line. The owner goes unnamed: nearly every decision is theirs. */
 function EntryWhen({ by, at, owner }: { by: string; at: string; owner: string }) {
   return (
-    <Text span size="xs" c="dimmed" fw={400} title={formatReviewTime(at)}>
+    <SupportingText tier="faint" span fw={400} title={formatReviewTime(at)}>
       {" · "}
       {by === owner ? "" : `${describeAuthor(by, owner)}, `}
       {formatReviewDate(at)}
-    </Text>
+    </SupportingText>
   );
 }
 
@@ -125,9 +126,7 @@ function DecisionEntryDetail({ entry, known }: { entry: DecisionRecord; known: K
         />
       )}
       {entry.acknowledges !== undefined && (
-        <Text size="xs" c="dimmed">
-          weighed {entry.acknowledges.length} similar
-        </Text>
+        <SupportingText tier="secondary">weighed {entry.acknowledges.length} similar</SupportingText>
       )}
     </Group>
   );
@@ -247,9 +246,9 @@ function SidebarList({
       <Text size="sm" fw={600}>
         {title}
       </Text>
-      <Text size="xs" c="dimmed" mb="sm">
+      <SupportingText tier="secondary" mb="sm">
         {explanation}
-      </Text>
+      </SupportingText>
       <Stack gap="xxs">
         {items.map((item) => (
           <DerivationSummaryLine catalog={catalog} key={item.id} summary={item} />

@@ -14,6 +14,7 @@ import { Fragment } from "react";
 
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { acceptPreviewQuery } from "./decision-queries.ts";
 import { scopeButtonPhrase } from "./scope-draft.ts";
@@ -95,17 +96,15 @@ function OverlapSummary({
     return (
       <Group gap="xs">
         <Loader size="xs" />
-        <Text size="xs" c="dimmed">
-          Checking for anything close to it…
-        </Text>
+        <SupportingText tier="secondary">Checking for anything close to it…</SupportingText>
       </Group>
     );
   return (
     <Stack gap="3xs">
       {answered.length > 0 && (
-        <Text size="sm" c="gray.7">
+        <SupportingText tier="secondary">
           It comes after <NameList matches={answered} />; the agent said what changed, so that needs nothing more.
-        </Text>
+        </SupportingText>
       )}
       {matches.length > 0 ? (
         <Text size="sm">
@@ -113,11 +112,11 @@ function OverlapSummary({
           {matches.length === 1 ? "it" : "them"}.
         </Text>
       ) : (
-        <Text size="xs" c="dimmed">
+        <SupportingText tier="secondary">
           {answered.length > 0
             ? "Nothing else close to it overlaps this scope."
             : "Nothing close to it overlaps this scope."}
-        </Text>
+        </SupportingText>
       )}
     </Stack>
   );
@@ -179,15 +178,11 @@ export function AcceptancePreview({
     <Box {...stylex.props(styles.panel)}>
       <Stack gap={10}>
         <Box {...stylex.props(styles.label)}>
-          <Text size="xs" c="dimmed">
-            {verb}
-          </Text>
+          <SupportingText tier="secondary">{verb}</SupportingText>
           <Text {...stylex.props(styles.statement)}>{statement}</Text>
         </Box>
         <Box {...stylex.props(styles.label)}>
-          <Text size="xs" c="dimmed">
-            Applies in
-          </Text>
+          <SupportingText tier="secondary">Applies in</SupportingText>
           <Stack gap="2xs">
             <ScopeChips scope={finalScope} labels={labels} wrap="wrap" linked={false} />
             {changes.map((change) => (

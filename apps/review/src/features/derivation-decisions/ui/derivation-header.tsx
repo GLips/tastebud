@@ -14,6 +14,7 @@ import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
@@ -147,9 +148,9 @@ export function DerivationEvidence({ view, kind }: { view: DerivationView; kind:
             </Text>
             {reasoning !== "" && (
               <Text size="sm" {...stylex.props(styles.prose)}>
-                <Text span size="sm" c="dimmed">
+                <SupportingText tier="secondary" span>
                   The agent&apos;s reasoning:
-                </Text>{" "}
+                </SupportingText>{" "}
                 {reasoning}
               </Text>
             )}

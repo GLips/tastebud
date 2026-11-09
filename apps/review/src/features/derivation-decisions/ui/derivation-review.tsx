@@ -3,13 +3,14 @@
  * primary button follows, and whichever panel is open (reject reason or acceptance preview).
  * State lives in `use-derivation-review.ts`; `derivation-status.tsx` places these in the card.
  */
-import { Alert, Anchor, Button, Group, Kbd, Stack, Text, Tooltip } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Kbd, Stack, Tooltip } from "@mantine/core";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { describeScopeChange, isCompleteScope, isSameScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, Inbox, Undo2, X } from "lucide-react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { acceptInLabel, acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
@@ -156,9 +157,7 @@ export function DerivationScopeRow({
   return (
     <Stack gap="3xs">
       <Group gap="xs" wrap="wrap">
-        <Text size="xs" c="dimmed">
-          {scopeRowLabelOf(view.status, acceptLabel)}
-        </Text>
+        <SupportingText tier="secondary">{scopeRowLabelOf(view.status, acceptLabel)}</SupportingText>
         <ScopePicker
           opened={review.pickerOpen}
           value={shownScope}
@@ -170,10 +169,10 @@ export function DerivationScopeRow({
         />
         {draft !== undefined && (
           <>
-            <Text size="xs" c="dimmed">
+            <SupportingText tier="secondary">
               {describeScopeChange(baseScope, shownScope, known.labelOf).join(" · ")}
-            </Text>
-            <Anchor component="button" size="xs" c="dimmed" onClick={() => review.changeDraft(undefined)}>
+            </SupportingText>
+            <Anchor component="button" size="sm" c="gray.7" onClick={() => review.changeDraft(undefined)}>
               {restoreWords}
             </Anchor>
           </>
@@ -192,11 +191,7 @@ function ScopeProvenance({ view, known }: { view: DerivationView; known: KnownPl
       : !isSameScope(view.proposedScope, view.effectiveScope) &&
         `You changed what the agent proposed: ${describeScopeChange(view.proposedScope, view.effectiveScope, known.labelOf).join(" · ")}`;
   if (note === false) return null;
-  return (
-    <Text size="xs" c="dimmed">
-      {note}
-    </Text>
-  );
+  return <SupportingText tier="secondary">{note}</SupportingText>;
 }
 
 /**
