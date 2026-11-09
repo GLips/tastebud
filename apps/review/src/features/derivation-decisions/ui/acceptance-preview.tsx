@@ -103,8 +103,7 @@ function OverlapSummary({
         {matches.map((match) => (
           <DerivationRelationRow
             key={match.id}
-            relation={match.status === "rejected" ? "Near a rejection" : "Near a repeat"}
-            relationChip={<CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />}
+            tag={<CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />}
             summary={match}
             catalog={catalog}
             labels={labels}

@@ -211,7 +211,7 @@ function SourceLedTo({ cited }: { cited: ReadonlyArray<Citation> }) {
           {cited.map((citation) => (
             <DerivationRelationRow
               key={citation.id}
-              relation={CITATION_ROLE_WORDS[citation.role]}
+              tag={CITATION_ROLE_WORDS[citation.role]}
               summary={citation}
               catalog={catalog}
               labels={known.labels}

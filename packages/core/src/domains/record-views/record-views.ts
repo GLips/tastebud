@@ -92,6 +92,23 @@ const ancestorsOf = (view: ViewSource, derivation: DerivationRecord): Array<Deri
   return chain;
 };
 
+/**
+ * The other derivations citing any of `sources` in the field `cites` reads: the read behind Reverses,
+ * Reversed by and From the same words, which share a quote rather than a link.
+ */
+const derivationsCitingSources = (
+  view: ViewSource,
+  self: DerivationRecord,
+  sources: ReadonlyArray<SourceView>,
+  cites: (other: DerivationRecord) => ReadonlyArray<string> | undefined,
+): Array<DerivationSummary> => {
+  const wanted = new Set(sources.map((source) => source.source.id));
+  if (wanted.size === 0) return [];
+  return view.snapshot.derivations
+    .filter((other) => other.id !== self.id && (cites(other) ?? []).some((id) => wanted.has(id)))
+    .map((other) => summarizeDerivation(view, other));
+};
+
 export const buildDerivationView = (view: ViewSource, derivation: DerivationRecord): DerivationView => {
   const supports = evidenceOf(view, derivation.supports);
   const contradicts = evidenceOf(view, derivation.contradicts);
@@ -113,6 +130,9 @@ export const buildDerivationView = (view: ViewSource, derivation: DerivationReco
       const despite = derivationById(view.snapshot, id);
       return despite === undefined ? [] : [summarizeDerivation(view, despite)];
     }),
+    reverses: derivationsCitingSources(view, derivation, contradicts.sources, (other) => other.supports),
+    reversedBy: derivationsCitingSources(view, derivation, supports.sources, (other) => other.contradicts),
+    fromSameWords: derivationsCitingSources(view, derivation, supports.sources, (other) => other.supports),
     thread: threadOf(view.snapshot, derivation.id),
   };
 };

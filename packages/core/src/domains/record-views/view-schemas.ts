@@ -141,6 +141,12 @@ export const DerivationViewSchema = Schema.Struct({
   /** Every derivation naming this one in `supersedes`, whatever its status. */
   revisions: Schema.Array(DerivationSummarySchema),
   despite: Schema.Array(DerivationSummarySchema),
+  /** Derivations that cite as support a source this one cites as contradicting it: this one reverses them. */
+  reverses: Schema.Array(DerivationSummarySchema),
+  /** Derivations that cite as contradicting a source this one cites as support: they reverse this one. */
+  reversedBy: Schema.Array(DerivationSummarySchema),
+  /** Other derivations citing as support a source this one cites as support. */
+  fromSameWords: Schema.Array(DerivationSummarySchema),
   thread: Schema.Array(ThreadEntryRecordSchema),
 });
 export type DerivationView = typeof DerivationViewSchema.Type;

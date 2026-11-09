@@ -1,8 +1,9 @@
 /**
- * How this derivation relates to others, in three groups of linked rows. Versions is a stack: earlier
- * versions above, this one as the bold parent line, and later proposals that replace it or were made
- * despite it hanging under it as children. Conflicts holds what contradicts it or comes close to a
- * rejection; Linked holds evidence links and near matches. A record shows once, in its first group.
+ * How this derivation relates to others, in groups of title-first rows. Earlier versions come first;
+ * Newer versions is a stack, this one as the bold parent and later proposals that replace it or were
+ * made despite it hanging under it on a rail. Conflicts holds what contradicts or reverses it or comes
+ * close to a rejection; Linked holds evidence links, shared words and near matches. A record shows
+ * once, in its first group.
  */
 import { Paper, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -20,7 +21,8 @@ const styles = stylex.create({
 });
 
 interface DerivationRelation {
-  readonly relation: string;
+  /** How it relates, as a trailing word; empty where the group's header says it. */
+  readonly relation?: string;
   /** A conflict shows as its caution chip in place of the relation word. */
   readonly caution?: DerivationCaution;
   readonly summary: DerivationSummary;
@@ -45,10 +47,9 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       seen.add(entry.summary.id);
       return true;
     });
-  const earlier = firstSeen(view.ancestors.map((summary) => ({ relation: "Earlier version", summary })));
+  const earlier = firstSeen(view.ancestors.map((summary) => ({ summary })));
   const newer = firstSeen(
     [...view.revisions, ...(backlinks.despitedBy ?? [])].map((summary) => ({
-      relation: "Newer version",
       summary,
       place: "child" as const,
     })),
@@ -64,6 +65,8 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       summary,
       agentCase: index === stillRejected.length - 1 ? despiteCase : undefined,
     })),
+    ...view.reverses.map((summary) => ({ relation: "Reverses", summary })),
+    ...view.reversedBy.map((summary) => ({ relation: "Reversed by", summary })),
     ...view.contradictingDerivations.map((summary) => ({
       relation: "Says the opposite",
       summary,
@@ -79,13 +82,12 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
     ...view.supportingDerivations.map((summary) => ({ relation: "Builds on", summary })),
     ...(backlinks.citedBy ?? []).map((summary) => ({ relation: "Built on this", summary })),
     ...(backlinks.acknowledgedBy ?? []).map((summary) => ({ relation: "Accepted despite this", summary })),
+    ...view.fromSameWords.map((summary) => ({ relation: "From the same words", summary })),
     ...[...view.despite, ...(backlinks.similar ?? [])].map((summary) => ({ relation: "Similar", summary })),
   ]);
-  const versions: ReadonlyArray<DerivationRelation> =
-    earlier.length + newer.length === 0
-      ? []
-      : [...earlier, { relation: "This one", summary: view, place: "current" }, ...newer];
-  return { versions, conflicts, linked };
+  const lineage: ReadonlyArray<DerivationRelation> =
+    newer.length === 0 ? [] : [{ summary: view, place: "current" }, ...newer];
+  return { earlier, lineage, conflicts, linked };
 };
 
 function RelationGroup({
@@ -105,8 +107,7 @@ function RelationGroup({
         {relations.map((entry) => (
           <DerivationRelationRow
             key={entry.summary.id}
-            relation={entry.relation}
-            relationChip={entry.caution === undefined ? undefined : <CautionChip caution={entry.caution} />}
+            tag={entry.caution === undefined ? entry.relation : <CautionChip caution={entry.caution} />}
             summary={entry.summary}
             catalog={catalog}
             labels={known.labels}
@@ -136,10 +137,11 @@ export function DerivationRelated({
   backlinks: DerivationBacklinks;
   known: KnownPlaces;
 }) {
-  const { versions, conflicts, linked } = relationGroupsOf(view, backlinks);
+  const { earlier, lineage, conflicts, linked } = relationGroupsOf(view, backlinks);
   return (
     <>
-      <RelationGroup title="Versions" relations={versions} known={known} />
+      <RelationGroup title="Earlier versions" relations={earlier} known={known} />
+      <RelationGroup title="Newer versions" relations={lineage} known={known} />
       <RelationGroup title="Conflicts" relations={conflicts} known={known} />
       <RelationGroup title="Linked" relations={linked} known={known} />
     </>
