@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
@@ -75,9 +76,7 @@ function SourceSectionHeader({ title, count }: { title: string; count: number })
           <Text size="sm" fw={600}>
             {title}
           </Text>
-          <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
-            {count}
-          </SupportingText>
+          <CountBadge count={count} />
         </Group>
       </Table.Td>
     </Table.Tr>

@@ -134,7 +134,11 @@ export const tastebudMantineTheme = createTheme({
       defaultProps: { radius: "md" },
       vars: (_theme, props) => ({ root: { "--ai-size": ladderHeightOf(actionIconHeights, props.size) } }),
     }),
-    Badge: Badge.extend({ defaultProps: { radius: "sm", variant: "light", size: "sm" } }),
+    // Every chip keeps one size and never shrinks: in a tight row the text beside it wraps or truncates instead.
+    Badge: Badge.extend({
+      defaultProps: { radius: "sm", variant: "light", size: "md", tt: "none", fw: 500 },
+      styles: { root: { flexShrink: 0 }, label: { overflow: "visible" } },
+    }),
     Text: Text.extend({ defaultProps: { size: "sm" } }),
     Paper: Paper.extend({ defaultProps: { withBorder: true, radius: "md" } }),
     Tooltip: Tooltip.extend({ defaultProps: { openDelay: 250, fz: "xs" } }),

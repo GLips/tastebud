@@ -25,13 +25,13 @@ import { Schema } from "effect";
 import { ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DERIVATION_STATUS_WORDS, DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 import { KindLibraryRow } from "./kind-library-row.tsx";
@@ -39,7 +39,6 @@ import { useKindLibraryFilters } from "./use-kind-library-filters.ts";
 import { useLibraryDecision } from "./use-library-decision.ts";
 
 const styles = stylex.create({
-  numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
   sectionToggle: { width: "100%" },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
@@ -101,9 +100,7 @@ function LibrarySectionHeader({
             <Text size="sm" fw={600}>
               {DERIVATION_STATUS_WORDS[status]}
             </Text>
-            <SupportingText tier="secondary" {...stylex.props(styles.numericNoWrap)}>
-              {count}
-            </SupportingText>
+            <CountBadge count={count} />
           </Group>
         </UnstyledButton>
       </Table.Td>

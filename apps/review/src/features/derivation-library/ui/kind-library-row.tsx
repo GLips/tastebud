@@ -8,7 +8,7 @@ import { useState } from "react";
 import { formatReviewDate } from "#review/shared/format.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DERIVATION_STATUS_WORDS, DerivationStatusLabel } from "#review/shared/ui/status-chips.tsx";
+import { DERIVATION_STATUS_WORDS, DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
@@ -110,7 +110,7 @@ function ReplacedByRow({
           <SupportingText tier="secondary" span {...stylex.props(styles.noWrap)}>
             Replaced by
           </SupportingText>
-          <DerivationStatusLabel status={replacement.status} />
+          <DerivationStatusBadge status={replacement.status} />
           <AnchorLink
             to="/derivations/$id"
             params={{ id: replacement.id }}
