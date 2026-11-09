@@ -1,5 +1,6 @@
-import { ActionIcon, Box, Button, Group, Menu, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Button, Group, Menu, Table, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useNavigate } from "@tanstack/react-router";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
 import { CornerDownRight, MessageSquare, MoreHorizontal } from "lucide-react";
@@ -9,7 +10,7 @@ import { formatReviewDate } from "#review/shared/format.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DERIVATION_STATUS_WORDS, DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
-import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
+import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { LibraryAcceptOverlaps } from "./library-accept-overlaps.tsx";
@@ -31,7 +32,7 @@ const styles = stylex.create({
     ":focus-visible": { outline: "none" },
   },
   aboveRowLink: { position: "relative", zIndex: 1 },
-  reasonToggle: { position: "relative", zIndex: 1, display: "block", textAlign: "start" },
+  lineToggle: { position: "relative", zIndex: 1, display: "block", textAlign: "start" },
   // The replacement's row hangs under the row it replaced, past the statement's indent.
   replacementCell: { paddingInlineStart: "44px" },
   noWrap: { whiteSpace: "nowrap" },
@@ -48,50 +49,57 @@ const LIBRARY_ACTIONS: Record<DerivationStatus, ReadonlyArray<DecisionOutcome>> 
   superseded: [],
 };
 
+/** What a row's second line is, in the quiet label style every second line shares. */
+function RowLineLabel({ children }: { children: string }) {
+  return (
+    <Text span size="xs" fw={600} c="gray.6">
+      {children}
+    </Text>
+  );
+}
+
 /**
- * A rejection's or retraction's reason, labelled, on one line; clicking it unfolds the whole reason and when it was
- * decided, so it reads in full without leaving the list.
+ * A row's labelled second line, on one line; clicking it unfolds the whole text (and, for a decision, when it was
+ * made), so a long reason, quote or case reads in full without leaving the list.
  */
-function LibraryRowReason({ row, reason }: { row: DerivationRow; reason: string }) {
+function LibraryRowLine({ label, text, decided }: { label: string; text: string; decided?: string | undefined }) {
   const [open, setOpen] = useState(false);
   return (
     <UnstyledButton
       onClick={() => setOpen(!open)}
       aria-expanded={open}
-      aria-label={open ? "Fold the reason" : "Read the whole reason"}
-      {...stylex.props(styles.reasonToggle)}
+      aria-label={open ? `Fold the ${label.toLowerCase()}` : `Read the whole ${label.toLowerCase()}`}
+      {...stylex.props(styles.lineToggle)}
     >
       <SupportingText tier="secondary" {...(!open && { lineClamp: 1 })}>
-        <Text span size="xs" fw={600} c="gray.6">
-          Reason
-        </Text>{" "}
-        “{reason}”
+        <RowLineLabel>{label}</RowLineLabel> {text}
       </SupportingText>
-      {open && (
+      {open && decided !== undefined && (
         <SupportingText tier="faint" mt="3xs">
-          {DERIVATION_STATUS_WORDS[row.status]} {formatReviewDate(row.decidedAt)}
+          {decided}
         </SupportingText>
       )}
     </UnstyledButton>
   );
 }
 
-/** Why a row stands where it does, in one line: the reasoning, the evidence or the decision's reason. */
+/**
+ * Why a row stands where it does, in one labelled line: the decision's Reason, the words it was Said in, or the
+ * agent's Reasoning.
+ */
 function DerivationRowWhy({ row }: { row: DerivationRow }) {
   if (row.status === "superseded") return null;
   if ((row.status === "rejected" || row.status === "retracted") && row.reason !== undefined)
-    return <LibraryRowReason row={row} reason={row.reason} />;
-  if (row.status === "accepted" && row.leadQuote !== undefined)
     return (
-      <SupportingText tier="secondary" lineClamp={1}>
-        “{row.leadQuote}”
-      </SupportingText>
+      <LibraryRowLine
+        label="Reason"
+        text={`“${row.reason}”`}
+        decided={`${DERIVATION_STATUS_WORDS[row.status]} ${formatReviewDate(row.decidedAt)}`}
+      />
     );
-  return (
-    <SupportingText tier="secondary" lineClamp={1}>
-      {row.reasoning}
-    </SupportingText>
-  );
+  if (row.status === "accepted" && row.leadQuote !== undefined)
+    return <LibraryRowLine label="Said" text={`“${row.leadQuote}”`} />;
+  return <LibraryRowLine label="Reasoning" text={row.reasoning} />;
 }
 
 /** The revision that replaced a superseded row, as a linked row hanging under it. */
@@ -111,21 +119,23 @@ function ReplacedByRow({
             Replaced by
           </SupportingText>
           <DerivationStatusBadge status={replacement.status} />
-          <AnchorLink
-            to="/derivations/$id"
-            params={{ id: replacement.id }}
-            c="inherit"
-            size="sm"
-            underline="never"
-            lineClamp={1}
-            {...stylex.props(styles.rowLink)}
-          >
-            {replacement.statement}
-          </AnchorLink>
+          <Tooltip label={replacement.statement} withArrow multiline maw={420} openDelay={400}>
+            <AnchorLink
+              to="/derivations/$id"
+              params={{ id: replacement.id }}
+              c="inherit"
+              size="sm"
+              underline="never"
+              lineClamp={2}
+              {...stylex.props(styles.rowLink)}
+            >
+              {replacement.statement}
+            </AnchorLink>
+          </Tooltip>
         </Group>
       </Table.Td>
-      <Table.Td {...stylex.props(styles.fitCell)}>
-        <ScopeChips scope={replacement.effectiveScope} labels={labels} />
+      <Table.Td>
+        <ScopeChips scope={replacement.effectiveScope} labels={labels} wrap="wrap" />
       </Table.Td>
       <Table.Td ta="right">
         <SupportingText tier="secondary" title="Proposed" {...stylex.props(styles.numericNoWrap)}>
@@ -212,6 +222,9 @@ export function KindLibraryRow({
 }) {
   const { deciding, overlapping, onActivate, onDecide, onCancelAccept } = decision;
   const [rejecting, setRejecting] = useState(false);
+  const navigate = useNavigate();
+  const openReplacement = ({ replacedBy }: DerivationRow) =>
+    replacedBy !== undefined && void navigate({ to: "/derivations/$id", params: { id: replacedBy.id } });
   const actions = acceptLabel === undefined ? [] : LIBRARY_ACTIONS[row.status];
   const actionLabels: Record<DecisionOutcome, string> = {
     accept: acceptLabel ?? "Accept",
@@ -238,10 +251,7 @@ export function KindLibraryRow({
             {...stylex.props(styles.rowLink)}
           >
             {row.statement}
-          </AnchorLink>{" "}
-          <SupportingText tier="secondary" span>
-            <SubjectLabel summary={row} owner={owner} />
-          </SupportingText>
+          </AnchorLink>
           <DerivationRowWhy row={row} />
           {rejecting && (
             <InlineRejectReason
@@ -262,7 +272,7 @@ export function KindLibraryRow({
             />
           )}
         </Table.Td>
-        <Table.Td {...stylex.props(styles.fitCell)}>
+        <Table.Td>
           {row.threadCount > 0 && (
             <Group gap="3xs" wrap="nowrap" c="gray.7">
               <MessageSquare size={13} aria-hidden />
@@ -272,18 +282,19 @@ export function KindLibraryRow({
             </Group>
           )}
         </Table.Td>
-        <Table.Td {...stylex.props(styles.fitCell)}>
-          <Box {...stylex.props(styles.aboveRowLink)}>
-            <ScopeChips scope={row.effectiveScope} labels={labels} />
-          </Box>
+        <Table.Td>
+          <Group gap="2xs" wrap="wrap" {...stylex.props(styles.aboveRowLink)}>
+            <SubjectChip summary={row} owner={owner} />
+            <ScopeChips scope={row.effectiveScope} labels={labels} wrap="wrap" />
+          </Group>
         </Table.Td>
-        <Table.Td w={104} ta="right">
+        <Table.Td ta="right">
           <SupportingText tier="secondary" title="Proposed" {...stylex.props(styles.numericNoWrap)}>
             {formatReviewDate(row.proposedAt)}
           </SupportingText>
         </Table.Td>
-        <Table.Td w={44} px="xxs">
-          {actions.length > 0 && (
+        <Table.Td px="xxs">
+          {(actions.length > 0 || row.replacedBy !== undefined) && (
             <Menu
               position="bottom-end"
               withArrow
@@ -304,6 +315,9 @@ export function KindLibraryRow({
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
+                {row.status === "superseded" && row.replacedBy !== undefined && (
+                  <Menu.Item onClick={() => openReplacement(row)}>Open its replacement</Menu.Item>
+                )}
                 {actions.map((action) => (
                   <Menu.Item key={action} {...(action === "reject" && { color: "red" })} onClick={() => choose(action)}>
                     {actionLabels[action]}
