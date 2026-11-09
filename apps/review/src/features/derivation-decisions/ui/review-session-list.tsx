@@ -23,7 +23,7 @@ export const DECISION_OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: s
 const styles = stylex.create({
   row: {
     display: "grid",
-    gridTemplateColumns: "12px 72px minmax(0, 1fr) auto auto",
+    gridTemplateColumns: "12px 112px minmax(0, 1fr) auto auto",
     columnGap: "10px",
     alignItems: "center",
     paddingBlock: "6px",
@@ -51,7 +51,9 @@ export function ReviewSessionList() {
       </Group>
       <Paper p={0}>
         {decisions.map((entry) => {
-          const outcome = DECISION_OUTCOME_LABELS[entry.outcome];
+          const outcome = entry.reasonChanged
+            ? { ...DECISION_OUTCOME_LABELS.reject, word: "Reason changed" }
+            : DECISION_OUTCOME_LABELS[entry.outcome];
           return (
             <Box key={entry.decisionId} {...stylex.props(styles.row)}>
               <KindGlyph catalog={catalog} kind={entry.kind} />

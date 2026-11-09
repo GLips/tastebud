@@ -16,6 +16,8 @@ const ReviewSessionDecisionSchema = Schema.Struct({
   kind: Schema.String,
   statement: Schema.String,
   outcome: DecisionOutcomeSchema,
+  /** A reject on one already rejected: the reason on record was replaced. */
+  reasonChanged: Schema.Boolean,
   effectiveScope: DerivationScopeSchema,
   at: Schema.String,
 });

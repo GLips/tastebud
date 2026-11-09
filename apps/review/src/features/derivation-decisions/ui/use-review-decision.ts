@@ -62,8 +62,11 @@ const reversingDecisionsOf = (
   }
 };
 
-/** Sends one decision; a refusal comes back as a failure for the card to show, never a retry. */
-const sendReviewDecision = async (target: string, input: ReviewDecisionInput) => {
+/**
+ * Sends one decision; a refusal comes back as a failure for the card to show, never a retry.
+ * `from` is the status it was decided on, so the session log can tell a changed reason from a rejection.
+ */
+const sendReviewDecision = async (target: string, input: ReviewDecisionInput, from: DerivationStatus | undefined) => {
   const outcome = await decideReviewDerivation({
     data: {
       ref: target,
@@ -83,6 +86,7 @@ const sendReviewDecision = async (target: string, input: ReviewDecisionInput) =>
       kind: derivation.kind,
       statement: derivation.statement,
       outcome: decision.outcome,
+      reasonChanged: decision.outcome === "reject" && from === "rejected",
       effectiveScope: derivation.effectiveScope,
       at: decision.at,
     });
@@ -95,7 +99,16 @@ export interface UndoableReviewDecision {
   /** The decision record's id, so a caller can tell whether it is still the latest. */
   readonly decisionId: string;
   readonly outcome: DecisionOutcome;
+  /** Where the derivation stands after it, which is what the reverse is decided on. */
+  readonly status: DerivationStatus;
   readonly reverse: ReviewDecisionSequence;
+}
+
+interface ReviewDecisionVariables {
+  readonly inputs: ReviewDecisionSequence;
+  /** Set only when the decision can be undone. */
+  readonly before: DecisionStanding | undefined;
+  readonly from: DerivationStatus | undefined;
 }
 
 /**
@@ -109,10 +122,12 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
   const [undoable, setUndoable] = useState<UndoableReviewDecision | undefined>(undefined);
   const mutation = useMutation({
     // Several decisions only for an undo; it stops at the first refusal, which is the outcome shown.
-    mutationFn: async ({ inputs }: { inputs: ReviewDecisionSequence; before: DecisionStanding | undefined }) => {
+    mutationFn: async ({ inputs, from }: ReviewDecisionVariables) => {
       const [first, second] = inputs;
-      const outcome = await sendReviewDecision(target, first);
-      return second === undefined || !outcome.ok ? outcome : sendReviewDecision(target, second);
+      const outcome = await sendReviewDecision(target, first, from);
+      return second === undefined || !outcome.ok
+        ? outcome
+        : sendReviewDecision(target, second, outcome.value.derivation.status);
     },
     onMutate: () => {
       setFailure(undefined);
@@ -122,7 +137,8 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
       if (!outcome.ok) return setFailure(outcome.failure);
       const { decision, derivation } = outcome.value;
       const reverse = before === undefined ? undefined : reversingDecisionsOf(before, derivation.status);
-      if (reverse !== undefined) setUndoable({ decisionId: decision.id, outcome: decision.outcome, reverse });
+      if (reverse !== undefined)
+        setUndoable({ decisionId: decision.id, outcome: decision.outcome, status: derivation.status, reverse });
     },
     onError: (error) => setFailure({ sentence: error.message, category: "broken", tag: "Network" }),
     onSettled: () => refreshReviewQueriesAfterWrite(queryClient, STORE_WRITE_STALES),
@@ -132,7 +148,7 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
    * button re-renders as loading, and would otherwise send the same decision twice. It gets the first one's outcome.
    */
   const inFlight = useRef<ReturnType<typeof mutation.mutateAsync> | undefined>(undefined);
-  const send = (variables: { inputs: ReviewDecisionSequence; before: DecisionStanding | undefined }) => {
+  const send = (variables: ReviewDecisionVariables) => {
     if (inFlight.current !== undefined) return inFlight.current;
     const sent = mutation.mutateAsync(variables).finally(() => {
       inFlight.current = undefined;
@@ -141,12 +157,13 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
     return sent;
   };
   return {
-    decide: (input: ReviewDecisionInput) => send({ inputs: [input], before: standing }),
+    decide: (input: ReviewDecisionInput) => send({ inputs: [input], before: standing, from: standing?.status }),
     pending: mutation.isPending,
     failure,
     clearFailure: () => setFailure(undefined),
     undoable,
     /** Writes the reversing decision. It isn't itself undoable: the owner can just decide again. */
-    undo: () => (undoable === undefined ? undefined : send({ inputs: undoable.reverse, before: undefined })),
+    undo: () =>
+      undoable === undefined ? undefined : send({ inputs: undoable.reverse, before: undefined, from: undoable.status }),
   };
 }
