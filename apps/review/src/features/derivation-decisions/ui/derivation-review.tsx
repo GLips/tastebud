@@ -1,9 +1,9 @@
 /**
- * The derivation's decision controls: the actions that fit its status (top right of the title row),
+ * The derivation's decision controls: the actions that fit its status (at the foot of the state card),
  * the Scope property the accept follows, and whichever panel is open (reject reason or acceptance
  * preview). State lives in `use-derivation-review.ts`. Hotkeys live in tooltips, never in the buttons.
  */
-import { ActionIcon, Alert, Button, Group, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Menu, Stack, Tooltip } from "@mantine/core";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
@@ -15,7 +15,6 @@ import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
-import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePropertyField } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
@@ -38,6 +37,7 @@ export function PendingDecisionButtons({
   acceptDisabled = false,
   onAccept,
   onReject,
+  stacked = false,
 }: {
   acceptLabel: string;
   needsPreview: boolean;
@@ -45,30 +45,39 @@ export function PendingDecisionButtons({
   acceptDisabled?: boolean;
   onAccept: MouseEventHandler<HTMLButtonElement>;
   onReject: MouseEventHandler<HTMLButtonElement>;
+  /** The state card stacks them full width, Believe on top; the pane's head sets them in a row. */
+  stacked?: boolean;
 }) {
-  return (
-    <Group gap="xs" wrap="nowrap">
-      <Tooltip label="Reject with a reason · R" withArrow>
-        <Button variant="default" leftSection={<X size={14} />} onClick={onReject}>
-          Reject
-        </Button>
-      </Tooltip>
-      <Tooltip label={needsPreview ? `Review, then ${acceptLabel.toLowerCase()} · A` : `${acceptLabel} · A`} withArrow>
-        <Button leftSection={<Check size={14} />} loading={pending} disabled={acceptDisabled} onClick={onAccept}>
-          {`${acceptLabel}${needsPreview ? "…" : ""}`}
-        </Button>
-      </Tooltip>
-    </Group>
-  );
-}
-
-function UndoButton({ review }: { review: DerivationReview }) {
-  return (
-    <Tooltip label="Undo the decision just made · U" withArrow>
-      <Button variant="subtle" color="gray" leftSection={<Undo2 size={14} />} onClick={review.undo}>
-        Undo
+  const reject = (
+    <Tooltip label="Reject with a reason · R" withArrow>
+      <Button variant="default" fullWidth={stacked} leftSection={<X size={14} />} onClick={onReject}>
+        Reject
       </Button>
     </Tooltip>
+  );
+  const accept = (
+    <Tooltip label={needsPreview ? `Review, then ${acceptLabel.toLowerCase()} · A` : `${acceptLabel} · A`} withArrow>
+      <Button
+        fullWidth={stacked}
+        leftSection={<Check size={14} />}
+        loading={pending}
+        disabled={acceptDisabled}
+        onClick={onAccept}
+      >
+        {`${acceptLabel}${needsPreview ? "…" : ""}`}
+      </Button>
+    </Tooltip>
+  );
+  return stacked ? (
+    <Stack gap="xs">
+      {accept}
+      {reject}
+    </Stack>
+  ) : (
+    <Group gap="xs" wrap="nowrap">
+      {reject}
+      {accept}
+    </Group>
   );
 }
 
@@ -89,6 +98,7 @@ function DecidedAcceptButton({
   return (
     <Tooltip label={`${acceptLabel} · A`} withArrow>
       <Button
+        flex={1}
         variant={editingAccepted ? "filled" : "default"}
         leftSection={<Check size={14} />}
         loading={review.decision.pending}
@@ -129,31 +139,31 @@ function DecidedMoreMenu({ review }: { review: DerivationReview }) {
   );
 }
 
-/** The actions that fit its status. Nothing while a panel is open, or on one that can't be decided. */
+/**
+ * The actions that fit its status, full width at the foot of the state card. Nothing while a panel
+ * is open, or on one that can't be decided.
+ */
 export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   const { view, mode, draft } = review;
   if (mode !== "idle" || !canDecideDerivation(view)) return null;
-  const undo = review.undoable !== undefined && <UndoButton review={review} />;
   if (view.status === "pending")
     return (
-      <Group gap="xs" wrap="nowrap">
-        {undo}
-        <PendingDecisionButtons
-          acceptLabel={acceptLabel}
-          needsPreview={review.needsPreview}
-          pending={review.decision.pending}
-          acceptDisabled={!isCompleteScope(review.shownScope)}
-          onAccept={review.startAccept}
-          onReject={review.startReject}
-        />
-      </Group>
+      <PendingDecisionButtons
+        stacked
+        acceptLabel={acceptLabel}
+        needsPreview={review.needsPreview}
+        pending={review.decision.pending}
+        acceptDisabled={!isCompleteScope(review.shownScope)}
+        onAccept={review.startAccept}
+        onReject={review.startReject}
+      />
     );
   return (
     <Group gap="xs" wrap="nowrap">
-      {undo}
-      {view.status === "accepted" && (
+      {view.status === "accepted" && draft === undefined && (
         <Tooltip label={`Stop applying it; you can ${acceptItPhrase(acceptLabel)} again later`} withArrow>
           <Button
+            flex={1}
             variant="default"
             leftSection={<Undo2 size={14} />}
             loading={review.decision.pending && draft === undefined}
@@ -228,8 +238,8 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
 }
 
 /**
- * The outcome alert and whichever panel the mode opened: the reject reason (except on a rejected one,
- * whose Reason block edits in place) or the acceptance preview.
+ * The outcome alert and the acceptance preview, under the title. The reject reason opens in the state
+ * card, beside the button that asked for it.
  */
 export function DerivationReviewPanels({
   review,
@@ -247,15 +257,6 @@ export function DerivationReviewPanels({
         <Alert color="red" variant="light" withCloseButton onClose={decision.clearFailure} title="Not decided">
           {decision.failure.sentence}
         </Alert>
-      )}
-      {mode === "rejecting" && view.status !== "rejected" && (
-        <RejectReasonForm
-          initialReason={review.rejectDraft}
-          onReasonChange={review.setRejectDraft}
-          pending={decision.pending}
-          onCancel={() => setMode("idle")}
-          onSubmit={(reason) => void review.reject(reason)}
-        />
       )}
       {mode === "previewing" && (
         <AcceptancePreview

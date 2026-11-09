@@ -1,4 +1,4 @@
-import { Button, Group, Tooltip } from "@mantine/core";
+import { Button, Group, Stack, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
@@ -12,6 +12,7 @@ const styles = stylex.create({
 export function RejectReasonForm({
   initialReason = "",
   changingReason = false,
+  stacked = false,
   onReasonChange,
   pending,
   onSubmit,
@@ -21,6 +22,8 @@ export function RejectReasonForm({
   initialReason?: string;
   /** The derivation is already rejected, so submitting replaces the reason rather than rejecting. */
   changingReason?: boolean;
+  /** The buttons go under the field, for a narrow column such as the state card. */
+  stacked?: boolean;
   onReasonChange?: (reason: string) => void;
   pending: boolean;
   onSubmit: (reason: string) => void;
@@ -35,6 +38,40 @@ export function RejectReasonForm({
   const cancel = () => {
     if (!pending) onCancel();
   };
+  const field = (
+    <ReviewTextarea
+      data-autofocus
+      autoFocus
+      aria-label="Why reject it? Agents that propose this again are shown your reason."
+      placeholder="Why not? Agents that propose this again are shown your reason."
+      minRows={stacked ? 2 : 1}
+      {...stylex.props(styles.grow)}
+      value={reason}
+      readOnly={pending}
+      // Editing a reason starts from the one on record: the caret goes after it, not before.
+      onFocus={(event) => event.currentTarget.setSelectionRange(reason.length, reason.length)}
+      onChange={(event) => {
+        setReason(event.currentTarget.value);
+        onReasonChange?.(event.currentTarget.value);
+      }}
+      onSubmitShortcut={submit}
+      onCancelShortcut={cancel}
+    />
+  );
+  const buttons = (
+    <>
+      <Tooltip label={onReasonChange === undefined ? "Esc" : "Esc · your text is kept"} withArrow>
+        <Button variant="subtle" color="gray" onClick={cancel} disabled={pending}>
+          Cancel
+        </Button>
+      </Tooltip>
+      <Tooltip label="⌘↵" withArrow>
+        <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>
+          {changingReason ? "Save reason" : "Reject"}
+        </Button>
+      </Tooltip>
+    </>
+  );
   return (
     <form
       onSubmit={(event) => {
@@ -42,36 +79,19 @@ export function RejectReasonForm({
         submit();
       }}
     >
-      <Group gap="xs" align="flex-start" wrap="nowrap">
-        <ReviewTextarea
-          data-autofocus
-          autoFocus
-          aria-label="Why reject it? Agents that propose this again are shown your reason."
-          placeholder="Why not? Agents that propose this again are shown your reason."
-          minRows={1}
-          {...stylex.props(styles.grow)}
-          value={reason}
-          readOnly={pending}
-          // Editing a reason starts from the one on record: the caret goes after it, not before.
-          onFocus={(event) => event.currentTarget.setSelectionRange(reason.length, reason.length)}
-          onChange={(event) => {
-            setReason(event.currentTarget.value);
-            onReasonChange?.(event.currentTarget.value);
-          }}
-          onSubmitShortcut={submit}
-          onCancelShortcut={cancel}
-        />
-        <Tooltip label={onReasonChange === undefined ? "Esc" : "Esc · your text is kept"} withArrow>
-          <Button variant="subtle" color="gray" onClick={cancel} disabled={pending}>
-            Cancel
-          </Button>
-        </Tooltip>
-        <Tooltip label="⌘↵" withArrow>
-          <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>
-            {changingReason ? "Save reason" : "Reject"}
-          </Button>
-        </Tooltip>
-      </Group>
+      {stacked ? (
+        <Stack gap="xs">
+          {field}
+          <Group gap="xs" justify="flex-end">
+            {buttons}
+          </Group>
+        </Stack>
+      ) : (
+        <Group gap="xs" align="flex-start" wrap="nowrap">
+          {field}
+          {buttons}
+        </Group>
+      )}
     </form>
   );
 }

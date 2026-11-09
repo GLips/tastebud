@@ -10,19 +10,13 @@ import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/fea
 import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 
 import { DerivationActivity } from "./derivation-activity.tsx";
 import { DerivationBackLink, DerivationRestsOn, DerivationTitleRow, useDerivationBack } from "./derivation-header.tsx";
 import { DerivationProperties } from "./derivation-properties.tsx";
 import { DerivationRelated } from "./derivation-related.tsx";
-import {
-  DerivationActions,
-  DerivationReviewPanels,
-  DerivationScopeProperty,
-  useDerivationPageHotkeys,
-} from "./derivation-review.tsx";
-import { DerivationReasonBlock } from "./derivation-status.tsx";
+import { DerivationReviewPanels, DerivationScopeProperty, useDerivationPageHotkeys } from "./derivation-review.tsx";
+import { DerivationStateCard } from "./derivation-status.tsx";
 import { useDerivationReview } from "./use-derivation-review.ts";
 
 const Route = getRouteApi("/derivations/$id");
@@ -34,7 +28,7 @@ const styles = stylex.create({
   layout: {
     display: "grid",
     gridTemplateColumns: {
-      default: "minmax(0, 1fr) 300px",
+      default: "minmax(0, 1fr) 330px",
       "@media (max-width: 900px)": "minmax(0, 1fr)",
     },
     columnGap: "32px",
@@ -73,7 +67,7 @@ export function DerivationPage() {
   return <DerivationDetail key={view.id} view={view} detail={detail.data} />;
 }
 
-/** An issue-like page: the title row, reason, evidence, relations and activity in the main column; properties beside. */
+/** An issue-like page: the title, evidence, relations and activity in the main column; the state card and properties beside. */
 function DerivationDetail({
   view,
   detail,
@@ -102,10 +96,8 @@ function DerivationDetail({
               size="page"
               glyph={<KindGlyph catalog={catalog} kind={view.kind} size={14} label={view.kindLabel} />}
               statement={view.statement}
-              meta={<DerivationStatusBadge status={view.status} />}
-              actions={<DerivationActions review={review} acceptLabel={acceptLabel} />}
+              status={view.status}
             />
-            <DerivationReasonBlock review={review} />
             <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
           </Stack>
           <DerivationRestsOn view={view} kind={kind} />
@@ -119,15 +111,18 @@ function DerivationDetail({
             focusComposer={discussing}
           />
         </Stack>
-        <Paper p="md" {...stylex.props(styles.properties)}>
-          <DerivationProperties
-            view={view}
-            kind={kind}
-            owner={owner}
-            host="page"
-            scope={<DerivationScopeProperty review={review} known={known} />}
-          />
-        </Paper>
+        <Stack gap="md" {...stylex.props(styles.properties)}>
+          <DerivationStateCard review={review} acceptLabel={acceptLabel} owner={owner} />
+          <Paper p="md">
+            <DerivationProperties
+              view={view}
+              kind={kind}
+              owner={owner}
+              host="page"
+              scope={<DerivationScopeProperty review={review} known={known} />}
+            />
+          </Paper>
+        </Stack>
       </Box>
     </Stack>
   );

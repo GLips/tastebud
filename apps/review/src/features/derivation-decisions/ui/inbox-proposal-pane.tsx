@@ -174,6 +174,7 @@ export function InboxProposalPane({
           <DerivationTitleRow
             size="pane"
             statement={view.statement}
+            status={view.status}
             meta={
               <AnchorLink to="/derivations/$id" params={{ id: view.id }} size="xs" c="dimmed">
                 <Group gap="3xs" wrap="nowrap" component="span">
