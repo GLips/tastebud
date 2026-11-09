@@ -1,5 +1,5 @@
 /**
- * The recall inspector's answer for one prompt: a headline that names every empty section, then what
+ * The recall inspector's answer for one prompt: a short headline, then labelled sections (empty ones left out) for what
  * matched but is held back and why, what is sent with the prompt, what an agent can look up, and what
  * applies here but didn't match the words at all.
  */
@@ -45,14 +45,9 @@ function AnswerSection({
   return (
     <Stack gap="2xs">
       <Stack gap="3xs">
-        <Group gap="xxs">
-          <Text size="sm" fw={600}>
-            {title}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {count}
-          </Text>
-        </Group>
+        <Text size="sm" fw={600}>
+          {title} ({count})
+        </Text>
         <Text size="xs" c="dimmed">
           {hint}
         </Text>
@@ -107,16 +102,9 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** The answer in one sentence, naming the empty sections so they needn't be shown. */
-function recallHeadline(sent: number, lookUp: number, heldBack: number): string {
-  const sentPart = sent === 0 ? "Nothing would be sent" : `${plural(sent, "item would be", "items would be")} sent`;
-  const lookUpPart = lookUp === 0 ? "nothing to look up" : `${lookUp} more an agent can look up`;
-  const heldPart =
-    heldBack === 0
-      ? " Nothing close was held back."
-      : ` ${plural(heldBack, "close match is", "close matches are")} held back:`;
-  return `${sentPart} with this prompt, and ${lookUpPart}.${heldPart}`;
-}
+/** The answer in a few words: whether anything goes with this prompt. The sections below say the rest. */
+const recallHeadline = (sent: number): string =>
+  sent === 0 ? "Nothing is sent for these words." : `${plural(sent, "item is", "items are")} sent with these words.`;
 
 export function RecallCandidateGroups({
   recall,
@@ -138,28 +126,35 @@ export function RecallCandidateGroups({
   const lookUpCount = lookUp.length + recall.history.length;
   return (
     <Stack gap="lg">
-      <Stack gap="xs">
-        <Stack gap="3xs">
-          <Text size="md" fw={500}>
-            {recallHeadline(hook.items.length, lookUpCount, heldBackCount)}
+      <Stack gap="3xs">
+        <Text size="md" fw={500}>
+          {recallHeadline(hook.items.length)}
+        </Text>
+        {hook.items.length === 0 && (
+          <Text size="sm" c="dimmed">
+            {hookSilenceWording(hook, catalog)}
           </Text>
-          {hook.items.length === 0 && (
-            <Text size="sm" c="dimmed">
-              {hookSilenceWording(hook, catalog)}
-            </Text>
-          )}
-        </Stack>
-        {heldBackCount > 0 && (
-          <Box>
-            {recall.rejected.map((hit) => (
-              <RecallItemRow key={hit.id} item={hit} reason={rejectedHitWording(hit)} />
-            ))}
-            {recall.excluded.map((hit) => (
-              <RecallItemRow key={hit.id} item={hit} reason={exclusionReason(hit, catalog, recall.context, known)} />
-            ))}
-          </Box>
         )}
       </Stack>
+
+      <AnswerSection
+        title="Held back"
+        count={heldBackCount}
+        hint="Close matches for these words that agents don't get as advice."
+      >
+        <Box>
+          {recall.rejected.map((hit) => (
+            <RecallItemRow key={hit.id} item={hit} reason={`Matched the words, but ${rejectedHitWording(hit)}`} />
+          ))}
+          {recall.excluded.map((hit) => (
+            <RecallItemRow
+              key={hit.id}
+              item={hit}
+              reason={`Matched the words, but ${exclusionReason(hit, catalog, known)}`}
+            />
+          ))}
+        </Box>
+      </AnswerSection>
 
       <AnswerSection
         title="Sent with the prompt"
@@ -204,6 +199,18 @@ export function RecallCandidateGroups({
         </Box>
       </AnswerSection>
 
+      <AnswerSection
+        title="Also applies here"
+        count={appliesUnmatched.length}
+        hint="Accepted and applies where the agent stands, but these words didn't bring it up."
+      >
+        <Box>
+          {appliesUnmatched.map((item) => (
+            <RecallItemRow key={item.id} item={item} />
+          ))}
+        </Box>
+      </AnswerSection>
+
       {recall.sources.length > 0 && (
         <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
           <Stack gap="xxs">
@@ -211,18 +218,6 @@ export function RecallCandidateGroups({
               <SourceQuote key={hit.source.id} view={hit} role="plain" showKind />
             ))}
           </Stack>
-        </Disclosure>
-      )}
-
-      {appliesUnmatched.length > 0 && (
-        <Disclosure
-          label={`${plural(appliesUnmatched.length, "more accepted item applies", "more accepted items apply")} here but didn't match these words`}
-        >
-          <Box>
-            {appliesUnmatched.map((item) => (
-              <RecallItemRow key={item.id} item={item} />
-            ))}
-          </Box>
         </Disclosure>
       )}
     </Stack>
