@@ -11,8 +11,8 @@ import { Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
+import { ignoringRepeatClicks } from "#review/shared/ui/ignoring-repeat-clicks.ts";
 
-import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import type { InboxBatchProgress, InboxBatchVerb } from "./use-inbox-batch.ts";
 

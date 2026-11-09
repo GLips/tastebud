@@ -138,6 +138,7 @@ export function InboxProposalCard({
         id={view.id}
         statement={view.statement}
         undoable={triage.decision.undoable}
+        canUndo={triage.decision.canUndo}
         undoing={triage.decision.pending}
         onUndo={() => void triage.undo()}
         latest={latestDecided}

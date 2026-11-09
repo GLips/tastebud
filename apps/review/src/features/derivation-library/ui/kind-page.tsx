@@ -1,30 +1,22 @@
-import { Alert, Box, Button, Center, Group, Paper, Select, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Box, Center, Group, Paper, Select, Stack, Table, Text, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
-import {
-  type DecisionOutcome,
-  DERIVATION_STATUSES,
-  type DerivationStatus,
-  DerivationStatusSchema,
-} from "@tastebud/core/taste-vocabulary";
+import { DERIVATION_STATUSES, type DerivationStatus, DerivationStatusSchema } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 import { ArrowDownUp, MapPin, Search } from "lucide-react";
 import { Fragment } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
+import { DecisionOutcomeLine } from "#review/shared/ui/decision-outcome.tsx";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ListSectionHeader } from "#review/shared/ui/list-section-header.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import {
-  DERIVATION_STATUS_WORDS,
-  DerivationStatusBadge,
-  DerivationStatusDot,
-} from "#review/shared/ui/status-chips.tsx";
+import { DERIVATION_STATUS_WORDS, DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 import { KindLibraryRow } from "./kind-library-row.tsx";
@@ -43,18 +35,9 @@ const styles = stylex.create({
     justifyContent: "center",
     pointerEvents: "none",
   },
-  toastStatement: { flex: 1, minWidth: 0 },
-  toastUndo: { flexShrink: 0 },
   decisionToastCard: { pointerEvents: "auto", width: "min(560px, calc(100vw - 32px))" },
   columnHead: { whiteSpace: "nowrap" },
 });
-
-const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
-  accept: "accepted",
-  reject: "rejected",
-  retract: "retracted",
-  reopen: "pending",
-};
 
 const LIBRARY_SORTS = ["newest", "oldest", "decided"] as const;
 type LibrarySort = (typeof LIBRARY_SORTS)[number];
@@ -200,24 +183,14 @@ function LibraryDecisionNotice({ decision }: { decision: ReturnType<typeof useLi
       </Paper>
     );
   if (decision.undoable === undefined) return null;
+  const undo = () => void decision.undo();
   return (
-    <Paper shadow="md" p={0} {...stylex.props(styles.decisionToastCard)}>
-      <Alert color="tastebud" variant="light" py="xs" aria-live="polite">
-        <Group gap="sm" wrap="nowrap">
-          <DerivationStatusBadge status={STATUS_AFTER_OUTCOME[decision.undoable.outcome]} />
-          <Text size="sm" lineClamp={1} {...stylex.props(styles.toastStatement)}>
-            “{decision.undoable.row.statement}”
-          </Text>
-          <Button
-            variant="subtle"
-            loading={decision.undoing}
-            onClick={() => void decision.undo()}
-            {...stylex.props(styles.toastUndo)}
-          >
-            Undo
-          </Button>
-        </Group>
-      </Alert>
+    <Paper shadow="md" px="sm" py="xs" aria-live="polite" {...stylex.props(styles.decisionToastCard)}>
+      <DecisionOutcomeLine
+        status={decision.undoable.status}
+        statement={decision.undoable.row.statement}
+        undo={decision.canUndo ? { undoing: decision.undoing, onUndo: undo, undoKey: undo } : undefined}
+      />
     </Paper>
   );
 }

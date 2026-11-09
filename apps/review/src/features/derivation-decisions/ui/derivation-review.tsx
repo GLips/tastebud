@@ -11,12 +11,12 @@ import type { MouseEventHandler } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
+import { ignoringRepeatClicks } from "#review/shared/ui/ignoring-repeat-clicks.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import type { DerivationVersions } from "./derivation-related.tsx";
-import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePropertyField } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
@@ -200,8 +200,8 @@ export function DerivationScopeProperty({ review, known }: { review: DerivationR
 }
 
 /**
- * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker, U undoes
- * the decision just made here, Esc drops a changed scope and otherwise goes back. No key fires from
+ * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker (U is the
+ * rail's Undo, bound while it shows), Esc drops a changed scope and otherwise goes back. No key fires from
  * a text field, though a clicked checkbox or tab doesn't hold them, and none fire while a panel or list is open.
  */
 export function useDerivationPageHotkeys(review: DerivationReview, goBack: () => void) {
@@ -216,7 +216,6 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
       options: { enabled: decidable && view.status !== "rejected" },
     },
     { hotkey: "S", callback: review.openPicker, options: { enabled: decidable } },
-    { hotkey: "U", callback: review.undo, options: { enabled: idle && review.undoable !== undefined } },
     // Skipped in text fields: here it would go back the moment Esc closes the reject box.
     {
       hotkey: "Escape",

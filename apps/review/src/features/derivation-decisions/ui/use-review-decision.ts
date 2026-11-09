@@ -1,8 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DerivationScope } from "@tastebud/core/places";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
 import { useRef, useState } from "react";
 
+import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import type { ReviewFailure } from "#review/shared/review-outcome.ts";
@@ -130,6 +131,12 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
   const queryClient = useQueryClient();
   const [failure, setFailure] = useState<ReviewFailure | undefined>(undefined);
   const [undoable, setUndoable] = useState<UndoableReviewDecision | undefined>(undefined);
+  // Undo only while the decision made here is still the newest on record: once anything else decides
+  // it, in another tab or by an agent, undoing would overwrite a decision this hook never saw.
+  const newestId = useQuery({
+    ...recordDetailQuery(undoable?.target ?? ""),
+    enabled: undoable !== undefined,
+  }).data?.derivation?.decisions.at(-1)?.id;
   const mutation = useMutation({
     // Several decisions only for an undo; it stops at the first refusal, which is the outcome shown.
     mutationFn: async ({ target: ref, inputs, from }: ReviewDecisionVariables) => {
@@ -180,6 +187,8 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
     failure,
     clearFailure: () => setFailure(undefined),
     undoable,
+    /** Whether `undoable` is still the newest decision on record, which is when Undo shows. */
+    canUndo: undoable !== undefined && newestId === undoable.decisionId,
     /** Writes the reversing decision. It isn't itself undoable: the owner can just decide again. */
     undo: () =>
       undoable === undefined
