@@ -7,6 +7,7 @@ import {
   ActionIcon,
   Alert,
   Anchor,
+  Badge,
   Loader,
   Box,
   Collapse,
@@ -200,36 +201,76 @@ function ReachRows({
   );
 }
 
-function ReachSection({ title, children }: { title: string; children: ReactNode }) {
+function ReachSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <Stack gap="3xs">
-      <Text size="sm" fw={600}>
-        {title}
-      </Text>
+      <Group gap="xs">
+        <Text size="sm" fw={600}>
+          {title}
+        </Text>
+        <Badge color="gray" tt="none" fw={500}>
+          {count}
+        </Badge>
+      </Group>
       {children}
     </Stack>
   );
 }
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+interface ReachStat {
+  readonly label: string;
+  readonly about: string;
+  readonly color: string;
+}
 
 /**
- * The count line above the table. Its first number is the sidebar's (everything scoped to this place,
- * any status); the next counts what applies here including what parents and Everywhere pass down, and
- * splits it into what reaches agents (the number Recall shows here) and what stays in the backlog.
+ * The counts above the table. The first is the sidebar's (everything scoped to this place, any status);
+ * "apply" adds what parents and Everywhere pass down, split into what reaches agents (Recall's number here)
+ * and what stays in the backlog.
  */
-function reachCountLine(
+function reachStatsOf(
   scopedCount: number,
   rows: ReadonlyArray<PlaceReachRow>,
   catalog: CatalogView | undefined,
   isGlobal: boolean,
-): string {
+): ReadonlyArray<ReachStat> {
   const backlog = rows.filter((row) => findKindView(catalog, row.summary.kind)?.recall === "never").length;
-  const applies = isGlobal
-    ? `${rows.length} accepted apply in every place`
-    : `${rows.length} accepted apply here (including inherited)`;
-  const split = [`${rows.length - backlog} reach agents`, ...(backlog > 0 ? [`${backlog} stay in your backlog`] : [])];
-  return `${plural(scopedCount, "item", "items")} scoped ${isGlobal ? "everywhere" : "here"} · ${applies}: ${split.join(", ")}`;
+  return [
+    {
+      label: `${scopedCount} scoped ${isGlobal ? "everywhere" : "here"}`,
+      about: `Items whose scope names ${isGlobal ? "every place" : "this place"}, in any status`,
+      color: "gray",
+    },
+    {
+      label: `${rows.length} apply`,
+      about: isGlobal
+        ? "Accepted, and apply in every place"
+        : "Accepted, and apply here, including from parents and Everywhere",
+      color: "gray",
+    },
+    {
+      label: `${rows.length - backlog} sent`,
+      about: "Reach agents: sent with prompts, or looked up when asked",
+      color: "tastebud",
+    },
+    ...(backlog > 0
+      ? [{ label: `${backlog} backlog`, about: "Accepted, but never shown to agents", color: "gray" }]
+      : []),
+  ];
+}
+
+function ReachStats({ stats }: { stats: ReadonlyArray<ReachStat> }) {
+  return (
+    <Group gap="xs">
+      {stats.map((stat) => (
+        <Tooltip key={stat.label} label={stat.about} withArrow openDelay={150}>
+          <Badge color={stat.color} tt="none" fw={500}>
+            {stat.label}
+          </Badge>
+        </Tooltip>
+      ))}
+    </Group>
+  );
 }
 
 /** Each kind's library filtered to this place, and the recall inspector standing here. */
@@ -310,10 +351,16 @@ function SettledAgainst({
           <Text size="sm" fw={600}>
             Doesn't apply
           </Text>
-          <SupportingText tier="secondary">
-            {plural(rows.length, "item", "items")} you rejected, retracted or replaced. Agents are told about rejections
-            so they don't propose them again.
-          </SupportingText>
+          <Tooltip
+            label="Rejected, retracted or replaced. Agents are told about rejections so they don't propose them again."
+            withArrow
+            multiline
+            maw={300}
+          >
+            <Badge color="gray" tt="none" fw={500}>
+              {rows.length}
+            </Badge>
+          </Tooltip>
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>
@@ -396,11 +443,7 @@ export function PlaceDetails({
       {all.data === undefined && !all.error && <Loader size="sm" />}
       {all.data !== undefined && (
         <>
-          <Text size="sm">
-            {reach.applies.length === 0 && reach.waiting.length === 0
-              ? "Nothing you've accepted applies here yet."
-              : reachCountLine(scopedCount, reach.applies, catalog, isGlobal)}
-          </Text>
+          <ReachStats stats={reachStatsOf(scopedCount, reach.applies, catalog, isGlobal)} />
 
           {probes.length > 0 && !isGlobal && (
             <ProbeReachNotice
@@ -412,13 +455,13 @@ export function PlaceDetails({
           )}
 
           {reach.applies.length > 0 && (
-            <ReachSection title="Applies here">
+            <ReachSection title="Applies here" count={reach.applies.length}>
               <ReachRows rows={reach.applies} known={known} onSelect={onSelect} column="delivery" />
             </ReachSection>
           )}
 
           {reach.waiting.length > 0 && (
-            <ReachSection title="Waiting for you">
+            <ReachSection title="Waiting for you" count={reach.waiting.length}>
               <ReachRows rows={reach.waiting} known={known} onSelect={onSelect} column="waiting" />
             </ReachSection>
           )}

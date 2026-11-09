@@ -9,6 +9,7 @@ export type RecallExplanationLookup = { readonly ref: string } | { readonly text
 
 export const REVIEW_QUERY_KEYS = {
   shell: () => ["shell"] as const,
+  agentHostConnections: () => ["agent-host-connections"] as const,
   inbox: () => ["inbox"] as const,
   knownPlaces: () => ["places", "known"] as const,
   placesAudit: (probes: ReadonlyArray<string>) => ["places", "audit", probes] as const,

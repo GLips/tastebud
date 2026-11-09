@@ -1,23 +1,32 @@
 /**
- * Places' "Check a folder" tools: which place one folder resolves to, and the folders you work in
- * (the probes the audit checks scopes against), kept in this browser.
+ * Places' "Test a path": which place one folder (or named place) resolves to, opened above the place it
+ * lands on, and the paths you keep checking, which the audit warns about when none reach a place.
+ * The kept paths live in this browser.
  */
-import { Box, ActionIcon, Button, Group, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Badge, Box, Button, Group, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
 import type { PlaceResolverName } from "@tastebud/core/taste-vocabulary";
-import { ArrowRight, LocateFixed, Plus, X } from "lucide-react";
+import { ArrowRight, LocateFixed, Pin, X } from "lucide-react";
 import { useState } from "react";
 
 import { reviewContextQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
+  panel: {
+    paddingBottom: "16px",
+    marginBottom: "16px",
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: "var(--mantine-color-gray-2)",
+  },
   grow: { flex: 1 },
   preWrap: { whiteSpace: "pre-wrap" },
-  probeRow: {
+  pathRow: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 0.9fr) 16px minmax(0, 1.1fr) auto",
     columnGap: "8px",
@@ -28,188 +37,170 @@ const styles = stylex.create({
 });
 
 const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
-  git: "inside a git checkout that's its repo (and subfolder), anywhere else the folder itself",
-  directories: "the folder itself",
-  custom: "a rule in tastebud.config.ts decides",
+  git: "Inside a git checkout, its repo (and subfolder); anywhere else, the folder itself",
+  directories: "The folder itself",
+  custom: "A rule in tastebud.config.ts decides",
 };
 
-/** "Where am I?": one directory through the configured resolver, without touching the probes. */
-/** What one probe resolved to: its places, or why there are none to show. */
-function ProbeResolutionChips({
-  resolution,
-  known,
-}: {
-  resolution: AuditPlacesResult["audit"]["probes"][number] | undefined;
-  known: KnownPlaces;
-}) {
-  if (resolution === undefined)
+/** The places a path resolved to, or a quiet "no place" when the resolver returned none. */
+function ResolvedPlaces({ places, known }: { places: ReadonlyArray<string> | undefined; known: KnownPlaces }) {
+  if (places === undefined) return <SupportingText tier="faint">…</SupportingText>;
+  if (places.length === 0)
     return (
-      <Text size="xs" c="dimmed">
-        …
-      </Text>
+      <Badge color="orange" tt="none" fw={500}>
+        No place
+      </Badge>
     );
-  if (resolution.places.length === 0)
-    return (
-      <Text size="xs" c="orange.8">
-        No places (unknown context)
-      </Text>
-    );
-  return resolution.places.map((place) => <PlaceChip key={place} place={place} label={known.labelOf(place)} />);
+  return places.map((place) => <PlaceChip key={place} place={place} label={known.labelOf(place)} />);
 }
 
-export function WhereAmIPanel({ onKeep }: { onKeep: (directory: string) => void }) {
-  const catalog = useReviewCatalog();
-  const [draft, setDraft] = useState("");
-  const [asked, setAsked] = useState<string | undefined>(undefined);
-  const resolved = useQuery(reviewContextQuery({ in: asked }));
-  const known = useKnownPlaces(resolved.data?.places ?? []);
-  return (
-    <Paper p="sm">
-      <Stack gap="xs">
-        <Stack gap="3xs">
-          <Text size="sm" fw={600}>
-            Which place is this folder?
-          </Text>
-          {catalog !== undefined && (
-            <Text size="xs" c="dark.4">
-              An agent working in a folder is placed by the folder: {PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]}. An
-              agent with no folder, like a chat app, names its place instead, such as clients/acme.
-            </Text>
-          )}
-        </Stack>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (draft.trim() !== "") setAsked(draft.trim());
-          }}
-        >
-          <Group gap="xxs" wrap="nowrap">
-            <TextInput
-              size="xs"
-              aria-label="Where am I? A working directory to resolve"
-              placeholder="e.g. ~/code/acme-web/apps/checkout"
-              leftSection={<LocateFixed size={13} />}
-              value={draft}
-              onChange={(event) => setDraft(event.currentTarget.value)}
-              {...stylex.props(styles.grow)}
-            />
-            <Button size="xs" variant="default" type="submit" loading={resolved.isFetching}>
-              Resolve
-            </Button>
-          </Group>
-        </form>
-        {asked !== undefined && resolved.error && (
-          <Text size="xs" c="red.7" {...stylex.props(styles.preWrap)}>
-            {resolved.error.message}
-          </Text>
-        )}
-        {asked !== undefined && resolved.data !== undefined && (
-          <Group gap="xxs">
-            <Text size="xs" c="dark.4">
-              {resolved.data.places.length === 0 ? "Unknown context: the resolver returned no places" : "Resolves to"}
-            </Text>
-            {resolved.data.places.map((place) => (
-              <PlaceChip key={place} place={place} label={known.labelOf(place)} />
-            ))}
-            <Button size="compact-xs" variant="subtle" onClick={() => onKeep(asked)}>
-              Keep checking it
-            </Button>
-          </Group>
-        )}
-      </Stack>
-    </Paper>
-  );
-}
+/**
+ * Of the places a path resolves to, the one the details pane opens: the most specific with items, else the
+ * most specific, so a path that lands nowhere in use still shows that nothing applies there.
+ */
+const placeToOpenOf = (places: ReadonlyArray<string>, audit: AuditPlacesResult | undefined) => {
+  const specificFirst = places.toSorted((left, right) => right.length - left.length);
+  return specificFirst.find((place) => audit?.places.some((entry) => entry.place === place)) ?? specificFirst[0];
+};
 
-export function PlaceTestBench({
+export function PlacePathTester({
   probes,
   addProbe,
   setProbes,
   audit,
   known,
+  onOpenPlace,
+  onClose,
 }: {
   probes: ReadonlyArray<string>;
   addProbe: (probe: string) => void;
   setProbes: (probes: ReadonlyArray<string>) => void;
   audit: AuditPlacesResult | undefined;
   known: KnownPlaces;
+  onOpenPlace: (place: string) => void;
+  onClose: () => void;
 }) {
+  const catalog = useReviewCatalog();
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
-  const unmatchedCount = audit?.audit.unmatched.length ?? 0;
+  const [asked, setAsked] = useState<string | undefined>(undefined);
+  const resolved = useQuery({ ...reviewContextQuery({ in: asked }), enabled: asked !== undefined });
+  const resolvedKnown = useKnownPlaces(resolved.data?.places ?? []);
+  const unreached = probes.length === 0 ? 0 : (audit?.audit.unmatched.length ?? 0);
+
+  const test = async (path: string) => {
+    setAsked(path);
+    const context = await queryClient.fetchQuery(reviewContextQuery({ in: path }));
+    const place = placeToOpenOf(context.places, audit);
+    if (place !== undefined) onOpenPlace(place);
+  };
+
   return (
-    <Paper p="sm">
-      <Stack gap="xs">
-        <Group justify="space-between">
-          <Text size="sm" fw={600}>
-            Folders you work in
-          </Text>
-          {probes.length > 0 && audit !== undefined && (
-            <Text size="xs" c={unmatchedCount > 0 ? "orange.8" : "tastebud.8"}>
-              {unmatchedCount === 0
-                ? "Every place you've accepted items for is reached"
-                : `${unmatchedCount} ${unmatchedCount === 1 ? "place" : "places"} with accepted items none of these reach`}
-            </Text>
+    <Stack gap="sm" {...stylex.props(styles.panel)}>
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="xs">
+          <Text fw={600}>Test a path</Text>
+          {catalog !== undefined && (
+            <Tooltip label={PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]} withArrow multiline maw={300}>
+              <Badge color="gray" tt="none" fw={500}>
+                Resolver: {catalog.resolver}
+              </Badge>
+            </Tooltip>
           )}
         </Group>
-        {probes.length === 0 ? (
-          <Text size="xs" c="dimmed">
-            Add the folders (or place keys) you work in. Places with accepted items that none of them reach get a
-            warning in the list, kept in this browser.
+        <Tooltip label="Close" withArrow>
+          <ActionIcon variant="subtle" color="gray" aria-label="Close Test a path" onClick={onClose}>
+            <X size={14} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (draft.trim() !== "") void test(draft.trim());
+        }}
+      >
+        <Group gap="xs" wrap="nowrap">
+          <TextInput
+            aria-label="A folder or place to test"
+            placeholder="~/code/acme-web/apps/checkout"
+            leftSection={<LocateFixed size={14} />}
+            value={draft}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            data-autofocus
+            {...stylex.props(styles.grow)}
+          />
+          <Button variant="default" type="submit" loading={resolved.isFetching}>
+            Test
+          </Button>
+        </Group>
+      </form>
+      {asked !== undefined && resolved.error && (
+        <Text size="sm" c="red.7" {...stylex.props(styles.preWrap)}>
+          {resolved.error.message}
+        </Text>
+      )}
+      {asked !== undefined && !resolved.error && (
+        <Box {...stylex.props(styles.pathRow)}>
+          <Text fz="xs" {...stylex.props(styles.mono)}>
+            {asked}
           </Text>
-        ) : (
-          <Box>
-            {probes.map((probe) => {
-              const resolution = audit?.audit.probes.find(
-                (entry) => entry.probe === probe || entry.places.includes(probe),
-              );
-              return (
-                <Box key={probe} {...stylex.props(styles.probeRow)}>
-                  <Text fz="xs" {...stylex.props(styles.mono)}>
-                    {probe}
-                  </Text>
-                  <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
-                  <Group gap="2xs">
-                    <ProbeResolutionChips resolution={resolution} known={known} />
-                  </Group>
-                  <Tooltip label="Stop checking this" withArrow>
-                    <ActionIcon
-                      size="sm"
-                      variant="subtle"
-                      color="gray"
-                      aria-label={`Remove ${probe}`}
-                      onClick={() => setProbes(probes.filter((kept) => kept !== probe))}
-                    >
-                      <X size={13} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            addProbe(draft);
-            setDraft("");
-          }}
-        >
-          <Group gap="xxs" wrap="nowrap">
-            <TextInput
-              size="xs"
-              aria-label="Add a working location"
-              placeholder="clients/acme, or ~/code/acme-web"
-              leftSection={<Plus size={13} />}
-              value={draft}
-              onChange={(event) => setDraft(event.currentTarget.value)}
-              {...stylex.props(styles.grow)}
-            />
-            <Button size="xs" variant="default" type="submit" disabled={draft.trim() === ""}>
-              Add
-            </Button>
+          <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
+          <Group gap="2xs">
+            <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
           </Group>
-        </form>
-      </Stack>
-    </Paper>
+          {probes.includes(asked) ? (
+            <Box />
+          ) : (
+            <Tooltip label="Keep checking it: places none of your kept paths reach get a warning" withArrow multiline>
+              <Button variant="subtle" size="xs" leftSection={<Pin size={12} />} onClick={() => addProbe(asked)}>
+                Keep
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+      )}
+      {probes.length > 0 && (
+        <Stack gap="3xs">
+          <Group gap="xs">
+            <Text size="sm" fw={600}>
+              Kept paths
+            </Text>
+            {audit !== undefined && (
+              <Badge color={unreached > 0 ? "orange" : "tastebud"} tt="none" fw={500}>
+                {unreached > 0 ? `${unreached} ${unreached === 1 ? "place" : "places"} unreached` : "All reached"}
+              </Badge>
+            )}
+          </Group>
+          {probes.map((probe) => (
+            <Box key={probe} {...stylex.props(styles.pathRow)}>
+              <Text fz="xs" {...stylex.props(styles.mono)}>
+                {probe}
+              </Text>
+              <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
+              <Group gap="2xs">
+                <ResolvedPlaces
+                  places={
+                    audit?.audit.probes.find((entry) => entry.probe === probe || entry.places.includes(probe))?.places
+                  }
+                  known={known}
+                />
+              </Group>
+              <Tooltip label="Stop checking this" withArrow>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`Remove ${probe}`}
+                  onClick={() => setProbes(probes.filter((kept) => kept !== probe))}
+                >
+                  <X size={13} />
+                </ActionIcon>
+              </Tooltip>
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Stack>
   );
 }

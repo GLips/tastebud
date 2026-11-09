@@ -93,7 +93,6 @@ export function RecallQueryBar({ check, onRun }: { check: RecallCheck; onRun: (n
             />
           </Box>
           <Select
-            size="xs"
             w={130}
             aria-label="Kinds to check"
             value={check.kind ?? "all"}
@@ -105,7 +104,6 @@ export function RecallQueryBar({ check, onRun }: { check: RecallCheck; onRun: (n
             onChange={(value) => run({ kind: value === null || value === "all" ? undefined : value })}
           />
           <Checkbox
-            size="xs"
             label="With history"
             title="Include replaced and retracted items"
             checked={check.history === true}

@@ -1,11 +1,29 @@
 /** Recall with no prompt: everything agents can be told where the inspector stands, by kind, and the no's they hear. */
-import { Box, Stack, Text } from "@mantine/core";
+import { Badge, Box, Group, Stack, Text, Tooltip } from "@mantine/core";
+import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
+import type { ReactNode } from "react";
 
-import { capitalize, describeKindDelivery } from "#review/shared/ui/kind-identity.tsx";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+import { capitalize, describeKindDelivery, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
 
 import type { RecallAppliesHere } from "./recall-applies.ts";
 import { RecallItemRow } from "./recall-item-row.tsx";
+import { rejectionOutcome } from "./recall-reasons.ts";
+
+const RECALL_POLICY_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
+
+function SectionTitle({ title, count, children }: { title: string; count: number; children?: ReactNode }) {
+  return (
+    <Group gap="xs">
+      <Text size="sm" fw={600}>
+        {title}
+      </Text>
+      <Badge color="gray" tt="none" fw={500}>
+        {count}
+      </Badge>
+      {children}
+    </Group>
+  );
+}
 
 export function RecallAppliesPanel({
   applies,
@@ -20,25 +38,25 @@ export function RecallAppliesPanel({
   const total = applies.byKind.reduce((sum, group) => sum + group.accepted.length, 0);
   return (
     <Stack gap="lg">
-      <Text size="sm">
-        {total === 0
-          ? "Nothing you've accepted reaches agents here."
-          : `${total} accepted ${total === 1 ? "item reaches" : "items reach"} agents ${nowhere ? "even nowhere in particular, because they apply everywhere" : "here"}. Type a prompt to see which of them an agent would get for it.`}
-      </Text>
+      {total === 0 && (
+        <Text size="sm" c="dimmed">
+          {nowhere ? "Nothing you've accepted applies everywhere." : "Nothing you've accepted reaches agents here."}
+        </Text>
+      )}
       {applies.byKind.map(({ kind, accepted }) => (
         <Stack key={kind.key} gap="2xs">
-          <Stack gap="3xs">
-            <Text size="sm" fw={600}>
-              {capitalize(kind.plural)}{" "}
-              <Text span size="xs" c="dimmed" fw={400}>
-                {accepted.length}
-              </Text>
-            </Text>
-            <SupportingText tier="secondary">
-              {describeKindDelivery(kind)}
-              {kind.recall === "inject" && ` At most ${hookLimit} go with one prompt.`}
-            </SupportingText>
-          </Stack>
+          <SectionTitle title={capitalize(kind.plural)} count={accepted.length}>
+            <Tooltip
+              label={`${describeKindDelivery(kind)}${kind.recall === "inject" ? ` At most ${hookLimit} go with one prompt.` : ""}`}
+              withArrow
+              multiline
+              maw={320}
+            >
+              <Badge color={RECALL_POLICY_COLORS[kind.recall]} tt="none" fw={500}>
+                {RECALL_POLICY_LABELS[kind.recall]}
+              </Badge>
+            </Tooltip>
+          </SectionTitle>
           <Box>
             {accepted.map((item) => (
               <RecallItemRow key={item.id} item={item} />
@@ -48,25 +66,20 @@ export function RecallAppliesPanel({
       ))}
       {applies.rejected.length > 0 && (
         <Stack gap="2xs">
-          <Stack gap="3xs">
-            <Text size="sm" fw={600}>
-              You said no{" "}
-              <Text span size="xs" c="dimmed" fw={400}>
-                {applies.rejected.length}
-              </Text>
-            </Text>
-            <SupportingText tier="secondary">
-              Rejected here. When an agent asks about matching words it is told you said no, so it doesn't propose them
-              again.
-            </SupportingText>
-          </Stack>
+          <Tooltip
+            label="Agents asking about matching words are told you said no, so they don't propose them again"
+            withArrow
+            multiline
+            maw={320}
+          >
+            <Box w="fit-content">
+              <SectionTitle title="Rejected here" count={applies.rejected.length} />
+            </Box>
+          </Tooltip>
           <Box>
+            <RecallItemRow.Head />
             {applies.rejected.map((item) => (
-              <RecallItemRow
-                key={item.id}
-                item={item}
-                {...(item.reason !== undefined && { reason: `“${item.reason}”` })}
-              />
+              <RecallItemRow key={item.id} item={item} outcome={rejectionOutcome(item)} />
             ))}
           </Box>
         </Stack>
