@@ -90,6 +90,8 @@ export function RecallInspectorPage() {
                 appliesUnmatched={applies.byKind
                   .flatMap((group) => group.accepted)
                   .filter((item) => !surfaced.has(item.id))}
+                query={submitted.query}
+                where={check.at === undefined ? check.in : known.labelOf(check.at)}
               />
             );
           }}

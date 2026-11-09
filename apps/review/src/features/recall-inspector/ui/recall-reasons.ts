@@ -6,6 +6,7 @@ import type { ExcludedRecallHit, RecallExclusionReason, RecallResult } from "@ta
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { capitalize, findKindView } from "#review/shared/ui/kind-identity.tsx";
+import type { RecallOutcomeTone } from "#review/shared/ui/outcome-chip.tsx";
 
 /** Why an accepted recall hit is there on request rather than sent with the prompt. */
 const availableThroughRecallReason = (
@@ -81,20 +82,21 @@ export function recallExplanationLines(
   ];
 }
 
-/** A row's outcome in Recall's answer: a chip, and a short why (the full sentence in its tooltip). */
+/**
+ * A row's outcome in Recall's answer: the chip's tone, a narrower word in that tone when the tone's own word
+ * isn't enough ("History"), and the why in full. The row's status sits in its own column.
+ */
 export interface RecallOutcome {
-  readonly label: string;
-  readonly color: string;
+  readonly tone: RecallOutcomeTone;
+  readonly label?: string;
   readonly why?: string;
-  readonly whyInFull?: string;
 }
 
 const placeWhy = (matched: string, known: KnownPlaces) =>
   matched === "global" ? "Applies everywhere" : `Applies in ${known.labelOf(matched)}`;
 
 export const sentOutcome = (matched: string, known: KnownPlaces): RecallOutcome => ({
-  label: "Sent",
-  color: "tastebud",
+  tone: "sent",
   why: placeWhy(matched, known),
 });
 
@@ -103,45 +105,36 @@ export const onRequestOutcome = (
   hit: Pick<RecallResult["accepted"][number], "kind" | "kindLabel" | "explanation">,
   catalog: CatalogView | undefined,
   hookLimit: number,
-  known: KnownPlaces,
-): RecallOutcome => ({
-  label: "On request",
-  color: "cyan",
-  why: hit.explanation.policy === "pull" ? "Given when an agent asks" : `Over the ${hookLimit}-item limit`,
-  whyInFull: `${availableThroughRecallReason(hit, catalog, hookLimit)}. ${placeWhy(hit.explanation.matchedPlace, known)}.`,
-});
+): RecallOutcome => ({ tone: "on-request", why: availableThroughRecallReason(hit, catalog, hookLimit) });
 
 export const rejectionOutcome = (hit: Pick<RecallResult["rejected"][number], "reason">): RecallOutcome => ({
-  label: "Rejected",
-  color: "red",
-  why: hit.reason === undefined ? "Agents are told you said no" : `“${hit.reason}”`,
-  whyInFull: `Agents are told you said no, so they don't propose it again${hit.reason === undefined ? "." : `: “${hit.reason}”`}`,
+  tone: "not-sent",
+  label: "Told no",
+  why: `Agents are told you said no${hit.reason === undefined ? "" : `: “${hit.reason}”`}`,
 });
 
-const EXCLUSION_CHIPS: Record<RecallExclusionReason, Pick<RecallOutcome, "label" | "color">> = {
-  "out-of-scope": { label: "Held back", color: "orange" },
-  "never-policy": { label: "Not sent", color: "gray" },
-  pending: { label: "Pending", color: "blue" },
-  "history-not-requested": { label: "History", color: "gray" },
-  "kind-not-selected": { label: "Filtered out", color: "gray" },
-  "retired-kind": { label: "Retired kind", color: "gray" },
+// Only a scope holds an item back; every other exclusion is not sent, some with a narrower word.
+const EXCLUSION_CHIPS: Record<RecallExclusionReason, Pick<RecallOutcome, "tone" | "label">> = {
+  "out-of-scope": { tone: "held-back" },
+  "never-policy": { tone: "not-sent" },
+  pending: { tone: "not-sent" },
+  "history-not-requested": { tone: "not-sent", label: "History" },
+  "kind-not-selected": { tone: "not-sent", label: "Filtered out" },
+  "retired-kind": { tone: "not-sent", label: "Retired kind" },
 };
 
-/** A match that doesn't reach agents here; the why is `exclusionReason` as a short phrase. */
+/** A match that doesn't reach agents here. */
 export const exclusionOutcome = (
   hit: Pick<ExcludedRecallHit, "kind" | "kindLabel" | "status" | "exclusion" | "effectiveScope">,
   catalog: CatalogView | undefined,
   known: KnownPlaces,
-): RecallOutcome => {
-  const reason = exclusionReason(hit, catalog, known);
-  return { ...EXCLUSION_CHIPS[hit.exclusion], why: capitalize(reason), whyInFull: `Matched the words, but ${reason}` };
+): RecallOutcome => ({ ...EXCLUSION_CHIPS[hit.exclusion], why: capitalize(exclusionReason(hit, catalog, known)) });
+
+export const HISTORY_OUTCOME: RecallOutcome = {
+  tone: "not-sent",
+  label: "History",
+  why: "Shown because you included replaced and retracted",
 };
 
-export const historyOutcome = (hit: Pick<RecallResult["history"][number], "status">): RecallOutcome => ({
-  label: hit.status === "superseded" ? "Replaced" : "Retracted",
-  color: "gray",
-  why: "Shown with history",
-});
-
 /** Applies where the agent stands, but these words didn't bring it up. No why: the chip says it, row after row. */
-export const UNMATCHED_OUTCOME: RecallOutcome = { label: "Not matched", color: "gray" };
+export const UNMATCHED_OUTCOME: RecallOutcome = { tone: "not-matched" };
