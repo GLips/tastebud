@@ -1,4 +1,4 @@
-import { Stack } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -68,6 +68,11 @@ export function RecallInspectorPage() {
           onRun={(next) => void navigate({ search: next, replace: true })}
         />
         {check.in !== undefined && standing !== undefined && <RecallContextSummary context={standing} />}
+        {check.at !== undefined && search.at === undefined && (
+          <Text size="xs" c="dimmed">
+            Standing in {known.labelOf(check.at)}, your first repo. Pick another place, or nowhere, in the bar.
+          </Text>
+        )}
       </Stack>
 
       {itemRef !== undefined && <RecallItemExplanation request={{ ...submitted, lookup: { ref: itemRef } }} />}

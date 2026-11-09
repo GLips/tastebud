@@ -305,8 +305,20 @@ describe("lifecycle", () => {
     expect(await statusAfter({ outcome: "retract" })).toBe("retracted");
     expect(await statusAfter({ outcome: "accept" })).toBe("accepted");
     expect(await statusAfter({ outcome: "reject", reason: "changed my mind again" })).toBe("rejected");
+    // Rejecting again changes the reason; the same reason twice is refused.
+    expect(await statusAfter({ outcome: "reject", reason: "small isn't the point, focus is" })).toBe("rejected");
+    expect(
+      (
+        await failOperation(
+          root,
+          "decide",
+          { ref: belief.id, outcome: "reject", reason: "small isn't the point, focus is" },
+          reviewer,
+        )
+      )._tag,
+    ).toBe("DecisionNotAllowed");
     const shown = (await runOperation(root, "show", { ref: belief.id }, inWeb)).derivation;
-    expect([shown?.decisions.length, shown?.reason]).toEqual([5, "changed my mind again"]);
+    expect([shown?.decisions.length, shown?.reason]).toEqual([6, "small isn't the point, focus is"]);
 
     // A superseded one is decided through its revision, which can itself be undone.
     await decide(root, { ref: belief.id, outcome: "accept" });

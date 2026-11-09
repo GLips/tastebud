@@ -7,6 +7,7 @@ import {
   ActionIcon,
   Alert,
   Anchor,
+  Loader,
   Box,
   Collapse,
   CopyButton,
@@ -44,7 +45,7 @@ const styles = stylex.create({
   shrinkable: { minWidth: 0 },
   row: {
     display: "grid",
-    gridTemplateColumns: "12px minmax(0, 1fr) 150px 150px",
+    gridTemplateColumns: "14px minmax(0, 1fr) 130px 190px",
     columnGap: "8px",
     alignItems: "baseline",
     paddingBlock: "6px",
@@ -123,17 +124,18 @@ function ReachOrigin({
 type ReachColumn = "delivery" | "waiting" | "settled";
 
 const REACH_COLUMN_TITLES: Record<ReachColumn, string> = {
-  delivery: "Reaches agents",
-  waiting: "Reaches agents",
+  delivery: "How agents get it",
+  waiting: "How agents get it",
   settled: "Status",
 };
 
 function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn }) {
   const catalog = useReviewCatalog();
+  const kind = findKindView(catalog, row.summary.kind);
   if (column === "waiting")
     return (
       <Text size="xs" c="dimmed">
-        Not until accepted
+        {kind?.recall === "never" ? `Never sent (${kind.plural} stay in your backlog)` : "Not until accepted"}
       </Text>
     );
   if (column === "settled")
@@ -142,7 +144,6 @@ function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn })
         {SETTLED_STATUS_WORDS[row.summary.status]}
       </Text>
     );
-  const kind = findKindView(catalog, row.summary.kind);
   if (kind === undefined) return null;
   return (
     <Text size="xs" c={kind.recall === "inject" ? "tastebud.8" : "dimmed"}>
@@ -169,7 +170,7 @@ function ReachRows({
         <Box />
         <Box />
         <Text size="xs" c="dimmed" fw={500}>
-          From
+          Set on
         </Text>
         <Text size="xs" c="dimmed" fw={500}>
           {REACH_COLUMN_TITLES[column]}
@@ -177,7 +178,7 @@ function ReachRows({
       </Box>
       {rows.map((row) => (
         <Box key={row.summary.id} {...stylex.props(styles.row)}>
-          <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
+          <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={12} />
           <Text size="sm">
             <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
               {row.summary.statement}
@@ -212,7 +213,8 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 
 /**
  * The count line above the table. Its first number is the sidebar's (everything scoped to this place,
- * any status); the next is what reaches agents here, the number Recall shows standing at the same place.
+ * any status); the next counts what applies here including what parents and Everywhere pass down, and
+ * splits it into what reaches agents (the number Recall shows here) and what stays in the backlog.
  */
 function reachCountLine(
   scopedCount: number,
@@ -221,11 +223,11 @@ function reachCountLine(
   isGlobal: boolean,
 ): string {
   const backlog = rows.filter((row) => findKindView(catalog, row.summary.kind)?.recall === "never").length;
-  return [
-    `${plural(scopedCount, "item", "items")} scoped ${isGlobal ? "everywhere" : "here"}`,
-    `${rows.length - backlog} accepted reach agents ${isGlobal ? "in every place" : "here"}`,
-    ...(backlog > 0 ? [`${backlog} in your backlog`] : []),
-  ].join(" · ");
+  const applies = isGlobal
+    ? `${rows.length} accepted apply in every place`
+    : `${rows.length} accepted apply here (including inherited)`;
+  const split = [`${rows.length - backlog} reach agents`, ...(backlog > 0 ? [`${backlog} stay in your backlog`] : [])];
+  return `${plural(scopedCount, "item", "items")} scoped ${isGlobal ? "everywhere" : "here"} · ${applies}: ${split.join(", ")}`;
 }
 
 /** Each kind's library filtered to this place, and the recall inspector standing here. */
@@ -389,9 +391,10 @@ export function PlaceDetails({
         <PlaceOnwardLinks place={place} />
       </Stack>
 
-      {all.error ? (
-        <QueryErrorAlert error={all.error} />
-      ) : (
+      {all.error && <QueryErrorAlert error={all.error} />}
+      {/* Until the derivations load, an empty table would read as "nothing applies here". */}
+      {all.data === undefined && !all.error && <Loader size="sm" />}
+      {all.data !== undefined && (
         <>
           <Text size="sm">
             {reach.applies.length === 0 && reach.waiting.length === 0
