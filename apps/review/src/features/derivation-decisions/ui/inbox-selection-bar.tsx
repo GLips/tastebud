@@ -4,21 +4,26 @@
  * off, and once it lands it holds the batch's Undo all. It sticks to the bottom of the queue so it
  * stays in reach while more rows are checked.
  */
-import { Button, Group, Kbd, Loader, Paper, Popover, Text, Tooltip } from "@mantine/core";
+import { Box, Button, Group, Kbd, Loader, Paper, Popover, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Undo2 } from "lucide-react";
 import { useState } from "react";
+
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 
 import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import type { InboxBatchProgress, InboxBatchVerb } from "./use-inbox-batch.ts";
 
 const styles = stylex.create({
-  bar: { position: "sticky", bottom: "16px", zIndex: 6 },
-  // One height in every state, so the queue above doesn't jump as the bar changes.
-  body: { minHeight: "36px" },
+  bar: { position: "sticky", bottom: "var(--mantine-spacing-md)", zIndex: 6 },
+  // One height in every state, so the queue above doesn't jump as the bar changes: a default (sm)
+  // Button's, as Mantine sizes it; its --button-height-sm is scoped to Button, so it is restated here.
+  body: { minHeight: "calc(2.25rem * var(--mantine-scale))" },
+  // The bar's own height (body, its xs padding, its 1px border) reserved below it, so at the queue's end
+  // it can settle in place instead of riding its sticky offset up over the last row.
+  spacer: { height: "calc(2.25rem * var(--mantine-scale) + 2 * var(--mantine-spacing-xs) + 2px)" },
   count: { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
 });
 
@@ -56,7 +61,7 @@ function SelectingBar({
   const { checked, believable, rejectable } = state.counts;
   const leftOut = checked - believable;
   // The selection owns a and r while it exists; the open row's own a and r stand down (see the pane).
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "A", callback: () => believable > 0 && state.onBelieve(), options: { enabled: !rejecting } },
     { hotkey: "R", callback: () => rejectable > 0 && setRejecting(true), options: { enabled: !rejecting } },
   ]);
@@ -127,35 +132,42 @@ function SelectingBar({
 
 export function InboxSelectionBar({ kind, state }: { kind: DerivedKindView; state: InboxSelectionBarState }) {
   return (
-    <Paper withBorder shadow="md" px="sm" py="xs" {...stylex.props(styles.bar)}>
-      {state.stage === "selecting" && <SelectingBar kind={kind} state={state} />}
-      {state.stage === "running" && (
-        <Group gap="xs" wrap="nowrap" {...stylex.props(styles.body)}>
-          <Loader size="xs" />
-          <Text size="sm" fw={600} {...stylex.props(styles.count)}>
-            {PROGRESS_VERBS[state.progress.verb]} {state.progress.at} of {state.progress.total}…
-          </Text>
-        </Group>
-      )}
-      {state.stage === "done" && (
-        <Group justify="space-between" wrap="nowrap" gap="sm" {...stylex.props(styles.body)}>
-          <Text size="sm" fw={600} {...stylex.props(styles.count)}>
-            {state.count} {DONE_WORDS[state.verb]}
-          </Text>
-          <Tooltip
-            label={
-              <>
-                Undo all <Kbd size="xs">U</Kbd>
-              </>
-            }
-            withArrow
-          >
-            <Button variant="default" leftSection={<Undo2 size={14} />} onClick={ignoringRepeatClicks(state.onUndoAll)}>
-              Undo all
-            </Button>
-          </Tooltip>
-        </Group>
-      )}
-    </Paper>
+    <>
+      <Paper withBorder shadow="md" px="sm" py="xs" {...stylex.props(styles.bar)}>
+        {state.stage === "selecting" && <SelectingBar kind={kind} state={state} />}
+        {state.stage === "running" && (
+          <Group gap="xs" wrap="nowrap" {...stylex.props(styles.body)}>
+            <Loader size="xs" />
+            <Text size="sm" fw={600} {...stylex.props(styles.count)}>
+              {PROGRESS_VERBS[state.progress.verb]} {state.progress.at} of {state.progress.total}…
+            </Text>
+          </Group>
+        )}
+        {state.stage === "done" && (
+          <Group justify="space-between" wrap="nowrap" gap="sm" {...stylex.props(styles.body)}>
+            <Text size="sm" fw={600} {...stylex.props(styles.count)}>
+              {state.count} {DONE_WORDS[state.verb]}
+            </Text>
+            <Tooltip
+              label={
+                <>
+                  Undo all <Kbd size="xs">U</Kbd>
+                </>
+              }
+              withArrow
+            >
+              <Button
+                variant="default"
+                leftSection={<Undo2 size={14} />}
+                onClick={ignoringRepeatClicks(state.onUndoAll)}
+              >
+                Undo all
+              </Button>
+            </Tooltip>
+          </Group>
+        )}
+      </Paper>
+      <Box aria-hidden {...stylex.props(styles.spacer)} />
+    </>
   );
 }

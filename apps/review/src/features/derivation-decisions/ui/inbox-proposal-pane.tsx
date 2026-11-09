@@ -102,6 +102,7 @@ function InboxDecisionButtons({
       acceptDisabled={!isCompleteScope(triage.shownScope)}
       onAccept={ignoringRepeatClicks(triage.accept)}
       onReject={ignoringRepeatClicks(triage.startReject)}
+      oneOfSelection={triage.selectionHoldsKeys}
     />
   );
 }

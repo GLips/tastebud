@@ -1,12 +1,11 @@
 import {
-  ActionIcon,
   Box,
+  Button,
   Center,
   Code,
   Collapse,
   Group,
   Loader,
-  Menu,
   Modal,
   Paper,
   Stack,
@@ -17,7 +16,7 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
-import { ChevronRight, Ellipsis, MessageSquare } from "lucide-react";
+import { ChevronRight, MessageSquare } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -123,23 +122,14 @@ const ownerDecisionsOf = (catalog: CatalogView): string => {
   return `${actions.slice(0, -1).join(", ")} or ${actions.at(-1)}`;
 };
 
-/** How it behaves' ⋯ menu: the only way to change behaviour is to ask an agent, so its prompt lives here. */
-function HowItBehavesMenu({ configPath }: { configPath: string }) {
+/** The only way to change behaviour is to ask an agent, so Change… opens the prompt to paste to one. */
+function ChangeBehaviourButton({ configPath }: { configPath: string }) {
   const [asking, setAsking] = useState(false);
   return (
     <>
-      <Menu position="bottom-end" withArrow>
-        <Menu.Target>
-          <ActionIcon variant="subtle" color="gray" size="input-sm" aria-label="More for How it behaves">
-            <Ellipsis size={16} />
-          </ActionIcon>
-        </Menu.Target>
-        <Menu.Dropdown>
-          <Menu.Item leftSection={<MessageSquare size={14} />} onClick={() => setAsking(true)}>
-            Ask your agent to change this…
-          </Menu.Item>
-        </Menu.Dropdown>
-      </Menu>
+      <Button variant="default" leftSection={<MessageSquare size={14} />} onClick={() => setAsking(true)}>
+        Change…
+      </Button>
       <Modal opened={asking} onClose={() => setAsking(false)} title="Ask your agent to change this" size="xl">
         <Stack gap="xs">
           <SupportingText tier="secondary">Paste this to your agent, with what you want changed.</SupportingText>
@@ -150,12 +140,49 @@ function HowItBehavesMenu({ configPath }: { configPath: string }) {
   );
 }
 
-function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPath: string }) {
+/** A behaviour row whose detail is rarely needed: its summary, and Show to unfold the rest under it. */
+function DisclosureFactRow({ label, summary, children }: { label: string; summary: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <FactRow label={label}>
+      <Stack gap="sm">
+        <Group gap="xs" wrap="nowrap">
+          {summary}
+          <UnstyledButton
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-label={`${open ? "Hide" : "Show"} ${label}`}
+          >
+            <Group gap="3xs" wrap="nowrap">
+              <ChevronRight
+                size={13}
+                color="var(--mantine-color-gray-6)"
+                {...stylex.props(styles.chevron, open && styles.chevronOpen)}
+              />
+              <SupportingText tier="secondary">{open ? "Hide" : "Show"}</SupportingText>
+            </Group>
+          </UnstyledButton>
+        </Group>
+        <Collapse expanded={open}>{children}</Collapse>
+      </Stack>
+    </FactRow>
+  );
+}
+
+function HowItBehaves({
+  catalog,
+  storeRoot,
+  configPath,
+}: {
+  catalog: CatalogView;
+  storeRoot: string;
+  configPath: string;
+}) {
   return (
     <Stack gap="sm" component="section" aria-label="How it behaves">
       <Group justify="space-between" align="center">
         <Text fw={600}>How it behaves</Text>
-        <HowItBehavesMenu configPath={configPath} />
+        <ChangeBehaviourButton configPath={configPath} />
       </Group>
       <Paper p="md">
         <Box {...stylex.props(styles.facts)}>
@@ -179,34 +206,15 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
               <RecallPolicyChip policy={kind.recall} about={describeKindDelivery(kind)} />
             </FactRow>
           ))}
+          <StoreFactRow catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
+          <KindsFactRow catalog={catalog} />
         </Box>
       </Paper>
     </Stack>
   );
 }
 
-/** A rarely needed section, collapsed to its title and a quiet summary until opened. */
-function DisclosureSection({ title, summary, children }: { title: string; summary: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Stack gap="sm" component="section" aria-label={title}>
-      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
-        <Group gap="2xs">
-          <ChevronRight
-            size={14}
-            color="var(--mantine-color-gray-6)"
-            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
-          />
-          <Text fw={600}>{title}</Text>
-          <SupportingText tier="faint">{summary}</SupportingText>
-        </Group>
-      </UnstyledButton>
-      <Collapse expanded={open}>{children}</Collapse>
-    </Stack>
-  );
-}
-
-function StoreFacts({
+function StoreFactRow({
   catalog,
   storeRoot,
   configPath,
@@ -216,39 +224,43 @@ function StoreFacts({
   configPath: string;
 }) {
   return (
-    <DisclosureSection title="Store" summary={storeRoot}>
-      <Paper p="md">
-        <Box {...stylex.props(styles.facts)}>
-          <FactRow label="Folder">
-            <Text fz="xs" {...stylex.props(styles.mono)}>
-              {storeRoot}
-            </Text>
-          </FactRow>
-          <FactRow label="Config">
-            <Text fz="xs" {...stylex.props(styles.mono)}>
-              {configPath}
-            </Text>
-          </FactRow>
-          <FactRow label="Place resolver">
-            <Group gap="xs">
-              <Text size="sm">{capitalize(catalog.resolver)}</Text>
-              <AnchorLink to="/places" size="sm">
-                Places →
-              </AnchorLink>
-            </Group>
-          </FactRow>
-        </Box>
-      </Paper>
-    </DisclosureSection>
+    <DisclosureFactRow
+      label="Store"
+      summary={
+        <Text fz="xs" {...stylex.props(styles.mono)}>
+          {storeRoot}
+        </Text>
+      }
+    >
+      <Box {...stylex.props(styles.facts)}>
+        <FactRow label="Config">
+          <Text fz="xs" {...stylex.props(styles.mono)}>
+            {configPath}
+          </Text>
+        </FactRow>
+        <FactRow label="Place resolver">
+          <Group gap="xs">
+            <Text size="sm">{capitalize(catalog.resolver)}</Text>
+            <AnchorLink to="/places" size="sm">
+              Places →
+            </AnchorLink>
+          </Group>
+        </FactRow>
+      </Box>
+    </DisclosureFactRow>
   );
 }
 
 /** The kinds as configured: labels, button wording, sources and the prompts agents read. Rarely needed. */
-function KindDetails({ catalog }: { catalog: CatalogView }) {
+function KindsFactRow({ catalog }: { catalog: CatalogView }) {
   return (
-    <DisclosureSection
-      title="Kinds"
-      summary={`${catalog.derivedKinds.length} derived · ${catalog.sourceKinds.length} source`}
+    <DisclosureFactRow
+      label="Kinds"
+      summary={
+        <Text size="sm">
+          {catalog.derivedKinds.length} derived · {catalog.sourceKinds.length} source
+        </Text>
+      }
     >
       <Stack gap="lg">
         <Stack gap="sm">
@@ -282,7 +294,7 @@ function KindDetails({ catalog }: { catalog: CatalogView }) {
           </Paper>
         </Stack>
       </Stack>
-    </DisclosureSection>
+    </DisclosureFactRow>
   );
 }
 
@@ -301,9 +313,7 @@ export function SettingsPage() {
     <Stack gap="xl">
       <ReviewPageHeader title="Settings" />
       <AgentHostConnections storeRoot={storeIsDefault ? undefined : storeRoot} />
-      <HowItBehaves catalog={catalog} configPath={configPath} />
-      <StoreFacts catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
-      <KindDetails catalog={catalog} />
+      <HowItBehaves catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
     </Stack>
   );
 }

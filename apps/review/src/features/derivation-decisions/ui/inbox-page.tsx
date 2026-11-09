@@ -76,7 +76,12 @@ export function InboxPage() {
   const known = useKnownPlaces();
   const catalog = shell.data?.catalog;
   const kinds = catalog?.derivedKinds ?? [];
-  const { kind, pendingByKind } = useInboxKind(kinds, inbox.data?.groups, search.kind);
+  const { kind, chosenKind, pendingByKind } = useInboxKind(kinds, inbox.data?.groups, search.kind);
+  // A bare `/` names its tab once it is chosen, so the address can be shared or reloaded as is.
+  useEffect(() => {
+    if (search.kind === undefined && chosenKind !== undefined)
+      void navigate({ search: (previous) => ({ ...previous, kind: chosenKind }), replace: true });
+  }, [search.kind, chosenKind, navigate]);
   const queue = useStableInboxQueue(inbox.data?.groups, kind?.key ?? "");
   const cards = useInboxCardStates();
   // Cards decided here stay where they were, folded to their outcome with Undo, but j/k skip them.

@@ -21,6 +21,7 @@ import { ArrowLeft, Check, Copy } from "lucide-react";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { describeSpeaker, formatReviewClock, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { DerivationRelationRow } from "#review/shared/ui/derivation-relation-row.tsx";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
@@ -29,6 +30,10 @@ import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceAddress } from "#review/shared/ui/source-address.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+import { WordBoundaryText } from "#review/shared/ui/word-boundary-text.tsx";
+
+import { sourceListQuery } from "./source-queries.ts";
+import { SourceSpeaker } from "./source-speaker.tsx";
 
 const Route = getRouteApi("/sources/$id");
 
@@ -61,6 +66,9 @@ const styles = stylex.create({
   },
   aboveRowLink: { position: "relative", zIndex: 1 },
 });
+
+/** Words that already end a sentence take no trailing ellipsis, which would read as four dots. */
+const endsSentence = (text: string) => /[.!?…]["”’)]?$/.test(text.trimEnd());
 
 /** How many neighbouring quotes to show: the ones said closest in time, then in the order they were said. */
 const NEIGHBOUR_LIMIT = 6;
@@ -144,6 +152,13 @@ function SourceProperties({
   );
 }
 
+/** The earlier words a revision replaces, read from their own record since the source keeps only their id. */
+function RevisedQuote({ id, fallback }: { id: string; fallback: string }) {
+  const earlier = useQuery(recordDetailQuery(id));
+  const quote = earlier.data?.source?.source.quote;
+  return quote === undefined ? fallback : <WordBoundaryText text={`“${quote}”`} />;
+}
+
 /** Earlier words these revise, and later words that revise these, as linked rows. Nothing when neither exists. */
 function SourceRevisions({ view, revisedBy }: { view: SourceView; revisedBy: ReadonlyArray<SourceRecord> }) {
   const { revises } = view.source;
@@ -175,7 +190,11 @@ function SourceRevisions({ view, revisedBy }: { view: SourceView; revisedBy: Rea
                     lineClamp={2}
                     {...stylex.props(styles.rowLink)}
                   >
-                    {row.quote === undefined ? `An earlier ${view.kindLabel}` : `“${row.quote}”`}
+                    {row.quote === undefined ? (
+                      <RevisedQuote id={row.id} fallback={`An earlier ${view.kindLabel}`} />
+                    ) : (
+                      <WordBoundaryText text={`“${row.quote}”`} />
+                    )}
                   </AnchorLink>
                 </Table.Td>
               </Table.Tr>
@@ -223,6 +242,17 @@ function SourceLedTo({ cited }: { cited: ReadonlyArray<Citation> }) {
   );
 }
 
+/** A neighbours column heading; every column but the words fits its content. */
+function NeighbourColumnHead({ label, align, grow }: { label: string; align?: "right"; grow?: boolean }) {
+  return (
+    <Table.Th {...stylex.props(grow !== true && styles.fitCell)} {...(align !== undefined && { ta: align })}>
+      <Text size="xs" c="gray.7" fw={600}>
+        {label}
+      </Text>
+    </Table.Th>
+  );
+}
+
 /**
  * Other quotes beside this one, each opening its own page: what was said in the same conversation (the same
  * meeting, thread or Claude Code session) or, when the store links none, the same speaker's latest words.
@@ -242,6 +272,9 @@ function SourceNeighbours({
   bySpeaker: boolean;
   owner: string | undefined;
 }) {
+  // A source's own record carries no citation count, so the counts come from the list's rows.
+  const sourceList = useQuery(sourceListQuery(undefined, undefined));
+  const ledToCountOf = new Map((sourceList.data ?? []).map((row) => [row.source.id, row.citedByCount]));
   if (neighbours.length === 0) return null;
   return (
     <Stack gap="xs">
@@ -250,6 +283,14 @@ function SourceNeighbours({
       </Text>
       <Paper p={0}>
         <Table verticalSpacing="xs" horizontalSpacing="md">
+          <Table.Thead>
+            <Table.Tr>
+              <NeighbourColumnHead label={bySpeaker ? "Said" : "At"} />
+              {!bySpeaker && <NeighbourColumnHead label="Said by" />}
+              <NeighbourColumnHead label="Words" grow />
+              <NeighbourColumnHead label="Led to" align="right" />
+            </Table.Tr>
+          </Table.Thead>
           <Table.Tbody>
             {neighbours.map((neighbour) => (
               <Table.Tr key={neighbour.source.id} {...stylex.props(styles.row)}>
@@ -260,7 +301,7 @@ function SourceNeighbours({
                 </Table.Td>
                 {!bySpeaker && (
                   <Table.Td {...stylex.props(styles.fitCell)}>
-                    <SupportingText tier="secondary">{describeSpeaker(neighbour.source, owner)}</SupportingText>
+                    <SourceSpeaker source={neighbour.source} owner={owner} />
                   </Table.Td>
                 )}
                 <Table.Td>
@@ -275,6 +316,9 @@ function SourceNeighbours({
                   >
                     “{neighbour.source.quote}”
                   </AnchorLink>
+                </Table.Td>
+                <Table.Td ta="right" {...stylex.props(styles.fitCell)}>
+                  <CountBadge count={ledToCountOf.get(neighbour.source.id) ?? 0} />
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -337,7 +381,7 @@ export function SourcePage() {
             </Text>
             {source.after !== undefined && (
               <SupportingText tier="secondary" {...stylex.props(styles.around)}>
-                {source.after}…
+                {endsSentence(source.after) ? source.after : `${source.after}…`}
               </SupportingText>
             )}
           </Stack>

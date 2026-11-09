@@ -40,6 +40,7 @@ export function PendingDecisionButtons({
   onAccept,
   onReject,
   stacked = false,
+  oneOfSelection = false,
 }: {
   acceptLabel: string;
   needsPreview?: boolean;
@@ -49,16 +50,23 @@ export function PendingDecisionButtons({
   onReject: MouseEventHandler<HTMLButtonElement>;
   /** The state card stacks them full width, Believe on top; the pane's head sets them in a row. */
   stacked?: boolean;
+  /**
+   * Rows are checked in the inbox, whose bar then owns a and r: these buttons say they decide just this
+   * proposal, and their tooltips drop the keys.
+   */
+  oneOfSelection?: boolean;
 }) {
+  const scoped = (label: string) => (oneOfSelection ? `${label} this one` : label);
+  const keyed = (label: string, key: string) => (oneOfSelection ? label : `${label} · ${key}`);
   const reject = (
-    <Tooltip label="Reject with a reason · R" withArrow>
+    <Tooltip label={keyed("Reject with a reason", "R")} withArrow>
       <Button variant="default" fullWidth={stacked} leftSection={<X size={14} />} onClick={onReject}>
-        Reject
+        {scoped("Reject")}
       </Button>
     </Tooltip>
   );
   const accept = (
-    <Tooltip label={needsPreview ? `Review, then ${acceptLabel.toLowerCase()} · A` : `${acceptLabel} · A`} withArrow>
+    <Tooltip label={keyed(needsPreview ? `Review, then ${acceptLabel.toLowerCase()}` : acceptLabel, "A")} withArrow>
       <Button
         fullWidth={stacked}
         leftSection={<Check size={14} />}
@@ -66,7 +74,7 @@ export function PendingDecisionButtons({
         disabled={acceptDisabled}
         onClick={onAccept}
       >
-        {`${acceptLabel}${needsPreview ? "…" : ""}`}
+        {`${scoped(acceptLabel)}${needsPreview ? "…" : ""}`}
       </Button>
     </Tooltip>
   );
