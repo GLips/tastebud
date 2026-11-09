@@ -15,12 +15,20 @@ const typesText = (element: Element | null): boolean =>
       element instanceof HTMLSelectElement ||
       (element instanceof HTMLElement && element.isContentEditable);
 
+/**
+ * A key pressed in an open menu or popover, or on the control that opened one, belongs to it: Esc there
+ * closes the menu, and must not also go back or reach the inbox behind it. Checked on the key's target,
+ * which still says so while Mantine is closing the overlay in the same keydown.
+ */
+const OPEN_OVERLAY = '[role="menu"], [role="dialog"], [aria-haspopup][aria-expanded="true"]';
+
 export function useReviewHotkeys(definitions: ReadonlyArray<UseHotkeyDefinition>) {
   useHotkeys(
     definitions.map((definition) => ({
       ...definition,
       callback: (event, context) => {
-        if (typesText(event.target instanceof Element ? event.target : null)) return;
+        const target = event.target instanceof Element ? event.target : null;
+        if (typesText(target) || target?.closest(OPEN_OVERLAY)) return;
         if (definition.options?.preventDefault !== false) event.preventDefault();
         definition.callback(event, context);
       },

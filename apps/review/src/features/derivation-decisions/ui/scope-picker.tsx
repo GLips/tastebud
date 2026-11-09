@@ -16,10 +16,14 @@ import {
   scopePickOfPlacePickerValue,
 } from "@tastebud/core/places";
 import { ChevronDown, ChevronUp, Globe } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { PlacePickerList } from "#review/shared/ui/place-picker-list.tsx";
+
+/** On the box the list must stay inside (the page's rail); without one it keeps to the viewport. */
+const SCOPE_PICKER_BOUNDS = "data-scope-picker-bounds";
 
 /** The trigger's words, short enough for the properties column: "Everywhere", "acme/web", "acme/web +2". */
 const scopeSummaryOf = (draft: ScopeDraft, labelOf: (place: PlaceKey) => string): string => {
@@ -46,7 +50,16 @@ interface ScopePickerProps {
   disabled?: boolean;
 }
 
-function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange, disabled = false }: ScopePickerProps) {
+function ScopePicker({
+  value,
+  proposed,
+  known,
+  onChange,
+  opened,
+  onOpenedChange,
+  disabled = false,
+  bounds,
+}: ScopePickerProps & { bounds: Element | null }) {
   const combobox = useCombobox({
     ...(opened !== undefined && { opened }),
     ...(onOpenedChange !== undefined && { onOpenedChange }),
@@ -72,7 +85,7 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
       onOptionSubmit={submit}
       width={320}
       position="bottom-start"
-      middlewares={{ flip: false, shift: true }}
+      middlewares={{ flip: false, shift: bounds === null ? true : { boundary: bounds } }}
       shadow="md"
     >
       <Combobox.Target targetType="button">
@@ -132,11 +145,19 @@ export function ScopePropertyField({
   /** Drops the draft; omitted while the draft can't be changed. */
   onRestore: (() => void) | undefined;
 }) {
+  // The list is wider than the rail, so it shifts left to end at the rail's edge rather than past it.
+  const [bounds, setBounds] = useState<Element | null>(null);
+  const findBounds = useCallback(
+    (node: HTMLElement | null) => setBounds(node?.closest(`[${SCOPE_PICKER_BOUNDS}]`) ?? null),
+    [],
+  );
   return (
-    <Stack gap="2xs" align="flex-start">
+    <Stack ref={findBounds} gap="2xs" align="flex-start">
       {/* Capped at the column and wrapping, so a long scope truncates and "guessed" drops under it. */}
       <Group gap="xs" maw="100%">
-        <ScopePicker {...picker} />
+        {/* Remounted once the rail is found: floating-ui compares middlewares by their source text, so a
+            boundary arriving after the first render would otherwise never reach the list. */}
+        <ScopePicker key={bounds === null ? "viewport" : "bounded"} {...picker} bounds={bounds} />
         {guessed && changes.length === 0 && picker.opened !== true && (
           <Tooltip label="Guessed from where the agent was working" withArrow>
             <Badge color="gray">guessed</Badge>

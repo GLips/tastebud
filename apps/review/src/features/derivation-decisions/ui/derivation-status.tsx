@@ -94,7 +94,7 @@ export function DerivationRail({
   const decided = view.status === "pending" ? undefined : view.status;
   const setter = view.status === "pending" || view.status === "superseded" ? undefined : stateSettingDecisionOf(view);
   return (
-    <Paper p={0} {...stylex.props(styles.rail)}>
+    <Paper p={0} data-scope-picker-bounds {...stylex.props(styles.rail)}>
       <Stack
         gap="sm"
         p="md"
