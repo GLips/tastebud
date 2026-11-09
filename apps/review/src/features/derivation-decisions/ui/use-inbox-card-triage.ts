@@ -5,13 +5,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import type { InboxCard } from "@tastebud/core/inbox";
-import {
-  describeScopeChange,
-  isCompleteScope,
-  isSameScope,
-  isScopeNarrowing,
-  type ScopeDraft,
-} from "@tastebud/core/places";
+import { describeScopeChange, isCompleteScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
 import { useEffect, useState } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
@@ -68,7 +62,6 @@ export function useInboxCardTriage({
   });
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<InboxCardMode>("idle");
-  const [conflict, setConflict] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   // The picker lives in the pane, so it closes with the card's selection rather than staying open unseen.
@@ -79,9 +72,9 @@ export function useInboxCardTriage({
   const edited = draft !== undefined && !isSameScope(proposed, draft);
   const override = scopeOverrideOf(proposed, draft);
   const changes = describeScopeChange(proposed, shownScope, known.labelOf);
-  // A conflict always previews; an edit previews only when it reaches somewhere the agent didn't propose.
-  const needsPreview =
-    card.needsAcknowledgement.length > 0 || (edited && !(isCompleteScope(draft) && isScopeNarrowing(proposed, draft)));
+  // Only a known near repeat previews first; any other accept, scope edit or not, is sent and the
+  // server's check opens the preview if the edited scope overlaps something.
+  const needsPreview = card.needsAcknowledgement.length > 0;
   const engaged = mode !== "idle" || decision.pending || pickerOpen;
 
   useEffect(() => {
@@ -132,7 +125,6 @@ export function useInboxCardTriage({
     const outcome = await decision.decide({ outcome: "accept", ...override, acknowledges });
     if (outcome.ok) return settleDecided(undefined);
     if (outcome.failure.tag !== "WideningNeedsAcknowledgement") return;
-    setConflict(true);
     setMode("previewing");
     await refreshReviewQueriesAfterWrite(queryClient, acceptPreviewsStaleOf(view.id));
   };
@@ -142,10 +134,9 @@ export function useInboxCardTriage({
     if (outcome.ok) settleDecided(undefined);
   };
   const accept = () => {
-    if (decision.pending || queued) return;
+    if (decision.pending || queued || !isCompleteScope(shownScope)) return;
     setPickerOpen(false);
     if (!needsPreview) return void submitAccept([]);
-    setConflict(false);
     setMode("previewing");
   };
 
@@ -153,7 +144,6 @@ export function useInboxCardTriage({
     decision,
     mode,
     setMode,
-    conflict,
     rejectReason,
     setRejectReason,
     pickerOpen,

@@ -1,4 +1,4 @@
-import { Box, Alert, Center, Loader, Paper, Stack } from "@mantine/core";
+import { Box, Alert, Center, Loader, Stack } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useLocation } from "@tanstack/react-router";
@@ -7,16 +7,16 @@ import type { DerivationView, ShowResult } from "@tastebud/core/record-views";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { findKindView } from "#review/shared/ui/kind-identity.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 import { DerivationActivity } from "./derivation-activity.tsx";
 import { DerivationBackLink, DerivationRestsOn, DerivationTitleRow, useDerivationBack } from "./derivation-header.tsx";
 import { DerivationProperties } from "./derivation-properties.tsx";
-import { DerivationRelated } from "./derivation-related.tsx";
+import { DerivationRelated, versionsOf } from "./derivation-related.tsx";
 import { DerivationReviewPanels, DerivationScopeProperty, useDerivationPageHotkeys } from "./derivation-review.tsx";
-import { DerivationStateCard } from "./derivation-status.tsx";
+import { DerivationRail } from "./derivation-status.tsx";
 import { useDerivationReview } from "./use-derivation-review.ts";
 
 const Route = getRouteApi("/derivations/$id");
@@ -92,13 +92,13 @@ function DerivationDetail({
       <Box {...stylex.props(styles.layout)}>
         <Stack gap="xl">
           <Stack gap="md">
-            <DerivationTitleRow
-              size="page"
-              glyph={<KindGlyph catalog={catalog} kind={view.kind} size={14} label={view.kindLabel} />}
-              statement={view.statement}
-              status={view.status}
+            <DerivationTitleRow size="page" statement={view.statement} />
+            <DerivationReviewPanels
+              review={review}
+              acceptLabel={acceptLabel}
+              known={known}
+              versions={versionsOf(view, detail.despitedBy)}
             />
-            <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
           </Stack>
           <DerivationRestsOn view={view} kind={kind} owner={owner} />
           <DerivationRelated view={view} backlinks={detail} known={known} />
@@ -111,18 +111,21 @@ function DerivationDetail({
             focusComposer={discussing}
           />
         </Stack>
-        <Stack gap="md" {...stylex.props(styles.properties)}>
-          <DerivationStateCard review={review} acceptLabel={acceptLabel} owner={owner} />
-          <Paper p="md">
-            <DerivationProperties
-              view={view}
-              kind={kind}
-              owner={owner}
-              host="page"
-              scope={<DerivationScopeProperty review={review} known={known} />}
-            />
-          </Paper>
-        </Stack>
+        <Box {...stylex.props(styles.properties)}>
+          <DerivationRail
+            review={review}
+            acceptLabel={acceptLabel}
+            owner={owner}
+            properties={
+              <DerivationProperties
+                view={view}
+                kind={kind}
+                owner={owner}
+                scope={<DerivationScopeProperty review={review} known={known} />}
+              />
+            }
+          />
+        </Box>
       </Box>
     </Stack>
   );

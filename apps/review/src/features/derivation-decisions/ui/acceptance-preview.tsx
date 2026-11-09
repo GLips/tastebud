@@ -9,7 +9,6 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type DerivationScope, formatPlaceLabel } from "@tastebud/core/places";
 import type { RepeatMatch } from "@tastebud/core/record-views";
-import { TriangleAlert } from "lucide-react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { CautionChip } from "#review/shared/ui/caution-chip.tsx";
@@ -18,6 +17,7 @@ import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { acceptPreviewQuery } from "./decision-queries.ts";
+import type { DerivationVersions } from "./derivation-related.tsx";
 import { scopeButtonPhrase } from "./scope-draft.ts";
 
 const styles = stylex.create({
@@ -63,15 +63,22 @@ function OverlapSummary({
   error,
   loaded,
   matches,
-  answered,
+  versions,
   labels,
 }: {
   error: Error | null;
   loaded: boolean;
   matches: ReadonlyArray<RepeatMatch>;
-  answered: ReadonlyArray<RepeatMatch>;
+  versions: DerivationVersions;
   labels: ReadonlyMap<string, string>;
 }) {
+  const earlier = new Set(versions.earlier.map((summary) => summary.id));
+  const newer = new Set(versions.newer.map((summary) => summary.id));
+  const tagOf = (match: RepeatMatch) => {
+    if (earlier.has(match.id)) return "Earlier version";
+    if (newer.has(match.id)) return "Newer version";
+    return <CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />;
+  };
   const catalog = useReviewCatalog();
   if (error)
     return (
@@ -87,13 +94,7 @@ function OverlapSummary({
       </Group>
     );
   if (matches.length === 0)
-    return (
-      <SupportingText tier="secondary">
-        {answered.length > 0
-          ? "Nothing close overlaps this scope beyond what the agent already answered."
-          : "Nothing close to it overlaps this scope."}
-      </SupportingText>
-    );
+    return <SupportingText tier="secondary">Nothing close to it overlaps this scope.</SupportingText>;
   return (
     <Stack gap="xs">
       <Text size="sm" fw={500}>
@@ -101,31 +102,24 @@ function OverlapSummary({
       </Text>
       <Paper>
         {matches.map((match) => (
-          <DerivationRelationRow
-            key={match.id}
-            tag={<CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />}
-            summary={match}
-            catalog={catalog}
-            labels={labels}
-          />
+          <DerivationRelationRow key={match.id} tag={tagOf(match)} summary={match} catalog={catalog} labels={labels} />
         ))}
       </Paper>
     </Stack>
   );
 }
 
-const NO_SCOPE_CHANGES: ReadonlyArray<string> = [];
+const NO_VERSIONS: DerivationVersions = { earlier: [], newer: [] };
 
 export function AcceptancePreview({
   target,
   statement,
   override,
   proposedScope,
-  changes = NO_SCOPE_CHANGES,
+  versions = NO_VERSIONS,
   verb,
   consequence,
   active = false,
-  conflict = false,
   pending,
   labels,
   onConfirm,
@@ -136,16 +130,17 @@ export function AcceptancePreview({
   /** The amended scope; left out to accept as proposed. */
   override?: DerivationScope | undefined;
   proposedScope: DerivationScope;
-  /** How the scope differs from the proposed one, a sentence each; none when it doesn't. */
-  changes?: ReadonlyArray<string>;
+  /**
+   * Its versions: an overlap that is one reads as a version, not a near repeat. The library leaves it
+   * out, having no version links loaded for its rows.
+   */
+  versions?: DerivationVersions;
   /** The kind's accept label: it names the confirm button ("Believe anyway"). */
   verb: string;
   /** What changes once it lands, in a sentence, when that isn't plain from the verb. */
   consequence?: string | undefined;
   /** Whether it listens for ⌘↵ and Esc: only the one the owner is working in. Off by default. */
   active?: boolean;
-  /** The server found a match this preview didn't show; the draft is kept and nothing retried. */
-  conflict?: boolean;
   pending: boolean;
   labels: ReadonlyMap<string, string>;
   onConfirm: (acknowledges: ReadonlyArray<string>) => void;
@@ -175,28 +170,15 @@ export function AcceptancePreview({
         </Box>
         <Box {...stylex.props(styles.label)}>
           <SupportingText tier="secondary">Applies in</SupportingText>
-          <Stack gap="2xs">
-            <ScopeChips scope={finalScope} labels={labels} wrap="wrap" linked={false} />
-            {changes.map((change) => (
-              <Text key={change} size="xs" c={change.startsWith("Applies everywhere") ? "orange.8" : "dimmed"}>
-                {change}
-              </Text>
-            ))}
-          </Stack>
+          <ScopeChips scope={finalScope} labels={labels} wrap="wrap" linked={false} />
         </Box>
         {consequence !== undefined && <Text size="sm">{consequence}</Text>}
-
-        {conflict && (
-          <Alert color="yellow" variant="light" py="xxs" icon={<TriangleAlert size={14} />}>
-            Something close to it overlaps this scope. Read it below, then {verb.toLowerCase()} anyway or go back.
-          </Alert>
-        )}
 
         <OverlapSummary
           error={preview.error}
           loaded={preview.data !== undefined}
           matches={matches}
-          answered={preview.data?.answeredByDespite ?? []}
+          versions={versions}
           labels={labels}
         />
 

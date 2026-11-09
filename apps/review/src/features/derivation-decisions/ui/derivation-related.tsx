@@ -1,12 +1,11 @@
 /**
  * How this derivation relates to others, in groups of title-first rows. Earlier versions come first;
  * Newer versions is a stack, this one as the bold parent and later proposals that replace it or were
- * made despite it hanging under it on a rail. Conflicts holds what contradicts or reverses it or comes
- * close to a rejection; Linked holds evidence links, shared words and near matches. A record shows
- * once, in its first group.
+ * made despite it hanging under it on a rail. Conflicts holds what contradicts, reverses or nearly
+ * repeats it; Linked holds evidence links, shared words and near matches. A record shows once, in its
+ * first group.
  */
-import { Paper, Text } from "@mantine/core";
-import * as stylex from "@stylexjs/stylex";
+import { Paper } from "@mantine/core";
 import type { DerivationSummary, DerivationView, ShowResult } from "@tastebud/core/record-views";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -16,10 +15,6 @@ import { DerivationRelationRow, type DerivationRelationPlace } from "#review/sha
 
 import { DerivationSection } from "./derivation-header.tsx";
 
-const styles = stylex.create({
-  prose: { whiteSpace: "pre-wrap" },
-});
-
 interface DerivationRelation {
   /** How it relates, as a trailing word; empty where the group's header says it. */
   readonly relation?: string;
@@ -27,8 +22,6 @@ interface DerivationRelation {
   readonly caution?: DerivationCaution;
   readonly summary: DerivationSummary;
   readonly place?: DerivationRelationPlace | undefined;
-  /** The agent's case for proposing again, under the earlier record it answers. */
-  readonly agentCase?: string | undefined;
 }
 
 /** What the page's detail adds about records pointing back; the inbox adds its near matches. */
@@ -39,6 +32,24 @@ export type DerivationBacklinks = Partial<Pick<ShowResult, "despitedBy" | "cited
   readonly similar?: ReadonlyArray<DerivationSummary>;
 };
 
+/**
+ * A `supersedes` or `despite` link, either way, makes two records versions of each other: one proposed
+ * to replace or answer the other. That outranks anything else they share, so a pair never also reads
+ * as near a rejection or a near repeat.
+ */
+export interface DerivationVersions {
+  readonly earlier: ReadonlyArray<DerivationSummary>;
+  readonly newer: ReadonlyArray<DerivationSummary>;
+}
+
+export const versionsOf = (
+  view: DerivationView,
+  despitedBy: ReadonlyArray<DerivationSummary> = [],
+): DerivationVersions => ({
+  earlier: [...view.ancestors, ...view.despite],
+  newer: [...view.revisions, ...despitedBy],
+});
+
 const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) => {
   const seen = new Set<string>([view.id]);
   const firstSeen = (entries: ReadonlyArray<DerivationRelation>) =>
@@ -47,24 +58,10 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       seen.add(entry.summary.id);
       return true;
     });
-  const earlier = firstSeen(view.ancestors.map((summary) => ({ summary })));
-  const newer = firstSeen(
-    [...view.revisions, ...(backlinks.despitedBy ?? [])].map((summary) => ({
-      summary,
-      place: "child" as const,
-    })),
-  );
-  // Read from each record's state now: once a rejection is undone or reversed, it is only similar,
-  // and the agent's case against it no longer answers anything.
-  const stillRejected = view.despite.filter((summary) => summary.status === "rejected");
-  const despiteCase = view.derivation.despite_case;
+  const versions = versionsOf(view, backlinks.despitedBy);
+  const earlier = firstSeen(versions.earlier.map((summary) => ({ summary })));
+  const newer = firstSeen(versions.newer.map((summary) => ({ summary, place: "child" as const })));
   const conflicts = firstSeen([
-    ...stillRejected.map((summary, index) => ({
-      relation: "Near a rejection",
-      caution: "near-a-rejection" as const,
-      summary,
-      agentCase: index === stillRejected.length - 1 ? despiteCase : undefined,
-    })),
     ...view.reverses.map((summary) => ({ relation: "Reverses", summary })),
     ...view.reversedBy.map((summary) => ({ relation: "Reversed by", summary })),
     ...view.contradictingDerivations.map((summary) => ({
@@ -83,7 +80,7 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
     ...(backlinks.citedBy ?? []).map((summary) => ({ relation: "Built on this", summary })),
     ...(backlinks.acknowledgedBy ?? []).map((summary) => ({ relation: "Accepted despite this", summary })),
     ...view.fromSameWords.map((summary) => ({ relation: "From the same words", summary })),
-    ...[...view.despite, ...(backlinks.similar ?? [])].map((summary) => ({ relation: "Similar", summary })),
+    ...(backlinks.similar ?? []).map((summary) => ({ relation: "Similar", summary })),
   ]);
   const lineage: ReadonlyArray<DerivationRelation> =
     newer.length === 0 ? [] : [{ summary: view, place: "current" }, ...newer];
@@ -112,16 +109,7 @@ function RelationGroup({
             catalog={catalog}
             labels={known.labels}
             place={entry.place}
-          >
-            {entry.agentCase !== undefined && (
-              <Text size="xs" c="gray.7" {...stylex.props(styles.prose)}>
-                <Text span inherit c="dimmed">
-                  Agent&apos;s case{" "}
-                </Text>
-                {entry.agentCase}
-              </Text>
-            )}
-          </DerivationRelationRow>
+          />
         ))}
       </Paper>
     </DerivationSection>

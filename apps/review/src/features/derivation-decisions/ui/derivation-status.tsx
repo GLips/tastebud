@@ -1,13 +1,14 @@
 /**
- * The state card at the top of the page's properties: the state in colour, who decided it and when,
- * the Reason, and the actions that fit the state. On a rejection the reason is the governing answer
- * to agents that propose the same again, so it edits in place: the card's reason becomes the form,
+ * The page's one rail: the state section (the state in colour, who decided it and when, the Reason,
+ * and the actions that fit the state), a divider, then the properties. On a rejection the reason is the governing answer
+ * to agents that propose the same again, so it edits in place: the rail's reason becomes the form,
  * and saving writes a new rejection. The reject form for a first rejection opens here too.
  */
-import { Anchor, Button, Group, Paper, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 import { Undo2 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import { DERIVATION_STATUS_TONES, DERIVATION_STATUS_WORDS } from "#review/shared/ui/status-chips.tsx";
@@ -19,7 +20,8 @@ import { canDecideDerivation, type DerivationReview } from "./use-derivation-rev
 
 // The left rule repeats the state's colour from DERIVATION_STATUS_TONES; stylex needs the values here.
 const styles = stylex.create({
-  card: { borderLeftWidth: "3px" },
+  rail: { overflow: "hidden" },
+  state: { borderLeftWidth: "3px", borderLeftStyle: "solid" },
   pending: { borderLeftColor: "var(--mantine-color-blue-5)" },
   accepted: { borderLeftColor: "var(--mantine-color-teal-6)" },
   rejected: { borderLeftColor: "var(--mantine-color-red-5)" },
@@ -28,7 +30,7 @@ const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
 });
 
-const STATE_CARD_TINTS: Record<DerivationStatus, string> = {
+const STATE_TINTS: Record<DerivationStatus, string> = {
   pending: "blue.0",
   accepted: "teal.0",
   rejected: "red.0",
@@ -36,9 +38,8 @@ const STATE_CARD_TINTS: Record<DerivationStatus, string> = {
   superseded: "gray.0",
 };
 
-/** The card's second line when no decision of the owner's set the state. */
-const STATE_CARD_UNDECIDED_LINES: Partial<Record<DerivationStatus, string>> = {
-  pending: "Waiting for your decision",
+/** The state's second line when no decision of the owner's set it; pending needs none. */
+const STATE_UNDECIDED_LINES: Partial<Record<DerivationStatus, string>> = {
   superseded: "Replaced by a newer version",
 };
 
@@ -77,22 +78,24 @@ function StateCardReason({ review }: { review: DerivationReview }) {
   );
 }
 
-export function DerivationStateCard({
+export function DerivationRail({
   review,
   acceptLabel,
   owner,
+  properties,
 }: {
   review: DerivationReview;
   acceptLabel: string;
   owner: string;
+  properties: ReactNode;
 }) {
   const { view } = review;
   const { color, icon: Icon } = DERIVATION_STATUS_TONES[view.status];
   // When and by whom the state was set; a reason edit or an undone decision doesn't move it.
   const setter = view.status === "pending" || view.status === "superseded" ? undefined : stateSettingDecisionOf(view);
   return (
-    <Paper p="md" bg={STATE_CARD_TINTS[view.status]} {...stylex.props(styles.card, styles[view.status])}>
-      <Stack gap="sm">
+    <Paper p={0} {...stylex.props(styles.rail)}>
+      <Stack gap="sm" p="md" bg={STATE_TINTS[view.status]} {...stylex.props(styles.state, styles[view.status])}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap">
             <ThemeIcon color={color} variant="light" size="md">
@@ -102,11 +105,17 @@ export function DerivationStateCard({
               <Text size="md" fw={600}>
                 {DERIVATION_STATUS_WORDS[view.status]}
               </Text>
-              <Text size="xs" c="gray.7" title={setter === undefined ? undefined : formatReviewTime(setter.at)}>
-                {setter === undefined
-                  ? STATE_CARD_UNDECIDED_LINES[view.status]
-                  : `${formatReviewDate(setter.at)} · ${describeAuthor(setter.by, owner)}`}
-              </Text>
+              {setter === undefined ? (
+                STATE_UNDECIDED_LINES[view.status] !== undefined && (
+                  <Text size="xs" c="gray.7">
+                    {STATE_UNDECIDED_LINES[view.status]}
+                  </Text>
+                )
+              ) : (
+                <Text size="xs" c="gray.7" title={formatReviewTime(setter.at)}>
+                  {formatReviewDate(setter.at)} · {describeAuthor(setter.by, owner)}
+                </Text>
+              )}
             </Stack>
           </Group>
           {review.undoable !== undefined && review.mode === "idle" && (
@@ -124,13 +133,10 @@ export function DerivationStateCard({
           )}
         </Group>
         <StateCardReason review={review} />
-        {review.mode === "previewing" && (
-          <Text size="xs" c="gray.7">
-            Check where it applies and what it overlaps, then confirm under the title.
-          </Text>
-        )}
         <DerivationActions review={review} acceptLabel={acceptLabel} />
       </Stack>
+      <Divider />
+      <Box p="md">{properties}</Box>
     </Paper>
   );
 }
