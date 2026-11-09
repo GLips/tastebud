@@ -9,7 +9,6 @@ import {
   Stack,
   Table,
   Text,
-  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -22,6 +21,7 @@ import { ArrowLeft, Check, Copy } from "lucide-react";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatReviewClock, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceChip, ScopeChips } from "#review/shared/ui/place-chips.tsx";
@@ -35,8 +35,15 @@ import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 const Route = getRouteApi("/sources/$id");
 
 const styles = stylex.create({
-  // The quote keeps a reading measure inside the shared page width.
-  body: { maxWidth: "72ch" },
+  // A main column for the words and what they led to, and a properties column beside it, as on a derivation.
+  layout: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 280px", columnGap: "32px", alignItems: "start" },
+  facts: {
+    display: "grid",
+    gridTemplateColumns: "72px minmax(0, 1fr)",
+    columnGap: "10px",
+    rowGap: "8px",
+    alignItems: "baseline",
+  },
   quote: { lineHeight: 1.45, fontWeight: 500, whiteSpace: "pre-wrap", textWrap: "pretty" },
   around: { whiteSpace: "pre-wrap" },
   fitCell: { width: "1%", whiteSpace: "nowrap" },
@@ -74,81 +81,102 @@ const CITATION_ROLE_WORDS: Record<Citation["role"], string> = {
   contradicts: "Contradicts",
 };
 
-/** What the quote is and where it was said, in words a person reads; the speaker and date are the title. */
-function SourceFacts({ view, labelOf }: { view: SourceView; labelOf: (place: string) => string }) {
+/** The source's properties, Linear-style: who said it, when and where, what kind it is, and its record-keeping. */
+function SourceProperties({ view, labelOf }: { view: SourceView; labelOf: (place: string) => string }) {
   const { source } = view;
   return (
-    <Group gap="xs" wrap="wrap" align="center">
-      <SupportingText tier="secondary">
-        {capitalize(view.kindLabel)}
-        {view.retired && " (retired kind)"} · said at {formatReviewClock(source.said_at)}
-      </SupportingText>
-      {source.captured_in !== undefined && source.captured_in.length > 0 && (
-        <Group gap="2xs" wrap="nowrap">
-          <Tooltip
-            label="Where the capture happened. Provenance only: it never decides where anything applies."
-            withArrow
-            multiline
-            w={260}
-          >
-            <SupportingText tier="secondary">in</SupportingText>
-          </Tooltip>
-          {source.captured_in.map((place) => (
-            <PlaceChip key={place} place={place} label={labelOf(place)} />
-          ))}
-        </Group>
-      )}
-      {source.address !== undefined && <SourceAddress address={source.address} variant="action" />}
-    </Group>
-  );
-}
-
-/** The record-keeping: when and by what the words were captured, and the id for the CLI. */
-function SourceRecordMeta({ source }: { source: SourceRecord }) {
-  return (
-    <Group gap="xs" wrap="wrap" align="center">
-      <SupportingText tier="faint">
-        Captured {formatReviewTime(source.captured_at)} by {source.captured_via}
-      </SupportingText>
-      <CopyButton value={source.id}>
-        {({ copied, copy }) => (
-          <UnstyledButton onClick={copy} title="Copy the full id, for the CLI and agents">
-            <Group gap="3xs" wrap="nowrap">
-              {copied ? <Check size={11} aria-hidden /> : <Copy size={11} aria-hidden />}
-              <SupportingText tier="faint" span>
-                {copied ? "Copied" : `Copy id ${shortIdOf(source.id)}`}
-              </SupportingText>
+    <Paper p="md">
+      <Box {...stylex.props(styles.facts)}>
+        <FactRow label="Said by">
+          <Text size="sm">{source.said_by_label}</Text>
+        </FactRow>
+        <FactRow label="When">
+          <Text size="sm">{formatReviewTime(source.said_at)}</Text>
+        </FactRow>
+        {source.captured_in !== undefined && source.captured_in.length > 0 && (
+          <FactRow label="Where">
+            <Group gap="2xs">
+              {source.captured_in.map((place) => (
+                <PlaceChip key={place} place={place} label={labelOf(place)} />
+              ))}
             </Group>
-          </UnstyledButton>
+          </FactRow>
         )}
-      </CopyButton>
-    </Group>
+        {source.address !== undefined && (
+          <FactRow label="From">
+            <SourceAddress address={source.address} variant="line" />
+          </FactRow>
+        )}
+        <FactRow label="Kind">
+          <Text size="sm">
+            {capitalize(view.kindLabel)}
+            {view.retired && " (retired)"}
+          </Text>
+        </FactRow>
+        <FactRow label="Captured">
+          <Text size="sm">{formatReviewTime(source.captured_at)}</Text>
+        </FactRow>
+        <FactRow label="Via">
+          <Text size="sm">{source.captured_via}</Text>
+        </FactRow>
+        <FactRow label="ID">
+          <CopyButton value={source.id}>
+            {({ copied, copy }) => (
+              <UnstyledButton onClick={copy} title="Copy the full id, for the CLI and agents">
+                <Group gap="2xs" wrap="nowrap">
+                  <Text size="sm" ff="monospace">
+                    {shortIdOf(source.id)}
+                  </Text>
+                  {copied ? <Check size={12} aria-label="Copied" /> : <Copy size={12} aria-hidden />}
+                </Group>
+              </UnstyledButton>
+            )}
+          </CopyButton>
+        </FactRow>
+      </Box>
+    </Paper>
   );
 }
 
-/** Earlier words these revise, and later words that revise these. Nothing when neither exists. */
+/** Earlier words these revise, and later words that revise these, as linked rows. Nothing when neither exists. */
 function SourceRevisions({ view, revisedBy }: { view: SourceView; revisedBy: ReadonlyArray<SourceRecord> }) {
   const { revises } = view.source;
   if (revises === undefined && revisedBy.length === 0) return null;
+  const rows = [
+    ...(revises === undefined ? [] : [{ id: revises, relation: "Revises", quote: undefined }]),
+    ...revisedBy.map((later) => ({ id: later.id, relation: "Revised by", quote: later.quote })),
+  ];
   return (
-    <Stack gap="3xs">
-      {revises !== undefined && (
-        <SupportingText tier="secondary">
-          These words revise{" "}
-          <AnchorLink to="/sources/$id" params={{ id: revises }} size="sm">
-            an earlier {view.kindLabel}
-          </AnchorLink>
-          .
-        </SupportingText>
-      )}
-      {revisedBy.map((later) => (
-        <SupportingText tier="secondary" key={later.id} lineClamp={1}>
-          Revised later:{" "}
-          <AnchorLink to="/sources/$id" params={{ id: later.id }} size="sm">
-            “{later.quote}”
-          </AnchorLink>
-        </SupportingText>
-      ))}
+    <Stack gap="xs">
+      <Text size="md" fw={600}>
+        Revisions
+      </Text>
+      <Paper p={0}>
+        <Table verticalSpacing="xs" horizontalSpacing="md">
+          <Table.Tbody>
+            {rows.map((row) => (
+              <Table.Tr key={row.id} {...stylex.props(styles.row)}>
+                <Table.Td {...stylex.props(styles.fitCell)}>
+                  <SupportingText tier="secondary">{row.relation}</SupportingText>
+                </Table.Td>
+                <Table.Td>
+                  <AnchorLink
+                    to="/sources/$id"
+                    params={{ id: row.id }}
+                    c="inherit"
+                    size="sm"
+                    underline="never"
+                    lineClamp={2}
+                    {...stylex.props(styles.rowLink)}
+                  >
+                    {row.quote === undefined ? `An earlier ${view.kindLabel}` : `“${row.quote}”`}
+                  </AnchorLink>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Paper>
     </Stack>
   );
 }
@@ -171,10 +199,7 @@ function SourceLedTo({ cited }: { cited: ReadonlyArray<Citation> }) {
         )}
       </Text>
       {cited.length === 0 ? (
-        <SupportingText tier="secondary">
-          No conclusions cite these words yet. Your agent proposes from saved words when you catch up with
-          /tastebud:review, and anything it proposes lands in your inbox.
-        </SupportingText>
+        <SupportingText tier="secondary">Nothing cites these words yet.</SupportingText>
       ) : (
         <Paper p={0}>
           <Table verticalSpacing="xs" horizontalSpacing="md">
@@ -334,41 +359,44 @@ export function SourcePage() {
         title={`${source.said_by_label} · ${formatReviewDate(source.said_at)}`}
       />
 
-      <Stack gap="sm" {...stylex.props(styles.body)}>
-        {source.before !== undefined && (
-          <SupportingText tier="secondary" {...stylex.props(styles.around)}>
-            …{source.before}
-          </SupportingText>
-        )}
-        <Text component="blockquote" fz="sourceQuote" m={0} {...stylex.props(styles.quote)}>
-          “{source.quote}”
-        </Text>
-        {source.after !== undefined && (
-          <SupportingText tier="secondary" {...stylex.props(styles.around)}>
-            {source.after}…
-          </SupportingText>
-        )}
-        <SourceFacts view={view} labelOf={known.labelOf} />
-        <SourceRecordMeta source={source} />
-        <SourceRevisions view={view} revisedBy={detail.data.revisedBy} />
-      </Stack>
+      <Box {...stylex.props(styles.layout)}>
+        <Stack gap="lg">
+          <Stack gap="sm">
+            {source.before !== undefined && (
+              <SupportingText tier="secondary" {...stylex.props(styles.around)}>
+                …{source.before}
+              </SupportingText>
+            )}
+            <Text component="blockquote" fz="sourceQuote" m={0} {...stylex.props(styles.quote)}>
+              “{source.quote}”
+            </Text>
+            {source.after !== undefined && (
+              <SupportingText tier="secondary" {...stylex.props(styles.around)}>
+                {source.after}…
+              </SupportingText>
+            )}
+          </Stack>
+          <SourceRevisions view={view} revisedBy={detail.data.revisedBy} />
 
-      <SourceLedTo cited={detail.data.citedBy} />
-      {detail.data.saidAlongside.length > 0 ? (
-        <SourceNeighbours
-          title="Said around the same time"
-          neighbours={nearestNeighboursOf(source.said_at, detail.data.saidAlongside)}
-          when={formatReviewClock}
-          bySpeaker={false}
-        />
-      ) : (
-        <SourceNeighbours
-          title={`More from ${source.said_by_label}`}
-          neighbours={detail.data.moreFromSpeaker}
-          when={formatReviewDate}
-          bySpeaker
-        />
-      )}
+          <SourceLedTo cited={detail.data.citedBy} />
+          {detail.data.saidAlongside.length > 0 ? (
+            <SourceNeighbours
+              title="Said around the same time"
+              neighbours={nearestNeighboursOf(source.said_at, detail.data.saidAlongside)}
+              when={formatReviewClock}
+              bySpeaker={false}
+            />
+          ) : (
+            <SourceNeighbours
+              title={`More from ${source.said_by_label}`}
+              neighbours={detail.data.moreFromSpeaker}
+              when={formatReviewDate}
+              bySpeaker
+            />
+          )}
+        </Stack>
+        <SourceProperties view={view} labelOf={known.labelOf} />
+      </Box>
     </Stack>
   );
 }
