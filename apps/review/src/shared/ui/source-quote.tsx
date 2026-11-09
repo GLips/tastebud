@@ -67,10 +67,13 @@ export type SourceQuoteRole = "supports" | "contradicts" | "prompted" | "plain";
  */
 export function SourceQuote({
   view,
+  owner,
   role = "supports",
   showKind = false,
 }: {
   view: SourceView;
+  /** Who the owner is, so their own words are attributed to "You". */
+  owner: string;
   role?: SourceQuoteRole;
   showKind?: boolean;
 }) {
@@ -99,7 +102,7 @@ export function SourceQuote({
             underline="hover"
             title={`Open this ${view.kindLabel} and what cites it`}
           >
-            — {source.said_by_label}, {formatReviewTime(source.said_at)}
+            — {source.said_by === owner ? "You" : source.said_by_label}, {formatReviewTime(source.said_at)}
             {showKind && ` · ${view.kindLabel}`}
           </AnchorLink>
           {source.revises !== undefined && (

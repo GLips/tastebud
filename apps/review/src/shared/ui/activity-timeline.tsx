@@ -21,6 +21,8 @@ export interface ActivityTimelineEvent {
   /** How the time reads in the feed, such as "3 days ago". */
   readonly when: string;
   readonly body?: ReactNode;
+  /** An event that changed nothing in the end, such as a decision undone straight after: read quietly. */
+  readonly muted?: boolean;
 }
 
 export function ActivityTimeline({ events }: { events: ReadonlyArray<ActivityTimelineEvent> }) {
@@ -34,10 +36,12 @@ export function ActivityTimeline({ events }: { events: ReadonlyArray<ActivityTim
           color={event.color}
           title={
             <Group gap="2xs" wrap="wrap" align="baseline">
-              <Text size="sm" fw={600}>
+              <Text size="sm" fw={event.muted === true ? 400 : 600} c={event.muted === true ? "dimmed" : undefined}>
                 {event.actor}
               </Text>
-              <Text size="sm">{event.action}</Text>
+              <Text size="sm" c={event.muted === true ? "dimmed" : undefined}>
+                {event.action}
+              </Text>
               <Text size="xs" c="dimmed" title={formatReviewTime(event.at)}>
                 · {event.when}
               </Text>

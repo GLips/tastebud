@@ -53,13 +53,16 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       place: "child" as const,
     })),
   );
+  // Read from each record's state now: once a rejection is undone or reversed, it is only similar,
+  // and the agent's case against it no longer answers anything.
+  const stillRejected = view.despite.filter((summary) => summary.status === "rejected");
   const despiteCase = view.derivation.despite_case;
   const conflicts = firstSeen([
-    ...view.despite.map((summary, index) => ({
-      relation: "Near",
-      ...(summary.status === "rejected" && { caution: "near-a-rejection" as const }),
+    ...stillRejected.map((summary, index) => ({
+      relation: "Near a rejection",
+      caution: "near-a-rejection" as const,
       summary,
-      ...(index === view.despite.length - 1 && despiteCase !== undefined && { agentCase: despiteCase }),
+      ...(index === stillRejected.length - 1 && despiteCase !== undefined && { agentCase: despiteCase }),
     })),
     ...view.contradictingDerivations.map((summary) => ({
       relation: "Says the opposite",
@@ -76,7 +79,7 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
     ...view.supportingDerivations.map((summary) => ({ relation: "Builds on", summary })),
     ...(backlinks.citedBy ?? []).map((summary) => ({ relation: "Built on this", summary })),
     ...(backlinks.acknowledgedBy ?? []).map((summary) => ({ relation: "Accepted despite this", summary })),
-    ...(backlinks.similar ?? []).map((summary) => ({ relation: "Similar", summary })),
+    ...[...view.despite, ...(backlinks.similar ?? [])].map((summary) => ({ relation: "Similar", summary })),
   ]);
   const versions: ReadonlyArray<DerivationRelation> =
     earlier.length + newer.length === 0

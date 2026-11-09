@@ -15,6 +15,7 @@ import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
+import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePropertyField } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
@@ -103,7 +104,7 @@ function DecidedAcceptButton({
         leftSection={<Check size={14} />}
         loading={review.decision.pending}
         disabled={!isCompleteScope(review.shownScope)}
-        onClick={review.startAccept}
+        onClick={ignoringRepeatClicks(review.startAccept)}
       >
         {`${label}${review.needsPreview ? "…" : ""}`}
       </Button>
@@ -154,8 +155,8 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
         needsPreview={review.needsPreview}
         pending={review.decision.pending}
         acceptDisabled={!isCompleteScope(review.shownScope)}
-        onAccept={review.startAccept}
-        onReject={review.startReject}
+        onAccept={ignoringRepeatClicks(review.startAccept)}
+        onReject={ignoringRepeatClicks(review.startReject)}
       />
     );
   return (
@@ -167,7 +168,7 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
             variant="default"
             leftSection={<Undo2 size={14} />}
             loading={review.decision.pending && draft === undefined}
-            onClick={review.retract}
+            onClick={ignoringRepeatClicks(review.retract)}
           >
             Retract
           </Button>

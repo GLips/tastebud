@@ -1,16 +1,20 @@
 /** A derivation's Activity section: proposal, decisions and notes in one feed, with the note composer at its foot. */
 import { Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useQuery } from "@tanstack/react-query";
 import type { DerivationView } from "@tastebud/core/record-views";
 import type { DecisionRecord } from "@tastebud/core/records";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
+import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowRight, Check, Inbox, type LucideIcon, MessageSquare, PencilLine, Sparkles, Undo2, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { describeAuthor, formatTimeAgo } from "#review/shared/format.ts";
+import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { ActivityTimeline, type ActivityTimelineEvent } from "#review/shared/ui/activity-timeline.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 import { DerivationSection } from "./derivation-header.tsx";
 import { type DerivationHistoryEvent, derivationHistoryOf } from "./derivation-history.ts";
@@ -48,6 +52,16 @@ function EventField({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+/** A near repeat an accept weighed, by its statement, linked; the decision keeps only its id. */
+function WeighedRecordLink({ id }: { id: string }) {
+  const statement = useQuery(recordDetailQuery(id)).data?.derivation?.statement;
+  return (
+    <AnchorLink to="/derivations/$id" params={{ id }} size="sm" underline="hover" lineClamp={1}>
+      {statement ?? shortIdOf(id)}
+    </AnchorLink>
+  );
+}
+
 function DecisionEventBody({
   event,
   known,
@@ -73,11 +87,13 @@ function DecisionEventBody({
           </Group>
         </EventField>
       )}
-      {event.weighed > 0 && (
+      {event.weighed.length > 0 && (
         <EventField label="Weighed">
-          <Text size="sm">
-            {event.weighed} similar {event.weighed === 1 ? "record" : "records"}
-          </Text>
+          <Stack gap="3xs">
+            {event.weighed.map((id) => (
+              <WeighedRecordLink key={id} id={id} />
+            ))}
+          </Stack>
         </EventField>
       )}
     </>
@@ -114,14 +130,16 @@ const timelineEventOf = (
         ),
       };
     case "decision": {
-      const look = DECISION_LOOKS[event.outcome];
-      const icon = event.action === "changed the reason" ? PencilLine : look.icon;
+      // An undone decision and a reason edit change no state, so neither wears the state's colour.
+      const look = event.undone || event.reasonEdit ? { ...DECISION_LOOKS[event.outcome], color: "gray" } : DECISION_LOOKS[event.outcome];
+      const icon = event.reasonEdit ? PencilLine : look.icon;
       return {
         ...base,
         icon: <EventIcon icon={icon} color={look.color} />,
         color: look.color,
         action: event.action,
-        body: <DecisionEventBody event={event} known={known} />,
+        muted: event.undone,
+        body: event.undone ? undefined : <DecisionEventBody event={event} known={known} />,
       };
     }
   }

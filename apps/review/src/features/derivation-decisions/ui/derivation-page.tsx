@@ -100,7 +100,7 @@ function DerivationDetail({
             />
             <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
           </Stack>
-          <DerivationRestsOn view={view} kind={kind} />
+          <DerivationRestsOn view={view} kind={kind} owner={owner} />
           <DerivationRelated view={view} backlinks={detail} known={known} />
           <DerivationActivity
             id={DERIVATION_THREAD_HASH}

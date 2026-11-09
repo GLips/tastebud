@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tooltip } from "@mantine/core";
+import { Button, Group, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
@@ -43,7 +43,7 @@ export function RejectReasonForm({
       data-autofocus
       autoFocus
       aria-label="Why reject it? Agents that propose this again are shown your reason."
-      placeholder="Why not? Agents that propose this again are shown your reason."
+      placeholder="Why not? Agents that propose this again are shown your reason.   ⌘↵"
       minRows={stacked ? 2 : 1}
       {...stylex.props(styles.grow)}
       value={reason}
@@ -82,8 +82,13 @@ export function RejectReasonForm({
       {stacked ? (
         <Stack gap="xs">
           {field}
-          <Group gap="xs" justify="flex-end">
-            {buttons}
+          <Group gap="xs" justify="space-between" wrap="nowrap">
+            <Text size="xs" c="dimmed">
+              ⌘↵
+            </Text>
+            <Group gap="xs" wrap="nowrap">
+              {buttons}
+            </Group>
           </Group>
         </Stack>
       ) : (

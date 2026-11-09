@@ -154,7 +154,15 @@ export function DerivationIdCopy({ id }: { id: string }) {
 }
 
 /** The agent's reasoning, labelled, then each quote it rests on as a row; a contradicting quote is chipped. */
-export function DerivationRestsOn({ view, kind }: { view: DerivationView; kind: DerivedKindView | undefined }) {
+export function DerivationRestsOn({
+  view,
+  kind,
+  owner,
+}: {
+  view: DerivationView;
+  kind: DerivedKindView | undefined;
+  owner: string;
+}) {
   const backlogKind = kind?.recall === "never";
   const reasoning = view.derivation.reasoning.trim();
   const quotes = view.supportingSources.length + view.contradictingSources.length;
@@ -174,12 +182,12 @@ export function DerivationRestsOn({ view, kind }: { view: DerivationView; kind: 
         )}
         {view.supportingSources.map((source) => (
           <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
-            <SourceQuote view={source} role={backlogKind ? "prompted" : "supports"} showKind />
+            <SourceQuote view={source} owner={owner} role={backlogKind ? "prompted" : "supports"} showKind />
           </Box>
         ))}
         {view.contradictingSources.map((source) => (
           <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
-            <SourceQuote view={source} role={backlogKind ? "plain" : "contradicts"} showKind />
+            <SourceQuote view={source} owner={owner} role={backlogKind ? "plain" : "contradicts"} showKind />
           </Box>
         ))}
       </Paper>

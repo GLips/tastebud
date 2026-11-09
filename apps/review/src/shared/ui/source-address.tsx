@@ -56,7 +56,10 @@ function SourceAddressLine({ address }: { address: string }) {
   }
 }
 
-/** The address as one short worded action beside a quote: open the page, or copy the resume command or the text. */
+/**
+ * The address as one control beside a quote, always "Where it was said": it opens a web page, and
+ * otherwise copies the resume command or the text, its icon and tooltip saying which.
+ */
 function SourceAddressAction({ address }: { address: string }) {
   const shape = displayOfSourceAddress(address);
   if (shape.form === "web")
@@ -74,10 +77,10 @@ function SourceAddressAction({ address }: { address: string }) {
         Where it was said
       </Button>
     );
-  const [copyValue, label, hint] =
+  const [copyValue, hint] =
     shape.form === "claude-code-session"
-      ? [shape.resume, "Copy resume command", `${describeClaudeCodeSession(shape.session)}: \`${shape.resume}\``]
-      : [shape.text, "Copy where it was said", shape.text];
+      ? [shape.resume, `Copy \`${shape.resume}\` to resume ${describeClaudeCodeSession(shape.session)}`]
+      : [shape.text, `Copy ${shape.text}`];
   return (
     <CopyButton value={copyValue}>
       {({ copied, copy }) => (
@@ -87,9 +90,9 @@ function SourceAddressAction({ address }: { address: string }) {
             color="gray"
             size="compact-xs"
             onClick={copy}
-            leftSection={shape.form === "claude-code-session" ? <SquareTerminal size={11} /> : <Copy size={11} />}
+            rightSection={shape.form === "claude-code-session" ? <SquareTerminal size={11} /> : <Copy size={11} />}
           >
-            {copied ? "Copied" : label}
+            {copied ? "Copied" : "Where it was said"}
           </Button>
         </Tooltip>
       )}

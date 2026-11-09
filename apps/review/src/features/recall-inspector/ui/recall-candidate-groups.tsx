@@ -166,7 +166,7 @@ export function RecallCandidateGroups({
         <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
           <Stack gap="xxs">
             {recall.sources.map((hit) => (
-              <SourceQuote key={hit.source.id} view={hit} role="plain" showKind />
+              <SourceQuote key={hit.source.id} view={hit} owner={catalog?.owner ?? ""} role="plain" showKind />
             ))}
           </Stack>
         </Disclosure>

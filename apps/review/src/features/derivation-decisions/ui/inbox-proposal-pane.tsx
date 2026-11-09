@@ -211,7 +211,7 @@ export function InboxProposalPane({
           />
         </Stack>
       </Paper>
-      <DerivationRestsOn view={view} kind={kind} />
+      <DerivationRestsOn view={view} kind={kind} owner={owner} />
       <DerivationRelated
         view={view}
         known={known}

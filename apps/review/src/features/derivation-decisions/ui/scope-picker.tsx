@@ -21,12 +21,12 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { PlacePickerList } from "#review/shared/ui/place-picker-list.tsx";
 
-/** The trigger's words: "Everywhere", "acme/web", "acme/web and 2 more". */
+/** The trigger's words, short enough for the properties column: "Everywhere", "acme/web", "acme/web +2". */
 const scopeSummaryOf = (draft: ScopeDraft, labelOf: (place: PlaceKey) => string): string => {
   if (draft.scope === "global") return "Everywhere";
   const [first, ...rest] = draft.places;
   if (first === undefined) return "Pick a place";
-  return rest.length === 0 ? labelOf(first) : `${labelOf(first)} and ${rest.length} more`;
+  return rest.length === 0 ? labelOf(first) : `${labelOf(first)} +${rest.length}`;
 };
 
 interface ScopePickerProps {
@@ -74,6 +74,7 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
           disabled={disabled}
           leftSection={triggerIcon}
           rightSection={<Chevron size={13} />}
+          title={value.scope === "places" ? value.places.map(known.labelOf).join(", ") : undefined}
           aria-label={`Where this applies: ${summary}. Change`}
           onClick={() => combobox.toggleDropdown()}
         >
