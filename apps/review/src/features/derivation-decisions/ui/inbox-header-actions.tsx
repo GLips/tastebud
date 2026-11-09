@@ -18,7 +18,7 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["a", "Accept, or review first if needed"],
   ["s", "Edit where it applies"],
   ["r", "Reject with a reason"],
-  ["d", "Write a note to the agents"],
+  ["d", "Write in the thread to the agents"],
   ["u", "Undo the latest decision"],
   ["⌘↵ / Esc", "Confirm / back, in a preview or note"],
 ];
@@ -43,7 +43,7 @@ export function InboxHeaderActions() {
   return (
     <Group gap="2xs" wrap="nowrap">
       {decided > 0 && (
-        <Popover withArrow position="bottom-end" shadow="md" width={640}>
+        <Popover withArrow position="bottom-end" shadow="md" width={640} trapFocus returnFocus>
           <Popover.Target>
             <Button variant="subtle" color="gray" leftSection={<History size={14} />}>
               Decided this session · {decided}

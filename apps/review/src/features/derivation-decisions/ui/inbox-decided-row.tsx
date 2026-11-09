@@ -1,7 +1,8 @@
 /**
  * A card decided here, folded to its outcome where it stood, so the reviewer sees what happened and
  * can take it back. Undo shows only while that decision is still the newest on record: once
- * anything else decides it, undoing would overwrite a decision this row never saw.
+ * anything else decides it, undoing would overwrite a decision this row never saw. A batch's
+ * last row also offers Undo all, which is what `u` does.
  */
 import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -33,11 +34,17 @@ export const ignoringRepeatClicks =
     if (event.detail <= 1) onClick();
   };
 
-/** Mounted only on the newest decision's row, so `u` takes back exactly one thing. */
+/** Mounted only on the newest decision's last row, so `u` takes back exactly one decision or batch. */
 function UndoLatestHotkey({ onUndo }: { onUndo: () => void }) {
   useHotkeys([{ hotkey: "U", callback: onUndo }]);
   return null;
 }
+
+/** How a row belongs to the newest decision: whether it is its last card, and the batch's Undo all if any. */
+export type InboxDecidedRowLatest = {
+  last: boolean;
+  undoAll: { count: number; onUndoAll: () => void } | undefined;
+};
 
 export function InboxDecidedRow({
   id,
@@ -53,8 +60,8 @@ export function InboxDecidedRow({
   undoable: UndoableReviewDecision | undefined;
   undoing: boolean;
   onUndo: () => void;
-  /** The newest decision made in the inbox, which `u` undoes. */
-  latest: boolean;
+  /** Set while part of the newest decision made in the inbox, which `u` undoes with the rest of its batch. */
+  latest: InboxDecidedRowLatest | undefined;
 }) {
   const detail = useQuery(recordDetailQuery(id));
   const latestId = detail.data?.derivation?.decisions.at(-1)?.id;
@@ -64,7 +71,9 @@ export function InboxDecidedRow({
   const acceptedScope = undoable?.outcome === "accept" ? detail.data?.derivation?.effectiveScope : undefined;
   return (
     <Paper px="md" py="xs" {...stylex.props(styles.row)}>
-      {canUndo && latest && !undoing && <UndoLatestHotkey onUndo={onUndo} />}
+      {canUndo && latest?.last === true && !undoing && (
+        <UndoLatestHotkey onUndo={latest.undoAll?.onUndoAll ?? onUndo} />
+      )}
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
           <Group gap="xs" wrap="nowrap">
@@ -92,6 +101,16 @@ export function InboxDecidedRow({
               onClick={ignoringRepeatClicks(onUndo)}
             >
               Undo
+            </Button>
+          )}
+          {canUndo && latest?.last === true && latest.undoAll !== undefined && (
+            <Button
+              variant="subtle"
+              color="gray"
+              disabled={undoing}
+              onClick={ignoringRepeatClicks(latest.undoAll.onUndoAll)}
+            >
+              Undo all {latest.undoAll.count}
             </Button>
           )}
           <ButtonLink to="/derivations/$id" params={{ id }} variant="subtle" color="gray">
