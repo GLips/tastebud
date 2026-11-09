@@ -9,6 +9,7 @@ import type { DerivationScope } from "@tastebud/core/places";
 import type { LucideIcon } from "lucide-react";
 import type { MouseEvent, ReactNode, Ref } from "react";
 
+import { CautionChip, type DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { inboxListStyles } from "./inbox-list-styles.ts";
@@ -75,12 +76,11 @@ const styles = stylex.create({
   details: { overflow: "hidden" },
 });
 
-/** A chip on a row for something worth a look before deciding; `caution` ones are worth reading first. */
-export interface InboxRowFlag {
+/** A neutral chip on a row: a fact about it (queued, edited, notes), not a caution. */
+export interface InboxRowNote {
   readonly icon: LucideIcon;
   readonly text: string;
   readonly tooltip: string;
-  readonly caution: boolean;
 }
 
 /** What a row shows under its statement; each part is left out when it says nothing new. */
@@ -89,21 +89,16 @@ export interface InboxRowChips {
   readonly scope: DerivationScope | undefined;
   /** A chip for who it is about, when that isn't the owner. */
   readonly subject: ReactNode;
-  readonly flags: ReadonlyArray<InboxRowFlag>;
+  readonly cautions: ReadonlyArray<DerivationCaution>;
+  readonly notes: ReadonlyArray<InboxRowNote>;
 }
 
-function InboxRowFlagChip({ flag }: { flag: InboxRowFlag }) {
-  const Icon = flag.icon;
+function InboxRowNoteChip({ note }: { note: InboxRowNote }) {
+  const Icon = note.icon;
   return (
-    <Tooltip label={flag.tooltip} withArrow openDelay={250}>
-      <Badge
-        size="md"
-        tt="none"
-        fw={500}
-        color={flag.caution ? "orange" : "gray"}
-        leftSection={<Icon size={11} strokeWidth={2} aria-hidden />}
-      >
-        {flag.text}
+    <Tooltip label={note.tooltip} withArrow openDelay={250}>
+      <Badge color="gray" leftSection={<Icon size={11} strokeWidth={2} aria-hidden />}>
+        {note.text}
       </Badge>
     </Tooltip>
   );
@@ -138,7 +133,8 @@ export function InboxProposalRow({
 }) {
   const { checked, onCheck } = check;
   const selecting = checked || check.shown;
-  const hasChips = chips.scope !== undefined || chips.subject !== null || chips.flags.length > 0;
+  const hasChips =
+    chips.scope !== undefined || chips.subject !== null || chips.cautions.length > 0 || chips.notes.length > 0;
   return (
     <Box
       {...stylex.props(
@@ -177,8 +173,11 @@ export function InboxProposalRow({
           <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.details)}>
             {chips.scope !== undefined && <ScopeChips scope={chips.scope} linked={false} />}
             {chips.subject}
-            {chips.flags.map((flag) => (
-              <InboxRowFlagChip key={flag.tooltip} flag={flag} />
+            {chips.cautions.map((caution) => (
+              <CautionChip key={caution} caution={caution} />
+            ))}
+            {chips.notes.map((note) => (
+              <InboxRowNoteChip key={note.tooltip} note={note} />
             ))}
           </Group>
         )}

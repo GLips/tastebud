@@ -1,23 +1,24 @@
 import { Box, Badge, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DecisionOutcome } from "@tastebud/core/taste-vocabulary";
+import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { formatTimeAgo } from "#review/shared/format.ts";
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { useReviewSessionLog } from "./review-session-log.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
 
-/** A decision outcome as one past-tense word and its badge colour, wherever a decision is listed. */
-export const DECISION_OUTCOME_LABELS: Record<DecisionOutcome, { readonly word: string; readonly color: string }> = {
-  accept: { word: "Accepted", color: "teal" },
-  reject: { word: "Rejected", color: "red" },
-  retract: { word: "Retracted", color: "gray" },
-  reopen: { word: "Put back", color: "blue" },
+/** The status a decision leaves its derivation in, so a listed decision wears that status's badge. */
+export const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
+  accept: "accepted",
+  reject: "rejected",
+  retract: "retracted",
+  reopen: "pending",
 };
 
 const styles = stylex.create({
@@ -51,15 +52,15 @@ export function ReviewSessionList() {
       </Group>
       <Paper p={0}>
         {decisions.map((entry) => {
-          const outcome = entry.reasonChanged
-            ? { ...DECISION_OUTCOME_LABELS.reject, word: "Reason changed" }
-            : DECISION_OUTCOME_LABELS[entry.outcome];
           return (
             <Box key={entry.decisionId} {...stylex.props(styles.row)}>
               <KindGlyph catalog={catalog} kind={entry.kind} />
-              <Badge size="xs" color={outcome.color} variant="light">
-                {outcome.word}
-              </Badge>
+              {/* A changed reason leaves the status as it was, so it is an event, not a status badge. */}
+              {entry.reasonChanged ? (
+                <Badge color="gray">Reason changed</Badge>
+              ) : (
+                <DerivationStatusBadge status={STATUS_AFTER_OUTCOME[entry.outcome]} />
+              )}
               <Text size="sm" truncate>
                 {entry.statement}
               </Text>

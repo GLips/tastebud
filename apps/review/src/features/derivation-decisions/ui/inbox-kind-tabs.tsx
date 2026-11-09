@@ -3,12 +3,12 @@ import { Box, SegmentedControl } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
-  tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
 });
 
 export type InboxKindsProps = {
@@ -32,9 +32,7 @@ export function InboxKindTabs({ catalog, kinds, kind, pendingByKind, onShowKind 
           <Box component="span" {...stylex.props(styles.tabLabel)}>
             <KindGlyph catalog={catalog} kind={candidate.key} />
             {capitalize(candidate.plural)}
-            <Box component="span" {...stylex.props(styles.tabCount)}>
-              {pendingByKind.get(candidate.key) ?? 0}
-            </Box>
+            <CountBadge count={pendingByKind.get(candidate.key) ?? 0} />
           </Box>
         ),
       }))}

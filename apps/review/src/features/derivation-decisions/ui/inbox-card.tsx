@@ -7,59 +7,49 @@
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { isCompleteScope, type ScopeDraft } from "@tastebud/core/places";
-import { Ban, Clock, CopyCheck, MessageSquare, PencilLine, Contrast } from "lucide-react";
+import { Clock, MessageSquare, PencilLine } from "lucide-react";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import type { DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { otherSubjectOf } from "#review/shared/ui/subject-label.tsx";
 
 import { InboxDecidedRow, type InboxDecidedRowLatest } from "./inbox-decided-row.tsx";
 import { InboxProposalPane } from "./inbox-proposal-pane.tsx";
-import { InboxProposalRow, type InboxRowCheck, type InboxRowFlag } from "./inbox-proposal-row.tsx";
+import { InboxProposalRow, type InboxRowCheck, type InboxRowNote } from "./inbox-proposal-row.tsx";
 import { type InboxBatch, type InboxCardHandle, useInboxCardTriage } from "./use-inbox-card-triage.ts";
 
-/** What a row flags about a proposal before it is opened; the pane shows each in full. */
-const rowFlagsOf = (
+/** What deserves reading before deciding, as a row shows it before the proposal is opened. */
+const rowCautionsOf = (
   card: InboxCard,
-  { edited, queued, backlog }: { edited: boolean; queued: boolean; backlog: boolean },
-): ReadonlyArray<InboxRowFlag> => {
+  { edited, backlog }: { edited: boolean; backlog: boolean },
+): ReadonlyArray<DerivationCaution> => {
   const view = card.derivation;
-  const notes = view.thread.length;
-  const flags: ReadonlyArray<InboxRowFlag | false> = [
-    queued && { icon: Clock, text: "Queued", tooltip: "Waiting its turn in a bulk decision", caution: false },
-    edited && { icon: PencilLine, text: "Scope edited", tooltip: "You changed where it applies", caution: false },
-    !backlog &&
-      view.contradictingSources.length > 0 && {
-        icon: Contrast,
-        text: "Says the opposite",
-        tooltip: "One of its sources says the opposite",
-        caution: true,
-      },
-    view.despite.length > 0 && {
-      icon: Ban,
-      text: "Near a rejection",
-      tooltip: "Close to something you rejected",
-      caution: true,
-    },
-    !edited &&
-      card.needsAcknowledgement.length > 0 && {
-        icon: CopyCheck,
-        text: "Near repeat",
-        tooltip: "Overlaps a near repeat already decided",
-        caution: true,
-      },
+  const cautions: ReadonlyArray<DerivationCaution | false> = [
+    !backlog && view.contradictingSources.length > 0 && "says-the-opposite",
+    view.despite.length > 0 && "near-a-rejection",
+    !edited && card.needsAcknowledgement.length > 0 && "near-a-repeat",
+  ];
+  return cautions.filter((caution) => caution !== false);
+};
+
+/** The row's neutral facts: queued in a bulk decision, its scope edited, its notes. */
+const rowNotesOf = (card: InboxCard, { edited, queued }: { edited: boolean; queued: boolean }) => {
+  const notes = card.derivation.thread.length;
+  const facts: ReadonlyArray<InboxRowNote | false> = [
+    queued && { icon: Clock, text: "Queued", tooltip: "Waiting its turn in a bulk decision" },
+    edited && { icon: PencilLine, text: "Scope edited", tooltip: "You changed where it applies" },
     notes > 0 && {
       icon: MessageSquare,
       text: String(notes),
       tooltip: notes === 1 ? "1 note in its thread" : `${notes} notes in its thread`,
-      caution: false,
     },
   ];
-  return flags.filter((flag) => flag !== false);
+  return facts.filter((fact) => fact !== false);
 };
 
 export function InboxProposalCard({
@@ -147,7 +137,8 @@ export function InboxProposalCard({
           // The section is the proposed scope, so only an edit puts a different place on the row.
           scope: triage.edited && isCompleteScope(triage.shownScope) ? triage.shownScope : undefined,
           subject: otherSubjectOf(view, owner) === undefined ? null : <SubjectChip summary={view} owner={owner} />,
-          flags: rowFlagsOf(card, { edited: triage.edited, queued, backlog: kind.recall === "never" }),
+          cautions: rowCautionsOf(card, { edited: triage.edited, backlog: kind.recall === "never" }),
+          notes: rowNotesOf(card, { edited: triage.edited, queued }),
         }}
         selected={selected}
         onSelect={onSelect}

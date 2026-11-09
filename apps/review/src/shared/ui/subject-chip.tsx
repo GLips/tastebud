@@ -14,13 +14,7 @@ export function SubjectChip({ summary, owner }: { summary: SubjectOf; owner: str
   const name = subject.label.replace(/\s*\(.*\)$/, "");
   return (
     <Tooltip label={`About ${subject.label} · ${subject.account}`} withArrow openDelay={250}>
-      <Badge
-        size="md"
-        color="gray"
-        tt="none"
-        fw={500}
-        leftSection={<UserRound size={11} strokeWidth={2} aria-hidden />}
-      >
+      <Badge color="gray" leftSection={<UserRound size={11} strokeWidth={2} aria-hidden />}>
         {name}
       </Badge>
     </Tooltip>

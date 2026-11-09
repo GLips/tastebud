@@ -4,7 +4,7 @@
  * anything else decides it, undoing would overwrite a decision this row never saw. A batch's
  * last row also offers Undo all, which is what `u` does.
  */
-import { Badge, Box, Button, Group, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
@@ -13,10 +13,11 @@ import type { MouseEvent } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { inboxListStyles } from "./inbox-list-styles.ts";
-import { DECISION_OUTCOME_LABELS } from "./review-session-list.tsx";
+import { STATUS_AFTER_OUTCOME } from "./review-session-list.tsx";
 import { scopeButtonPhrase } from "./scope-draft.ts";
 import type { UndoableReviewDecision } from "./use-review-decision.ts";
 
@@ -68,7 +69,6 @@ export function InboxDecidedRow({
   const detail = useQuery(recordDetailQuery(id));
   const latestId = detail.data?.derivation?.decisions.at(-1)?.id;
   const canUndo = undoable !== undefined && latestId === undoable.decisionId;
-  const outcome = undoable === undefined ? undefined : DECISION_OUTCOME_LABELS[undoable.outcome];
   // Where it was believed, read back from the store, so a batch or an edited scope reads the same.
   const acceptedScope = undoable?.outcome === "accept" ? detail.data?.derivation?.effectiveScope : undefined;
   return (
@@ -79,10 +79,10 @@ export function InboxDecidedRow({
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
           <Group gap="xs" wrap="nowrap">
-            {outcome !== undefined && (
-              <Badge size="sm" color={outcome.color} {...stylex.props(styles.noShrink)}>
-                {outcome.word}
-              </Badge>
+            {undoable !== undefined && (
+              <Box {...stylex.props(styles.noShrink)}>
+                <DerivationStatusBadge status={STATUS_AFTER_OUTCOME[undoable.outcome]} />
+              </Box>
             )}
             {acceptedScope !== undefined && (
               <SupportingText tier="secondary" fw={500} truncate>
