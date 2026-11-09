@@ -1,7 +1,6 @@
 /** Recall's outcomes in plain words: why an item was left out, why nothing was sent, why it applies. */
 import { HOOK_OUTPUT_BUDGET_CHARS, HOOK_REPEAT_WINDOW_TURNS } from "@tastebud/core/hook-evidence";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
-import type { TasteContext } from "@tastebud/core/places";
 import type { HookPayload, RecallExplainItem } from "@tastebud/core/recall";
 import type { ExcludedRecallHit, RecallExclusionReason, RecallResult } from "@tastebud/core/record-views";
 
@@ -19,28 +18,25 @@ export const availableThroughRecallReason = (
   return `${capitalize(kind?.plural ?? hit.kindLabel)} are only given when an agent asks`;
 };
 
-/** A rejection recall reads back, with the owner's reason when there is one. */
+/** A rejection recall reads back, with the owner's reason when there is one; a clause after "but". */
 export const rejectedHitWording = (hit: Pick<RecallResult["rejected"][number], "reason">): string =>
-  `You rejected this; agents are told so${hit.reason === undefined ? "" : `: “${hit.reason}”`}`;
+  `you rejected it, and agents are told so${hit.reason === undefined ? "" : `: “${hit.reason}”`}`;
 
+/** Why a matching item doesn't reach agents here, as a clause that reads after "but". */
 export const exclusionReason = (
-  hit: Pick<ExcludedRecallHit, "kind" | "kindLabel" | "status" | "exclusion">,
+  hit: Pick<ExcludedRecallHit, "kind" | "kindLabel" | "status" | "exclusion" | "effectiveScope">,
   catalog: CatalogView | undefined,
-  context: TasteContext,
   known: KnownPlaces,
 ): string => {
   const kind = findKindView(catalog, hit.kind);
-  const here = context.places.map(known.labelOf).join(", ");
+  const scope = hit.effectiveScope;
   const reasons: Record<RecallExclusionReason, string> = {
-    "out-of-scope":
-      context.places.length === 0
-        ? "Scoped to a place, and this is nowhere in particular"
-        : `Scoped elsewhere, not to ${here}`,
-    "never-policy": `${capitalize(kind?.plural ?? hit.kindLabel)} stay in your backlog, never shown to agents`,
-    pending: "Waiting for your decision",
-    "history-not-requested": `${capitalize(hit.status)}; shown only when you include replaced and retracted`,
-    "kind-not-selected": `${capitalize(kind?.plural ?? hit.kind)} are filtered out above`,
-    "retired-kind": "Its kind was removed from this store",
+    "out-of-scope": `scoped to ${scope.scope === "global" ? "everywhere" : scope.places.map(known.labelOf).join(", ")}`,
+    "never-policy": `${kind?.plural ?? hit.kindLabel} stay in your backlog, never sent`,
+    pending: "still waiting for your decision",
+    "history-not-requested": `${hit.status}; shown only when you include replaced and retracted`,
+    "kind-not-selected": `${kind?.plural ?? hit.kind} are filtered out above`,
+    "retired-kind": "its kind was removed from this store",
   };
   return reasons[hit.exclusion];
 };
@@ -79,10 +75,9 @@ const RECALL_SECTION_WORDING: Record<RecallReachedItem["section"], (item: Recall
 export function recallExplanationLines(
   item: RecallExplainItem,
   catalog: CatalogView | undefined,
-  context: TasteContext,
   known: KnownPlaces,
 ): ReadonlyArray<string> {
-  if (item.outcome === "excluded") return [`Excluded: ${exclusionReason(item, catalog, context, known)}.`];
+  if (item.outcome === "excluded") return [`Agents don't get it here: ${exclusionReason(item, catalog, known)}.`];
   const matched = item.explanation.matchedPlace;
   return [
     RECALL_SECTION_WORDING[item.section](item),

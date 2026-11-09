@@ -22,7 +22,7 @@ import { type AgentHostConnectLines, agentHostConnectLinesFor } from "@tastebud/
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Check, ChevronRight, Copy } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
@@ -41,10 +41,21 @@ const styles = stylex.create({
   },
   mono: { fontFamily: "var(--mantine-font-family-monospace)", wordBreak: "break-all" },
   prompt: { whiteSpace: "pre-wrap", lineHeight: 1.55, maxHeight: "360px", overflow: "auto" },
-  snippet: { position: "relative" },
+  // Every command gets the same frame, as wide as its text (up to the column), with copy inside it.
+  snippet: { position: "relative", width: "fit-content", maxWidth: "100%" },
   // Wraps long paths so nothing hides behind horizontal scroll; the copied text keeps its own lines.
-  snippetCode: { whiteSpace: "pre-wrap", wordBreak: "normal", overflowWrap: "anywhere", paddingRight: "36px" },
+  snippetCode: {
+    whiteSpace: "pre-wrap",
+    wordBreak: "normal",
+    overflowWrap: "anywhere",
+    paddingRight: "40px",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "var(--mantine-color-gray-3)",
+    borderRadius: "var(--mantine-radius-sm)",
+  },
   copy: { position: "absolute", top: "6px", right: "6px" },
+  stepNumber: { flexShrink: 0 },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
   badge: { flexShrink: 0 },
@@ -138,104 +149,84 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
 /** The JSON lines from `agentHostConnectLinesFor`, laid out to read in a snippet. */
 const prettyJson = (json: string) => JSON.stringify(JSON.parse(json), null, 2);
 
-function InstallSnippet({ title, code, label }: { title: string; code: string; label: string }) {
-  return (
-    <Stack gap="2xs">
-      <Text size="sm">{title}</Text>
-      <CopyableSnippet code={code} label={label} />
-    </Stack>
-  );
-}
-
 const AGENT_HOSTS = ["claude-code", "codex", "cursor", "vscode", "other"] as const;
 type AgentHost = (typeof AGENT_HOSTS)[number];
 const agentHostOf = (value: string): AgentHost => AGENT_HOSTS.find((host) => host === value) ?? "claude-code";
 
-/** Hosts other than Claude Code run the npm package through npx; this line downloads it once, where errors show. */
-function NpxPrefetchStep({ lines }: { lines: AgentHostConnectLines }) {
-  return (
-    <InstallSnippet
-      title="First, once in a terminal, so the package downloads where a failure shows (needs Node):"
-      code={lines.npxPrefetch}
-      label="npx prefetch command"
-    />
-  );
+interface ConnectStep {
+  readonly title: ReactNode;
+  readonly code: string;
+  readonly label: string;
 }
 
-function AgentHostSteps({ host, lines }: { host: AgentHost; lines: AgentHostConnectLines }) {
+/** What a host can do with Tastebud, and the steps that connect it, in order. */
+function agentHostConnectPlan(host: AgentHost, lines: AgentHostConnectLines): { note: string; steps: ConnectStep[] } {
+  // Hosts other than Claude Code run the npm package through npx; this downloads it once, where errors show.
+  const prefetch: ConnectStep = {
+    title: "Once, in a terminal, so the package downloads where a failure shows (needs Node):",
+    code: lines.npxPrefetch,
+    label: "npx prefetch command",
+  };
+  const noHook = "can save words and recall them; it has no prompt hook.";
   switch (host) {
     case "claude-code":
-      return (
-        <>
-          <Text size="sm" c="dimmed">
-            The plugin brings the prompt hook, saving words over MCP, and /tastebud:review.
-          </Text>
-          <InstallSnippet
-            title="Install the plugin:"
-            code={lines.claudeCodePlugin}
-            label="Claude Code plugin install"
-          />
-          {lines.claudeCodeStoreSettings !== undefined && (
-            <InstallSnippet
-              title="Then point it at this store, in ~/.claude/settings.json:"
-              code={prettyJson(lines.claudeCodeStoreSettings)}
-              label="Claude Code store setting"
-            />
-          )}
-        </>
-      );
+      return {
+        note: "The plugin brings the prompt hook, saving words over MCP, and /tastebud:review.",
+        steps: [
+          { title: "Install the plugin:", code: lines.claudeCodePlugin, label: "Claude Code plugin install" },
+          ...(lines.claudeCodeStoreSettings === undefined
+            ? []
+            : [
+                {
+                  title: "Point it at this store, in ~/.claude/settings.json:",
+                  code: prettyJson(lines.claudeCodeStoreSettings),
+                  label: "Claude Code store setting",
+                },
+              ]),
+        ],
+      };
     case "codex":
-      return (
-        <>
-          <Text size="sm" c="dimmed">
-            Codex can save words and recall them; it has no prompt hook.
-          </Text>
-          <NpxPrefetchStep lines={lines} />
-          <InstallSnippet title="Then register the server:" code={lines.codex} label="Codex command" />
-        </>
-      );
+      return {
+        note: `Codex ${noHook}`,
+        steps: [prefetch, { title: "Register the server:", code: lines.codex, label: "Codex command" }],
+      };
     case "cursor":
-      return (
-        <>
-          <Text size="sm" c="dimmed">
-            Cursor can save words and recall them; it has no prompt hook.
-          </Text>
-          <NpxPrefetchStep lines={lines} />
-          <Stack gap="2xs">
-            <Group gap="xs">
-              <Text size="sm">Then add this to ~/.cursor/mcp.json, or</Text>
-              <Anchor href={lines.cursorInstallLink} target="_blank" rel="noreferrer" size="sm">
-                Add to Cursor
-              </Anchor>
-            </Group>
-            <CopyableSnippet code={prettyJson(lines.mcpServersJson)} label="Cursor MCP config" />
-          </Stack>
-        </>
-      );
+      return {
+        note: `Cursor ${noHook}`,
+        steps: [
+          prefetch,
+          {
+            title: (
+              <>
+                Add this to ~/.cursor/mcp.json, or{" "}
+                <Anchor href={lines.cursorInstallLink} target="_blank" rel="noreferrer" size="sm">
+                  Add to Cursor
+                </Anchor>
+                :
+              </>
+            ),
+            code: prettyJson(lines.mcpServersJson),
+            label: "Cursor MCP config",
+          },
+        ],
+      };
     case "vscode":
-      return (
-        <>
-          <Text size="sm" c="dimmed">
-            VS Code can save words and recall them; it has no prompt hook.
-          </Text>
-          <NpxPrefetchStep lines={lines} />
-          <InstallSnippet title="Then register the server:" code={lines.vscode} label="VS Code command" />
-        </>
-      );
+      return {
+        note: `VS Code ${noHook}`,
+        steps: [prefetch, { title: "Register the server:", code: lines.vscode, label: "VS Code command" }],
+      };
     case "other":
-      return (
-        <>
-          <Text size="sm" c="dimmed">
-            Any MCP client (Claude Desktop, Windsurf, …) can save words and recall them; none has a prompt hook.
-          </Text>
-          <NpxPrefetchStep lines={lines} />
-          <InstallSnippet
-            title="Then add this to the client's MCP config:"
-            code={prettyJson(lines.mcpServersJson)}
-            label="MCP config"
-          />
-        </>
-      );
+      return {
+        note: "Any MCP client (Claude Desktop, Windsurf, …) can save words and recall them; none has a prompt hook.",
+        steps: [
+          prefetch,
+          {
+            title: "Add this to the client's MCP config:",
+            code: prettyJson(lines.mcpServersJson),
+            label: "MCP config",
+          },
+        ],
+      };
   }
 }
 
@@ -243,30 +234,43 @@ function AgentHostSteps({ host, lines }: { host: AgentHost; lines: AgentHostConn
 function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined }) {
   const lines = agentHostConnectLinesFor(storeRoot);
   const [host, setHost] = useState<AgentHost>("claude-code");
+  const plan = agentHostConnectPlan(host, lines);
   return (
     <Stack gap="sm">
-      <Stack gap="3xs">
-        <Text fw={600}>Connect an agent</Text>
-        <Text size="xs" c="dimmed">
-          Pick the agent you use; each line is already set for this store.
-        </Text>
-      </Stack>
-      <SegmentedControl
-        w="fit-content"
-        size="xs"
-        value={host}
-        onChange={(value) => setHost(agentHostOf(value))}
-        data={[
-          { value: "claude-code", label: "Claude Code" },
-          { value: "codex", label: "Codex" },
-          { value: "cursor", label: "Cursor" },
-          { value: "vscode", label: "VS Code" },
-          { value: "other", label: "Other MCP client" },
-        ]}
-      />
-      <Stack gap="sm">
-        <AgentHostSteps host={host} lines={lines} />
-      </Stack>
+      <Text fw={600}>Connect an agent</Text>
+      <Paper p="md">
+        <Stack gap="md">
+          <Stack gap="2xs">
+            <SegmentedControl
+              w="fit-content"
+              size="xs"
+              value={host}
+              onChange={(value) => setHost(agentHostOf(value))}
+              data={[
+                { value: "claude-code", label: "Claude Code" },
+                { value: "codex", label: "Codex" },
+                { value: "cursor", label: "Cursor" },
+                { value: "vscode", label: "VS Code" },
+                { value: "other", label: "Other MCP client" },
+              ]}
+            />
+            <Text size="sm" c="dimmed">
+              {plan.note} Each line is already set for this store.
+            </Text>
+          </Stack>
+          {plan.steps.map((step, index) => (
+            <Group key={step.label} gap="sm" wrap="nowrap" align="flex-start">
+              <Badge variant="light" color="gray" circle {...stylex.props(styles.stepNumber)}>
+                {index + 1}
+              </Badge>
+              <Stack gap="2xs" miw={0}>
+                <Text size="sm">{step.title}</Text>
+                <CopyableSnippet code={step.code} label={step.label} />
+              </Stack>
+            </Group>
+          ))}
+        </Stack>
+      </Paper>
     </Stack>
   );
 }
@@ -275,6 +279,26 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
 const askAgentPromptOf = (configPath: string) =>
   `Change my Tastebud setup: <say what you want, e.g. "send insights with prompts too">.\n` +
   `Run \`tastebud config-show --guide\` first, then edit ${configPath} and check it with \`tastebud config-show\`.`;
+
+/**
+ * An accept label as what the owner does: a one-word label is a verb ("Believe" reads "believes"); any
+ * longer label ("Worth doing") isn't one, so it is quoted as the button the owner marks.
+ */
+const ownerActionOf = (label: string): string => {
+  if (label.includes(" ")) return `marks “${label}”`;
+  const verb = label.toLowerCase();
+  return /(s|sh|ch|x|z)$/.test(verb) ? `${verb}es` : `${verb}s`;
+};
+
+/** Everything only the owner does, in the inbox buttons' own words: "believes, accepts, rejects or retracts". */
+const ownerDecisionsOf = (catalog: CatalogView): string => {
+  const actions = [
+    ...new Set(catalog.derivedKinds.map((kind) => ownerActionOf(kind.acceptLabel))),
+    "rejects",
+    "retracts",
+  ];
+  return `${actions.slice(0, -1).join(", ")} or ${actions.at(-1)}`;
+};
 
 function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPath: string }) {
   return (
@@ -285,7 +309,7 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
           <Box {...stylex.props(styles.facts)}>
             <FactRow label="Who decides">
               <Text size="sm">
-                Agents only propose. Only {catalog.owner} accepts, rejects or retracts, here in the inbox.
+                Agents only propose. Only {catalog.owner} {ownerDecisionsOf(catalog)}, here in the inbox.
               </Text>
             </FactRow>
             <FactRow label="Each prompt">
