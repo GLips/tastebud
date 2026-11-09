@@ -11,6 +11,7 @@ const styles = stylex.create({
 /** A rejection always carries a reason: it is what a later agent is shown when it proposes the same idea again. */
 export function RejectReasonForm({
   initialReason = "",
+  changingReason = false,
   onReasonChange,
   pending,
   onSubmit,
@@ -18,6 +19,8 @@ export function RejectReasonForm({
 }: {
   /** With `onReasonChange`, lets the caller keep a reason typed before the form was closed. */
   initialReason?: string;
+  /** The derivation is already rejected, so submitting replaces the reason rather than rejecting. */
+  changingReason?: boolean;
   onReasonChange?: (reason: string) => void;
   pending: boolean;
   onSubmit: (reason: string) => void;
@@ -44,7 +47,7 @@ export function RejectReasonForm({
           data-autofocus
           autoFocus
           aria-label="Why reject it? Agents that propose this again are shown your reason."
-          placeholder={`Why not? Agents that propose this again will see your reason. ⌘↵ to reject, Esc to ${onReasonChange === undefined ? "cancel" : "close (your text is kept)"}`}
+          placeholder={`Why not? Agents that propose this again will see your reason. ⌘↵ to ${changingReason ? "save" : "reject"}, Esc to ${onReasonChange === undefined ? "cancel" : "close (your text is kept)"}`}
           minRows={1}
           {...stylex.props(styles.grow)}
           value={reason}
@@ -60,7 +63,7 @@ export function RejectReasonForm({
           Cancel
         </Button>
         <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>
-          Reject
+          {changingReason ? "Save reason" : "Reject"}
         </Button>
       </Group>
     </form>

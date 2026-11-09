@@ -242,6 +242,7 @@ export function DerivationReviewPanels({
       {mode === "rejecting" && (
         <RejectReasonForm
           initialReason={review.rejectDraft}
+          changingReason={view.status === "rejected"}
           onReasonChange={review.setRejectDraft}
           pending={decision.pending}
           onCancel={() => setMode("idle")}

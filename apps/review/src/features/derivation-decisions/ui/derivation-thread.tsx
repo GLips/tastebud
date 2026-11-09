@@ -135,7 +135,12 @@ export function DerivationThread({
     // The id travels with the note: the inbox pane may have moved to another row by the time it lands.
     mutationFn: async ({ ref, text }: { ref: string; text: string }) =>
       unwrapReviewOutcome(await postOwnerThreadNote({ data: { ref, text } })),
-    onSuccess: (_posted, { ref }) => setThreadNoteDraft(ref, ""),
+    // Leaving the box hands single-letter shortcuts back to the page. Not if the reviewer has since
+    // moved to another row and may be typing there.
+    onSuccess: (_posted, { ref }) => {
+      setThreadNoteDraft(ref, "");
+      if (ref === derivationId) composerField()?.blur();
+    },
     onSettled: () => refreshReviewQueriesAfterWrite(queryClient, THREAD_NOTE_STALES),
   });
   const submit = () => {
