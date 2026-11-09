@@ -7,7 +7,7 @@
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { isCompleteScope, type ScopeDraft } from "@tastebud/core/places";
-import { Clock, MessageSquare, PencilLine } from "lucide-react";
+import { Clock, History, MessageSquare, PencilLine } from "lucide-react";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 
@@ -16,34 +16,47 @@ import type { DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
 
+import { versionsOf } from "./derivation-related.tsx";
 import { InboxDecidedRow, type InboxDecidedRowLatest } from "./inbox-decided-row.tsx";
 import { InboxProposalPane } from "./inbox-proposal-pane.tsx";
 import { InboxProposalRow, type InboxRowCheck, type InboxRowNote } from "./inbox-proposal-row.tsx";
 import { type InboxBatch, type InboxCardHandle, useInboxCardTriage } from "./use-inbox-card-triage.ts";
 
-/** What deserves reading before deciding, as a row shows it before the proposal is opened. */
+/**
+ * What deserves reading before deciding, as a row shows it before the proposal is opened. Near matches
+ * are tagged as the accept preview tags them, and an earlier version of this proposal is never one: one
+ * pair, one label (see versionsOf).
+ */
 const rowCautionsOf = (
   card: InboxCard,
   { edited, backlog }: { edited: boolean; backlog: boolean },
 ): ReadonlyArray<DerivationCaution> => {
   const view = card.derivation;
+  const earlier = new Set(versionsOf(view).earlier.map((summary) => summary.id));
+  // An edited scope is re-checked in the preview, so the row stops vouching for the proposed scope's matches.
+  const near = edited ? [] : card.needsAcknowledgement.filter((match) => !earlier.has(match.id));
   const cautions: ReadonlyArray<DerivationCaution | false> = [
     !backlog && view.contradictingSources.length > 0 && "says-the-opposite",
-    // From the related item's status now: one believed or put back since is no longer a rejection to weigh.
-    view.despite.some((rejected) => rejected.status === "rejected") && "near-a-rejection",
-    !edited && card.needsAcknowledgement.length > 0 && "near-a-repeat",
+    near.some((match) => match.status === "rejected") && "near-a-rejection",
+    near.some((match) => match.status !== "rejected") && "near-a-repeat",
   ];
   return cautions.filter((caution) => caution !== false);
 };
 
 /**
- * The row's neutral facts: queued in a bulk decision, its scope mid-edit, its notes. A scope edited to
- * somewhere whole shows as its place chip instead, so "Scope edited" covers only a draft not yet a place.
+ * The row's neutral facts: queued in a bulk decision, a newer version of something, its scope mid-edit,
+ * its notes. A scope edited to somewhere whole shows as its place chip instead, so "Scope edited" covers
+ * only a draft not yet a place.
  */
 const rowNotesOf = (card: InboxCard, { editing, queued }: { editing: boolean; queued: boolean }) => {
   const notes = card.derivation.thread.length;
   const facts: ReadonlyArray<InboxRowNote | false> = [
     queued && { icon: Clock, text: "Queued", tooltip: "Waiting its turn in a bulk decision" },
+    versionsOf(card.derivation).earlier.length > 0 && {
+      icon: History,
+      text: "Newer version",
+      tooltip: "Proposed again in place of an earlier version",
+    },
     editing && { icon: PencilLine, text: "Scope edited", tooltip: "You're changing where it applies" },
     notes > 0 && {
       icon: MessageSquare,
