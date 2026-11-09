@@ -18,11 +18,10 @@ import { DerivationActions } from "./derivation-review.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
 
-// The left rule repeats the state's colour from DERIVATION_STATUS_TONES; stylex needs the values here.
+// A decided state's left rule repeats the state's colour from DERIVATION_STATUS_TONES; stylex needs the values here.
 const styles = stylex.create({
   rail: { overflow: "hidden" },
   state: { borderLeftWidth: "3px", borderLeftStyle: "solid" },
-  pending: { borderLeftColor: "var(--mantine-color-blue-5)" },
   accepted: { borderLeftColor: "var(--mantine-color-teal-6)" },
   rejected: { borderLeftColor: "var(--mantine-color-red-5)" },
   retracted: { borderLeftColor: "var(--mantine-color-gray-5)" },
@@ -30,8 +29,8 @@ const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
 });
 
-const STATE_TINTS: Record<DerivationStatus, string> = {
-  pending: "blue.0",
+// Only a decided state is tinted: a waiting one is a plain row, so its two buttons carry the colour.
+const STATE_TINTS: Partial<Record<DerivationStatus, string>> = {
   accepted: "teal.0",
   rejected: "red.0",
   retracted: "gray.0",
@@ -92,10 +91,16 @@ export function DerivationRail({
   const { view } = review;
   const { color, icon: Icon } = DERIVATION_STATUS_TONES[view.status];
   // When and by whom the state was set; a reason edit or an undone decision doesn't move it.
+  const decided = view.status === "pending" ? undefined : view.status;
   const setter = view.status === "pending" || view.status === "superseded" ? undefined : stateSettingDecisionOf(view);
   return (
     <Paper p={0} {...stylex.props(styles.rail)}>
-      <Stack gap="sm" p="md" bg={STATE_TINTS[view.status]} {...stylex.props(styles.state, styles[view.status])}>
+      <Stack
+        gap="sm"
+        p="md"
+        {...(decided !== undefined && { bg: STATE_TINTS[decided] })}
+        {...stylex.props(decided !== undefined && styles.state, decided !== undefined && styles[decided])}
+      >
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap">
             <ThemeIcon color={color} variant="light" size="md">

@@ -134,7 +134,8 @@ export function ScopePropertyField({
 }) {
   return (
     <Stack gap="2xs" align="flex-start">
-      <Group gap="xs" wrap="nowrap">
+      {/* Capped at the column and wrapping, so a long scope truncates and "guessed" drops under it. */}
+      <Group gap="xs" maw="100%">
         <ScopePicker {...picker} />
         {guessed && changes.length === 0 && picker.opened !== true && (
           <Tooltip label="Guessed from where the agent was working" withArrow>

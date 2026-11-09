@@ -37,17 +37,26 @@ export type DerivationBacklinks = Partial<Pick<ShowResult, "despitedBy" | "cited
  * to replace or answer the other. That outranks anything else they share, so a pair never also reads
  * as near a rejection or a near repeat.
  */
-export interface DerivationVersions {
-  readonly earlier: ReadonlyArray<DerivationSummary>;
-  readonly newer: ReadonlyArray<DerivationSummary>;
+export interface DerivationVersion {
+  readonly summary: DerivationSummary;
+  /** The edge, said of the other record: "Revised as", "Proposed again despite your no". */
+  readonly relation: string;
 }
+
+export interface DerivationVersions {
+  readonly earlier: ReadonlyArray<DerivationVersion>;
+  readonly newer: ReadonlyArray<DerivationVersion>;
+}
+
+const asVersions = (summaries: ReadonlyArray<DerivationSummary>, relation: string) =>
+  summaries.map((summary) => ({ summary, relation }));
 
 export const versionsOf = (
   view: DerivationView,
   despitedBy: ReadonlyArray<DerivationSummary> = [],
 ): DerivationVersions => ({
-  earlier: [...view.ancestors, ...view.despite],
-  newer: [...view.revisions, ...despitedBy],
+  earlier: [...asVersions(view.ancestors, "Revised as this one"), ...asVersions(view.despite, "Your earlier no")],
+  newer: [...asVersions(view.revisions, "Revised as"), ...asVersions(despitedBy, "Proposed again despite your no")],
 });
 
 const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) => {
@@ -59,8 +68,10 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       return true;
     });
   const versions = versionsOf(view, backlinks.despitedBy);
-  const earlier = firstSeen(versions.earlier.map((summary) => ({ summary })));
-  const newer = firstSeen(versions.newer.map((summary) => ({ summary, place: "child" as const })));
+  const earlier = firstSeen(versions.earlier);
+  const newer = firstSeen(
+    versions.newer.map(({ summary, relation }) => ({ summary, relation, place: "child" as const })),
+  );
   const conflicts = firstSeen([
     ...view.reverses.map((summary) => ({ relation: "Reverses", summary })),
     ...view.reversedBy.map((summary) => ({ relation: "Reversed by", summary })),
@@ -83,7 +94,7 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
     ...(backlinks.similar ?? []).map((summary) => ({ relation: "Similar", summary })),
   ]);
   const lineage: ReadonlyArray<DerivationRelation> =
-    newer.length === 0 ? [] : [{ summary: view, place: "current" }, ...newer];
+    newer.length === 0 ? [] : [{ summary: view, relation: "This one", place: "current" }, ...newer];
   return { earlier, lineage, conflicts, linked };
 };
 

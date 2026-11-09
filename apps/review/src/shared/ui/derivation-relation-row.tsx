@@ -2,7 +2,7 @@
  * Another derivation as a title-first row in a related list (Linear's sub-issues): its kind glyph, its
  * statement at full width, then trailing chips (how it relates, where it applies, its status) that wrap
  * under the statement only when it is long. The whole row opens it. A version stack sets `place`: the
- * derivation being read is the bold `current` row, not a link, and later versions hang under it as
+ * derivation being read is the muted `current` row ("This one"), not a link, and later versions hang under it as
  * `child` rows on a connector rail. Rows divide themselves; put them in a bordered `Paper`.
  */
 import { Box, Group, Stack, Text } from "@mantine/core";
@@ -77,7 +77,7 @@ export function DerivationRelationRow({
       <Box {...stylex.props(styles.line)}>
         <Box {...stylex.props(styles.title)}>
           <KindGlyph catalog={catalog} kind={summary.kind} label={summary.kindLabel} size={10} />
-          <Text size="sm" fw={current ? 600 : 400} lineClamp={2}>
+          <Text size="sm" {...(current && { c: "dimmed" })} lineClamp={2}>
             {summary.statement}
           </Text>
         </Box>
