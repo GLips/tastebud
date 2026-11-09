@@ -163,7 +163,7 @@ export function InboxProposalPane({
   return (
     <Stack gap="lg">
       <SelectedCardHotkeys
-        enabled={!triage.engaged && !queued}
+        enabled={!triage.engaged && !queued && !triage.selectionHoldsKeys}
         onAccept={triage.accept}
         onReject={triage.startReject}
         onDiscuss={discuss}

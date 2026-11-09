@@ -1,18 +1,29 @@
 /**
- * The bar that appears once rows are checked: how many, Believe them as proposed, Reject them with one
- * reason, or Clear. It sticks to the bottom of the queue so it stays in reach while more rows are checked.
+ * The bar under the queue for bulk decisions. While rows are checked it offers Believe them as proposed,
+ * Reject them with one reason, or Clear, and a and r act through it. While a batch runs it counts it
+ * off, and once it lands it holds the batch's Undo all. It sticks to the bottom of the queue so it
+ * stays in reach while more rows are checked.
  */
-import { Button, Group, Kbd, Paper, Popover, Text, Tooltip } from "@mantine/core";
+import { Button, Group, Kbd, Loader, Paper, Popover, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import { Undo2 } from "lucide-react";
 import { useState } from "react";
 
+import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
+import type { InboxBatchProgress, InboxBatchVerb } from "./use-inbox-batch.ts";
 
 const styles = stylex.create({
   bar: { position: "sticky", bottom: "16px", zIndex: 6 },
+  // One height in every state, so the queue above doesn't jump as the bar changes.
+  body: { minHeight: "36px" },
   count: { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
 });
+
+const PROGRESS_VERBS: Record<InboxBatchVerb, string> = { believe: "Accepting", reject: "Rejecting" };
+const DONE_WORDS: Record<InboxBatchVerb, string> = { believe: "accepted", reject: "rejected" };
 
 interface InboxSelectionCounts {
   readonly checked: number;
@@ -22,83 +33,129 @@ interface InboxSelectionCounts {
   readonly rejectable: number;
 }
 
-export function InboxSelectionBar({
+/** What the bar is showing: a selection to act on, a batch running, or a batch landed with its Undo all. */
+export type InboxSelectionBarState =
+  | {
+      readonly stage: "selecting";
+      readonly counts: InboxSelectionCounts;
+      readonly onBelieve: () => void;
+      readonly onReject: (reason: string) => void;
+      readonly onClear: () => void;
+    }
+  | { readonly stage: "running"; readonly progress: InboxBatchProgress }
+  | { readonly stage: "done"; readonly verb: InboxBatchVerb; readonly count: number; readonly onUndoAll: () => void };
+
+function SelectingBar({
   kind,
-  counts,
-  pending,
-  onBelieve,
-  onReject,
-  onClear,
+  state,
 }: {
   kind: DerivedKindView;
-  counts: InboxSelectionCounts;
-  pending: boolean;
-  onBelieve: () => void;
-  onReject: (reason: string) => void;
-  onClear: () => void;
+  state: Extract<InboxSelectionBarState, { stage: "selecting" }>;
 }) {
   const [rejecting, setRejecting] = useState(false);
-  const { checked: checkedCount, believable: believableCount, rejectable: rejectableCount } = counts;
-  const leftOut = checkedCount - believableCount;
+  const { checked, believable, rejectable } = state.counts;
+  const leftOut = checked - believable;
+  // The selection owns a and r while it exists; the open row's own a and r stand down (see the pane).
+  useHotkeys([
+    { hotkey: "A", callback: () => believable > 0 && state.onBelieve(), options: { enabled: !rejecting } },
+    { hotkey: "R", callback: () => rejectable > 0 && setRejecting(true), options: { enabled: !rejecting } },
+  ]);
+  return (
+    <Group justify="space-between" wrap="nowrap" gap="sm" {...stylex.props(styles.body)}>
+      <Text size="sm" fw={600} {...stylex.props(styles.count)}>
+        {checked} selected
+      </Text>
+      <Group gap="xs" wrap="nowrap">
+        <Tooltip
+          label={
+            <>
+              Clear <Kbd size="xs">Esc</Kbd>
+            </>
+          }
+          withArrow
+        >
+          <Button variant="subtle" color="gray" onClick={state.onClear}>
+            Clear
+          </Button>
+        </Tooltip>
+        <Popover
+          opened={rejecting}
+          onChange={setRejecting}
+          width={460}
+          position="top-end"
+          withArrow
+          shadow="md"
+          trapFocus
+          returnFocus
+        >
+          <Popover.Target>
+            <Button variant="default" disabled={rejectable === 0} onClick={() => setRejecting((open) => !open)}>
+              Reject {rejectable}
+            </Button>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <RejectReasonForm
+              pending={false}
+              onSubmit={(reason) => {
+                setRejecting(false);
+                state.onReject(reason);
+              }}
+              onCancel={() => setRejecting(false)}
+            />
+          </Popover.Dropdown>
+        </Popover>
+        <Tooltip
+          label={
+            leftOut === 0 ? (
+              <>
+                {kind.acceptLabel} all <Kbd size="xs">A</Kbd>
+              </>
+            ) : (
+              `${leftOut} edited, overlapping or open stay selected, to decide one by one`
+            )
+          }
+          withArrow
+        >
+          <Button disabled={believable === 0} onClick={state.onBelieve}>
+            {kind.acceptLabel} {believable} as proposed
+          </Button>
+        </Tooltip>
+      </Group>
+    </Group>
+  );
+}
+
+export function InboxSelectionBar({ kind, state }: { kind: DerivedKindView; state: InboxSelectionBarState }) {
   return (
     <Paper withBorder shadow="md" px="sm" py="xs" {...stylex.props(styles.bar)}>
-      <Group justify="space-between" wrap="nowrap" gap="sm">
-        <Text size="sm" fw={600} {...stylex.props(styles.count)}>
-          {checkedCount} selected
-        </Text>
-        <Group gap="xs" wrap="nowrap">
+      {state.stage === "selecting" && <SelectingBar kind={kind} state={state} />}
+      {state.stage === "running" && (
+        <Group gap="xs" wrap="nowrap" {...stylex.props(styles.body)}>
+          <Loader size="xs" />
+          <Text size="sm" fw={600} {...stylex.props(styles.count)}>
+            {PROGRESS_VERBS[state.progress.verb]} {state.progress.at} of {state.progress.total}…
+          </Text>
+        </Group>
+      )}
+      {state.stage === "done" && (
+        <Group justify="space-between" wrap="nowrap" gap="sm" {...stylex.props(styles.body)}>
+          <Text size="sm" fw={600} {...stylex.props(styles.count)}>
+            {state.count} {DONE_WORDS[state.verb]}
+          </Text>
           <Tooltip
             label={
               <>
-                Clear <Kbd size="xs">Esc</Kbd>
+                Undo all <Kbd size="xs">U</Kbd>
               </>
             }
             withArrow
           >
-            <Button variant="subtle" color="gray" onClick={onClear} disabled={pending}>
-              Clear
-            </Button>
-          </Tooltip>
-          <Popover
-            opened={rejecting}
-            onChange={setRejecting}
-            width={460}
-            position="top-end"
-            withArrow
-            shadow="md"
-            trapFocus
-          >
-            <Popover.Target>
-              <Button
-                variant="default"
-                disabled={rejectableCount === 0 || pending}
-                onClick={() => setRejecting((open) => !open)}
-              >
-                Reject {rejectableCount}…
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <RejectReasonForm
-                pending={false}
-                onSubmit={(reason) => {
-                  setRejecting(false);
-                  onReject(reason);
-                }}
-                onCancel={() => setRejecting(false)}
-              />
-            </Popover.Dropdown>
-          </Popover>
-          <Tooltip
-            label={`${leftOut} edited, overlapping or open stay selected, to decide one by one`}
-            disabled={leftOut === 0}
-            withArrow
-          >
-            <Button disabled={believableCount === 0} loading={pending} onClick={onBelieve}>
-              {kind.acceptLabel} {believableCount} as proposed
+            <Button variant="default" leftSection={<Undo2 size={14} />} onClick={ignoringRepeatClicks(state.onUndoAll)}>
+              Undo all
             </Button>
           </Tooltip>
         </Group>
-      </Group>
+      )}
     </Paper>
   );
 }

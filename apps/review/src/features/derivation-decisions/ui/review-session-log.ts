@@ -1,12 +1,12 @@
 /**
- * The decisions made in this browser tab, newest first, each its own line: an accept and the undo
- * that put it back are two entries, as they are two records. Kept in sessionStorage so it survives
- * moving between screens and a reload.
+ * The decisions made in this browser tab, kept in sessionStorage so they survive moving between screens
+ * and a reload. Every record is logged, but the session is read net: one line per derivation whose
+ * standing it changed, so a decision and its undo cancel out.
  */
 import { DerivationScopeSchema } from "@tastebud/core/places";
-import { DecisionOutcomeSchema } from "@tastebud/core/taste-vocabulary";
+import { DerivationStatusSchema } from "@tastebud/core/taste-vocabulary";
 import { Option, Schema } from "effect";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { readTabSessionText, writeTabSessionText } from "#review/infrastructure/browser-storage.ts";
 
@@ -15,7 +15,10 @@ const ReviewSessionDecisionSchema = Schema.Struct({
   derivationId: Schema.String,
   kind: Schema.String,
   statement: Schema.String,
-  outcome: DecisionOutcomeSchema,
+  /** Where it stood when decided; null when the deciding screen didn't know. */
+  from: Schema.NullOr(DerivationStatusSchema),
+  /** Where the decision left it. */
+  status: DerivationStatusSchema,
   /** A reject on one already rejected: the reason on record was replaced. */
   reasonChanged: Schema.Boolean,
   effectiveScope: DerivationScopeSchema,
@@ -52,5 +55,24 @@ const subscribe = (listener: () => void) => {
 
 const EMPTY: ReadonlyArray<ReviewSessionDecision> = [];
 
-export const useReviewSessionLog = (): ReadonlyArray<ReviewSessionDecision> =>
-  useSyncExternalStore(subscribe, readStored, () => EMPTY);
+/**
+ * The log read net, newest first: one line per derivation, dropped when it ends where it began and no
+ * reason was replaced along the way.
+ */
+const netSessionDecisions = (log: ReadonlyArray<ReviewSessionDecision>): ReadonlyArray<ReviewSessionDecision> => {
+  const byDerivation = new Map<string, Array<ReviewSessionDecision>>();
+  for (const entry of log)
+    byDerivation.set(entry.derivationId, [...(byDerivation.get(entry.derivationId) ?? []), entry]);
+  return [...byDerivation.values()].flatMap((entries) => {
+    const [newest] = entries;
+    const oldest = entries.at(-1);
+    if (newest === undefined || oldest === undefined) return [];
+    const unchanged = oldest.from === newest.status && !entries.some((entry) => entry.reasonChanged);
+    return unchanged ? [] : [newest];
+  });
+};
+
+export const useNetReviewSession = (): ReadonlyArray<ReviewSessionDecision> => {
+  const log = useSyncExternalStore(subscribe, readStored, () => EMPTY);
+  return useMemo(() => netSessionDecisions(log), [log]);
+};

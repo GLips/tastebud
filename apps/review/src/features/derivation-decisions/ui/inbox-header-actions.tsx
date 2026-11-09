@@ -4,10 +4,12 @@
  */
 import { Box, Button, Group, Kbd, Popover, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { History, Keyboard } from "lucide-react";
+import { useState } from "react";
 
 import { ReviewSessionList } from "./review-session-list.tsx";
-import { useReviewSessionLog } from "./review-session-log.ts";
+import { useNetReviewSession } from "./review-session-log.ts";
 
 const styles = stylex.create({
   keys: { display: "grid", gridTemplateColumns: "auto 1fr", columnGap: "10px", rowGap: "6px", alignItems: "center" },
@@ -15,14 +17,16 @@ const styles = stylex.create({
 
 const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["j / k", "Next / previous"],
-  ["a", "Accept, or review first if needed"],
+  ["a", "Believe, or every selected row as proposed"],
   ["s", "Edit where it applies"],
-  ["r", "Reject with a reason"],
+  ["r", "Reject with a reason, one or the selection"],
   ["d", "Write in the thread to the agents"],
   ["u", "Undo the latest decision"],
   ["x / ⇧-click", "Select one / a range, to decide together"],
   ["Esc", "Clear the selection"],
+  ["↵ / o", "Open the full page"],
   ["⌘↵ / Esc", "Confirm / back, in a preview or note"],
+  ["?", "Show these keys"],
 ];
 
 function InboxKeyList() {
@@ -41,7 +45,10 @@ function InboxKeyList() {
 }
 
 export function InboxHeaderActions() {
-  const decided = useReviewSessionLog().length;
+  const decided = useNetReviewSession().length;
+  const [keysOpen, setKeysOpen] = useState(false);
+  // `?` is Shift+/ on the keyboards this is written for.
+  useHotkeys([{ hotkey: { key: "/", shift: true }, callback: () => setKeysOpen((open) => !open) }]);
   return (
     <Group gap="2xs" wrap="nowrap">
       {decided > 0 && (
@@ -56,9 +63,22 @@ export function InboxHeaderActions() {
           </Popover.Dropdown>
         </Popover>
       )}
-      <Popover withArrow position="bottom-end" shadow="md">
+      <Popover
+        opened={keysOpen}
+        onChange={setKeysOpen}
+        withArrow
+        position="bottom-end"
+        shadow="md"
+        trapFocus
+        returnFocus
+      >
         <Popover.Target>
-          <Button variant="subtle" color="gray" leftSection={<Keyboard size={14} />}>
+          <Button
+            variant="subtle"
+            color="gray"
+            leftSection={<Keyboard size={14} />}
+            onClick={() => setKeysOpen((open) => !open)}
+          >
             Shortcuts
           </Button>
         </Popover.Target>
