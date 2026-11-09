@@ -43,7 +43,7 @@ export function DerivationProperties({
       <FactRow label="Scope">{scope}</FactRow>
       {otherSubjectOf(view, owner) !== undefined && (
         <FactRow label="About">
-          <SubjectChip summary={view} owner={owner} />
+          <SubjectChip summary={view} owner={owner} nameOnly />
         </FactRow>
       )}
       <FactRow label="Proposed">
