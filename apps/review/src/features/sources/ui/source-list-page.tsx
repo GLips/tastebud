@@ -16,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SourceRow } from "@tastebud/core/record-browsing";
 import { Schema } from "effect";
-import { ChevronDown, ChevronRight, Search, UserRound } from "lucide-react";
+import { ArrowDownUp, ChevronDown, ChevronRight, Search, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -29,6 +29,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { sourceListQuery } from "./source-queries.ts";
+import { SourceSpeaker } from "./source-speaker.tsx";
 
 const styles = stylex.create({
   fitCell: { width: "1%", whiteSpace: "nowrap" },
@@ -55,7 +56,22 @@ const styles = stylex.create({
 const SOURCE_SECTION_KEYS = ["led-to", "unused"] as const;
 type SourceSectionKey = (typeof SOURCE_SECTION_KEYS)[number];
 
+const SOURCE_SORTS = ["cited", "newest", "oldest"] as const;
+type SourceSort = (typeof SOURCE_SORTS)[number];
+
+const SOURCE_SORT_LABELS: Record<SourceSort, string> = { cited: "Most cited", newest: "Newest", oldest: "Oldest" };
+
+const newestSaidFirst = (left: SourceRow, right: SourceRow) => right.source.said_at.localeCompare(left.source.said_at);
+
+const SOURCE_SORT_ORDERS: Record<SourceSort, (left: SourceRow, right: SourceRow) => number> = {
+  cited: (left, right) => right.citedByCount - left.citedByCount || newestSaidFirst(left, right),
+  newest: newestSaidFirst,
+  oldest: (left, right) => left.source.said_at.localeCompare(right.source.said_at),
+};
+
 export const SourceListSearch = Schema.Struct({
+  /** Most cited first when absent. */
+  sort: Schema.optionalKey(Schema.Literals(SOURCE_SORTS)),
   kind: Schema.optionalKey(Schema.String),
   /** Sections folded shut; both are open by default. */
   closed: Schema.optionalKey(Schema.Array(Schema.Literals(SOURCE_SECTION_KEYS))),
@@ -71,15 +87,11 @@ const SOURCE_SECTIONS: ReadonlyArray<{ key: SourceSectionKey; title: string; cit
   { key: "unused", title: "Not used yet", cited: false },
 ];
 
-/** Most cited first, then newest: the words that led to the most come up top. */
-const bySourceUse = (left: SourceRow, right: SourceRow) =>
-  right.citedByCount - left.citedByCount || right.source.said_at.localeCompare(left.source.said_at);
-
-/** Rows in their sections; a section with no rows has no header. */
-const groupSourceRowsByUse = (rows: ReadonlyArray<SourceRow>) =>
+/** Rows in their sections, each in the picked order; a section with no rows has no header. */
+const groupSourceRowsByUse = (rows: ReadonlyArray<SourceRow>, sort: SourceSort) =>
   SOURCE_SECTIONS.map((section) =>
     Object.assign(
-      { rows: rows.filter((row) => row.citedByCount > 0 === section.cited).toSorted(bySourceUse) },
+      { rows: rows.filter((row) => row.citedByCount > 0 === section.cited).toSorted(SOURCE_SORT_ORDERS[sort]) },
       section,
     ),
   ).filter((section) => section.rows.length > 0);
@@ -132,7 +144,7 @@ function SourceListRow({ view, owner }: { view: SourceRow; owner: string | undef
         </AnchorLink>
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)}>
-        <SupportingText tier="secondary">{describeSpeaker(view.source, owner)}</SupportingText>
+        <SourceSpeaker source={view.source} owner={owner} />
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)} ta="right">
         {view.citedByCount > 0 && (
@@ -184,12 +196,14 @@ export function SourceListPage() {
     speaker?: string | undefined;
     text?: string | undefined;
     closed?: ReadonlyArray<SourceSectionKey>;
+    sort?: SourceSort | undefined;
   }) =>
     void navigate({
       search: (previous) => {
         const merged = { ...previous, ...next };
         return {
           ...(merged.kind !== undefined && { kind: merged.kind }),
+          ...(merged.sort !== undefined && merged.sort !== "cited" && { sort: merged.sort }),
           ...(merged.closed !== undefined && merged.closed.length > 0 && { closed: merged.closed }),
           ...(merged.speaker !== undefined && { speaker: merged.speaker }),
           ...(merged.text !== undefined && merged.text !== "" && { text: merged.text }),
@@ -239,6 +253,15 @@ export function SourceListPage() {
           data={speakers.map(([account, label]) => ({ value: account, label: `${label} · ${account}` }))}
           onChange={(value) => setFilter({ speaker: value ?? undefined })}
         />
+        <Select
+          w={160}
+          leftSection={<ArrowDownUp size={14} />}
+          aria-label="Sort"
+          allowDeselect={false}
+          value={search.sort ?? "cited"}
+          data={SOURCE_SORTS.map((value) => ({ value, label: SOURCE_SORT_LABELS[value] }))}
+          onChange={(value) => setFilter({ sort: SOURCE_SORTS.find((sort) => sort === value) })}
+        />
       </Group>
 
       <LoadedQueryContent query={list}>
@@ -253,7 +276,12 @@ export function SourceListPage() {
             </Center>
           ) : (
             <Paper p={0}>
-              <Table verticalSpacing="xs" horizontalSpacing="md">
+              <Table
+                verticalSpacing="xs"
+                horizontalSpacing="md"
+                stickyHeader
+                stickyHeaderOffset="var(--review-shell-header-height)"
+              >
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>
@@ -268,7 +296,7 @@ export function SourceListPage() {
                     </Table.Th>
                     <Table.Th {...stylex.props(styles.fitCell)} ta="right">
                       <Text size="xs" c="gray.7" fw={600} title="How many conclusions cite these words">
-                        Cited by
+                        Led to
                       </Text>
                     </Table.Th>
                     <Table.Th w={96} ta="right">
@@ -279,7 +307,7 @@ export function SourceListPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {groupSourceRowsByUse(rows).flatMap((section) =>
+                  {groupSourceRowsByUse(rows, search.sort ?? "cited").flatMap((section) =>
                     [
                       <SourceSectionHeader
                         key={section.key}
