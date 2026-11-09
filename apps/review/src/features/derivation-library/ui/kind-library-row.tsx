@@ -48,6 +48,15 @@ const LIBRARY_ACTIONS: Record<DerivationStatus, ReadonlyArray<DecisionOutcome>> 
   superseded: [],
 };
 
+/** What a row's second line is, in the quiet label style every second line shares. */
+function RowLineLabel({ children }: { children: string }) {
+  return (
+    <Text span size="xs" fw={600} c="gray.6">
+      {children}
+    </Text>
+  );
+}
+
 /**
  * A rejection's or retraction's reason, labelled, on one line; clicking it unfolds the whole reason and when it was
  * decided, so it reads in full without leaving the list.
@@ -62,10 +71,7 @@ function LibraryRowReason({ row, reason }: { row: DerivationRow; reason: string 
       {...stylex.props(styles.reasonToggle)}
     >
       <SupportingText tier="secondary" {...(!open && { lineClamp: 1 })}>
-        <Text span size="xs" fw={600} c="gray.6">
-          Reason
-        </Text>{" "}
-        “{reason}”
+        <RowLineLabel>Reason</RowLineLabel> “{reason}”
       </SupportingText>
       {open && (
         <SupportingText tier="faint" mt="3xs">
@@ -76,7 +82,10 @@ function LibraryRowReason({ row, reason }: { row: DerivationRow; reason: string 
   );
 }
 
-/** Why a row stands where it does, in one line: the reasoning, the evidence or the decision's reason. */
+/**
+ * Why a row stands where it does, in one labelled line: the decision's Reason, the words it was Said in, or the
+ * agent's Reasoning.
+ */
 function DerivationRowWhy({ row }: { row: DerivationRow }) {
   if (row.status === "superseded") return null;
   if ((row.status === "rejected" || row.status === "retracted") && row.reason !== undefined)
@@ -84,12 +93,12 @@ function DerivationRowWhy({ row }: { row: DerivationRow }) {
   if (row.status === "accepted" && row.leadQuote !== undefined)
     return (
       <SupportingText tier="secondary" lineClamp={1}>
-        “{row.leadQuote}”
+        <RowLineLabel>Said</RowLineLabel> “{row.leadQuote}”
       </SupportingText>
     );
   return (
     <SupportingText tier="secondary" lineClamp={1}>
-      {row.reasoning}
+      <RowLineLabel>Reasoning</RowLineLabel> {row.reasoning}
     </SupportingText>
   );
 }
