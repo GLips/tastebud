@@ -1,4 +1,13 @@
-import { Anchor, type AnchorProps, Badge, type BadgeProps, Button, type ButtonProps } from "@mantine/core";
+import {
+  ActionIcon,
+  type ActionIconProps,
+  Anchor,
+  type AnchorProps,
+  Badge,
+  type BadgeProps,
+  Button,
+  type ButtonProps,
+} from "@mantine/core";
 import { createLink } from "@tanstack/react-router";
 import type { AnchorHTMLAttributes, Ref } from "react";
 
@@ -8,3 +17,6 @@ type LinkElementProps = AnchorHTMLAttributes<HTMLAnchorElement> & { ref?: Ref<HT
 export const AnchorLink = createLink((props: AnchorProps & LinkElementProps) => <Anchor component="a" {...props} />);
 export const ButtonLink = createLink((props: ButtonProps & LinkElementProps) => <Button component="a" {...props} />);
 export const BadgeLink = createLink((props: BadgeProps & LinkElementProps) => <Badge component="a" {...props} />);
+export const ActionIconLink = createLink((props: ActionIconProps & LinkElementProps) => (
+  <ActionIcon component="a" {...props} />
+));

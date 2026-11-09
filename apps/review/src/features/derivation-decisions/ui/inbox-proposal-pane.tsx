@@ -4,7 +4,7 @@
  * the accept follows the scope), then what it rests on, how it relates to other records, and the
  * activity feed with the note composer.
  */
-import { Box, Alert, Group, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Box, Alert, Group, Loader, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { InboxCard } from "@tastebud/core/inbox";
@@ -18,7 +18,7 @@ import { recordDetailQuery, useReviewCatalog } from "#review/features/review-she
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
-import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { ActionIconLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
@@ -46,12 +46,19 @@ function PaneMetaLine({ view, owner }: { view: InboxCard["derivation"]; owner: s
         Proposed {formatReviewDate(view.proposedAt)} by {describeAuthor(view.derivation.proposed_by, owner)}
       </Text>
       {otherSubjectOf(view, owner) !== undefined && <SubjectChip summary={view} owner={owner} />}
-      <AnchorLink to="/derivations/$id" params={{ id: view.id }} size="xs" c="dimmed">
-        <Group gap="3xs" wrap="nowrap" component="span">
-          Open full page
-          <ExternalLink size={11} aria-hidden />
-        </Group>
-      </AnchorLink>
+      {/* An icon, so a subject chip doesn't push it onto a line of its own. */}
+      <Tooltip label="Open full page" withArrow>
+        <ActionIconLink
+          to="/derivations/$id"
+          params={{ id: view.id }}
+          variant="subtle"
+          color="gray"
+          size="sm"
+          aria-label="Open full page"
+        >
+          <ExternalLink size={13} aria-hidden />
+        </ActionIconLink>
+      </Tooltip>
     </>
   );
 }
@@ -204,7 +211,7 @@ export function InboxProposalPane({
             statement={view.statement}
             meta={<PaneMetaLine view={view} owner={owner} />}
           />
-          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+          <Group justify="space-between" align="flex-start" gap="md">
             {/* No ⌘↵ here: while the picker is open it owns the keys, and believing waits until it is closed. */}
             <ScopePropertyField
               picker={{

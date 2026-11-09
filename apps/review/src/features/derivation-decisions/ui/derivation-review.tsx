@@ -21,11 +21,9 @@ import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePropertyField } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
 
-/** What an accept from each decided status changes, for the preview to say before it is sent. */
+/** What an accept changes that the preview's scope doesn't already show; only an accepted one needs saying. */
 const ACCEPT_CONSEQUENCES: Partial<Record<DerivationView["status"], string>> = {
   accepted: "It stays accepted. From now on it applies only where shown above.",
-  rejected: "It becomes accepted and applies where shown above.",
-  retracted: "It becomes accepted again and applies where shown above.",
 };
 
 /**
@@ -70,7 +68,7 @@ export function PendingDecisionButtons({
     </Tooltip>
   );
   return (
-    <Group gap="xs" wrap="nowrap">
+    <Group gap="xs">
       {reject}
       {accept}
     </Group>

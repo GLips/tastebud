@@ -45,7 +45,9 @@ const styles = stylex.create({
     borderLeftColor: "var(--mantine-color-gray-3)",
   },
   line: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: "8px", rowGap: "4px" },
-  title: { flex: "1 1 240px", minWidth: 0, display: "flex", alignItems: "baseline", gap: "8px" },
+  // Sized to the statement, so a short one keeps the trailing chips beside it; a long one takes the
+  // line and the chips wrap under it.
+  title: { flex: "1 1 auto", minWidth: 0, display: "flex", alignItems: "baseline", gap: "8px" },
   trailing: { marginLeft: "auto" },
   quoted: { whiteSpace: "pre-wrap" },
 });
