@@ -183,15 +183,19 @@ const remainingConnectStepsOf = (
   return hasTastebudEntry(connection) ? steps.slice(1) : steps;
 };
 
+/** The steps as a numbered list, except a lone step, which is just its title and snippet. */
 function ConnectSteps({ steps }: { steps: ReadonlyArray<ConnectStep> }) {
+  const numbered = steps.length > 1;
   return (
-    <Stack gap="sm" component="ol" {...stylex.props(styles.steps)}>
+    <Stack gap="sm" component={numbered ? "ol" : "div"} {...stylex.props(styles.steps)}>
       {steps.map((step, index) => (
-        <Stack key={step.label} gap="2xs" component="li" miw={0}>
+        <Stack key={step.label} gap="2xs" component={numbered ? "li" : "div"} miw={0}>
           <Text size="sm">
-            <Text span size="sm" c="dimmed">
-              {index + 1}.{" "}
-            </Text>
+            {numbered && (
+              <Text span size="sm" c="dimmed">
+                {index + 1}.{" "}
+              </Text>
+            )}
             {step.title}
           </Text>
           <CopyableSnippet code={step.code} label={step.label} />
@@ -248,7 +252,8 @@ function AgentHostRow({
         )}
         {/* Set up only shows the steps, so it says so; a host with any Tastebud entry has details to read. */}
         <Group gap="xs" wrap="nowrap" {...stylex.props(styles.action)}>
-          {connection?.state === "unknown" && (
+          {/* Not checked means Tastebud has no config file to read for this host, so rereading changes nothing. */}
+          {connection?.state === "unknown" && connection.reason !== "not-checked" && (
             <Button
               variant="default"
               leftSection={<RefreshCw size={14} />}

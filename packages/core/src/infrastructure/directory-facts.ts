@@ -6,7 +6,7 @@ import { errorCodeOf, PlaceResolutionFailed } from "./store-errors.ts";
 
 // The common ways a path can't be read, in plain words; anything rarer keeps the system's own message.
 const UNREADABLE_PATH_PROBLEMS = new Map([
-  ["ENOENT", "there is no folder there"],
+  ["ENOENT", "no folder there"],
   ["ENOTDIR", "part of the path is a file, not a folder"],
   ["EACCES", "you don't have permission to read it"],
 ]);

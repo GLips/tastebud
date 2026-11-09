@@ -62,7 +62,7 @@ export interface TasteFailureEnvelope {
   readonly candidates?: ReadonlyArray<string>;
   /** UnknownKind: the kinds there are. */
   readonly known?: ReadonlyArray<string>;
-  /** InvalidTasteInput: each problem, naming its field. */
+  /** InvalidTasteInput: each problem, naming its field. PlaceResolutionFailed: why, without the path. */
   readonly problems?: ReadonlyArray<string>;
 }
 
@@ -76,6 +76,7 @@ const retryFieldsOf = (error: TasteError): TasteFailureRetry =>
       AmbiguousRecordRef: (matched) => ({ candidates: matched.candidates }),
       UnknownKind: (matched) => ({ known: matched.known }),
       InvalidTasteInput: (matched) => ({ problems: matched.problems }),
+      PlaceResolutionFailed: (matched) => ({ problems: [matched.problem] }),
     }),
     Match.orElse((): TasteFailureRetry => ({})),
   );

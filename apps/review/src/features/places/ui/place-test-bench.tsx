@@ -18,6 +18,8 @@ import {
   useReviewCatalog,
 } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { ReviewQueryError } from "#review/shared/review-outcome.ts";
+import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
@@ -75,6 +77,47 @@ function ResolvedPlaces({ places, known }: { places: ReadonlyArray<string> | und
   if (places === undefined) return <SupportingText tier="faint">…</SupportingText>;
   if (places.length === 0) return <Badge color="orange">No place</Badge>;
   return places.map((place) => <PlaceChip key={place} place={place} label={known.labelOf(place)} />);
+}
+
+/** Why a path failed to resolve, without the path the row already shows: core's problem, else its sentence. */
+const pathTestProblemOf = (error: Error): string =>
+  capitalize(error instanceof ReviewQueryError ? (error.failure.problems?.[0] ?? error.message) : error.message);
+
+/** One tested path: where it lands, or why it lands nowhere, and Keep for a path not yet kept. */
+function PathTestResult({
+  path,
+  resolved,
+  known,
+  keep,
+}: {
+  path: string;
+  resolved: { readonly data?: { readonly places: ReadonlyArray<string> } | undefined; readonly error: Error | null };
+  known: KnownPlaces;
+  /** Undefined when the path is the placeholder's or already kept. */
+  keep: (() => void) | undefined;
+}) {
+  return (
+    <Box {...stylex.props(styles.pathRow)}>
+      <PathText path={path} />
+      <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
+      {resolved.error ? (
+        <SupportingText tier="secondary">{pathTestProblemOf(resolved.error)}</SupportingText>
+      ) : (
+        <Group gap="2xs">
+          <ResolvedPlaces places={resolved.data?.places} known={known} />
+        </Group>
+      )}
+      {keep === undefined || resolved.error ? (
+        <Box />
+      ) : (
+        <Tooltip label="Warn me if a place stops being reached" withArrow>
+          <Button variant="subtle" size="xs" leftSection={<Pin size={12} />} onClick={keep}>
+            Keep
+          </Button>
+        </Tooltip>
+      )}
+    </Box>
+  );
 }
 
 /**
@@ -164,7 +207,6 @@ export function PlacePathTester({
               setDraft(event.currentTarget.value);
               setEmptySubmit(false);
             }}
-            error={emptySubmit && "Type a folder path to test"}
             autoFocus
             {...stylex.props(styles.grow)}
           />
@@ -173,27 +215,18 @@ export function PlacePathTester({
           </Button>
         </Group>
       </form>
-      {/* Core's sentence already names the path, so a failure stands alone rather than after it. */}
-      {shown !== undefined && resolved.error && (
-        <SupportingText tier="secondary">{resolved.error.message}</SupportingText>
-      )}
-      {shown !== undefined && !resolved.error && (
-        <Box {...stylex.props(styles.pathRow)}>
-          <PathText path={shown} />
-          <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
-          <Group gap="2xs">
-            <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
-          </Group>
-          {asked === undefined || probes.includes(asked) ? (
-            <Box />
-          ) : (
-            <Tooltip label="Warn me if a place stops being reached" withArrow>
-              <Button variant="subtle" size="xs" leftSection={<Pin size={12} />} onClick={() => addProbe(asked)}>
-                Keep
-              </Button>
-            </Tooltip>
-          )}
-        </Box>
+      {/* An empty Enter replaces the last result with the hint, so nothing stale reads as its answer. */}
+      {emptySubmit ? (
+        <SupportingText tier="secondary">Type a folder path to test</SupportingText>
+      ) : (
+        shown !== undefined && (
+          <PathTestResult
+            path={shown}
+            resolved={resolved}
+            known={resolvedKnown}
+            keep={asked === undefined || probes.includes(asked) ? undefined : () => addProbe(asked)}
+          />
+        )
       )}
       {probes.length > 0 && (
         <Stack gap="3xs">
