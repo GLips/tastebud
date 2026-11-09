@@ -24,9 +24,11 @@ import { describeAuthor, formatReviewTime, formatTimeAgo } from "#review/shared/
 import { THREAD_NOTE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 import { ReviewTextarea } from "#review/shared/ui/textarea.tsx";
 
 import { postOwnerThreadNote } from "../controllers/thread-note.ts";
+import { setThreadNoteDraft, useThreadNoteDraft } from "./thread-note-drafts.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
 
 const styles = stylex.create({
@@ -75,18 +77,16 @@ function NotesWaitHint() {
   return (
     <Stack gap="3xs">
       <Group gap="xs">
-        <Text size="xs" c="dimmed">
+        <SupportingText tier="secondary">
           No agent is listening; notes wait here until one picks them up.
-        </Text>
+        </SupportingText>
         <Anchor component="button" size="xs" onClick={() => setOpen(!open)} aria-expanded={open}>
           How agents pick these up
         </Anchor>
       </Group>
       <Collapse expanded={open}>
         <Group gap="2xs" wrap="nowrap">
-          <Text size="xs" c="dimmed">
-            Ask an agent to run
-          </Text>
+          <SupportingText tier="secondary">Ask an agent to run</SupportingText>
           <Code fz="xs">{LISTEN_COMMAND}</Code>
           <CopyButton value={LISTEN_COMMAND}>
             {({ copied, copy }) => (
@@ -97,9 +97,7 @@ function NotesWaitHint() {
               </Tooltip>
             )}
           </CopyButton>
-          <Text size="xs" c="dimmed">
-            and it answers every unanswered note.
-          </Text>
+          <SupportingText tier="secondary">and it answers every unanswered note.</SupportingText>
         </Group>
       </Collapse>
     </Stack>
@@ -131,15 +129,17 @@ export function DerivationThread({
     if (focusComposer) composer.current?.querySelector("textarea")?.focus();
   }, [focusComposer]);
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState("");
+  const draft = useThreadNoteDraft(derivationId);
+  const setDraft = (text: string) => setThreadNoteDraft(derivationId, text);
   const post = useMutation({
-    mutationFn: async (text: string) =>
-      unwrapReviewOutcome(await postOwnerThreadNote({ data: { ref: derivationId, text } })),
-    onSuccess: () => setDraft(""),
+    // The id travels with the note: the inbox pane may have moved to another row by the time it lands.
+    mutationFn: async ({ ref, text }: { ref: string; text: string }) =>
+      unwrapReviewOutcome(await postOwnerThreadNote({ data: { ref, text } })),
+    onSuccess: (_posted, { ref }) => setThreadNoteDraft(ref, ""),
     onSettled: () => refreshReviewQueriesAfterWrite(queryClient, THREAD_NOTE_STALES),
   });
   const submit = () => {
-    if (draft.trim() !== "" && !post.isPending) post.mutate(draft);
+    if (draft.trim() !== "" && !post.isPending) post.mutate({ ref: derivationId, text: draft });
   };
   return (
     <Stack gap="sm">
@@ -158,9 +158,9 @@ export function DerivationThread({
               <Badge size="xs" variant={isOwner ? "filled" : "light"} color={isOwner ? "tastebud" : "gray"} tt="none">
                 {describeAuthor(entry.author, owner)}
               </Badge>
-              <Text size="xs" c="dimmed" title={formatReviewTime(entry.at)}>
+              <SupportingText tier="faint" title={formatReviewTime(entry.at)}>
                 {formatTimeAgo(entry.at, nowMs)}
-              </Text>
+              </SupportingText>
             </Group>
             <Text {...stylex.props(styles.text)}>{entry.text}</Text>
           </Paper>

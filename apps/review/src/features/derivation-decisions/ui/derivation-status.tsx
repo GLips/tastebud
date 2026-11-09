@@ -14,6 +14,7 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
 import { DerivationActions, DerivationReviewPanels, DerivationScopeRow } from "./derivation-review.tsx";
@@ -107,12 +108,12 @@ export const newerPendingVersionOf = (
 /** Sits directly above the verbs. One wording whether it revises this one or was proposed despite it. */
 function NewerVersionNotice({ newer }: { newer: DerivationSummary }) {
   return (
-    <Text size="sm" c="dimmed">
+    <SupportingText tier="secondary">
       A newer version is waiting: “{newer.statement}” ·{" "}
       <AnchorLink to="/derivations/$id" params={{ id: newer.id }} size="sm">
         Review it
       </AnchorLink>
-    </Text>
+    </SupportingText>
   );
 }
 
@@ -155,24 +156,24 @@ export function DerivationStatusCard({
             )}
           </Group>
           {view.status === "superseded" && <SupersedingRevisionLink view={view} />}
-          <Text size="xs" c="dimmed">
+          <SupportingText tier="secondary">
             {statusMeaningOf(view, kind, acceptLabel)}
             {canChangeReason && (
               <>
                 {" · "}
-                <Anchor component="button" size="xs" onClick={review.changeReason}>
+                <Anchor component="button" size="sm" onClick={review.changeReason}>
                   Change the reason
                 </Anchor>
               </>
             )}
-          </Text>
+          </SupportingText>
         </Stack>
         {newer !== undefined && <NewerVersionNotice newer={newer} />}
         {!canDecideDerivation(view) && (
           <Group gap="xs">
-            <Text size="xs" c="dimmed">
+            <SupportingText tier="secondary">
               {view.status === "pending" || view.status === "rejected" ? "Proposed for" : "Applied in"}
-            </Text>
+            </SupportingText>
             <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />
           </Group>
         )}

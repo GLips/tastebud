@@ -7,6 +7,7 @@ import { formatTimeAgo } from "#review/shared/format.ts";
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { useReviewSessionLog } from "./review-session-log.ts";
 import { useReviewClockMs } from "./use-review-clock.ts";
@@ -46,9 +47,7 @@ export function ReviewSessionList() {
         <Text size="sm" fw={600}>
           This session
         </Text>
-        <Text size="xs" c="dimmed">
-          {decisions.length}
-        </Text>
+        <SupportingText tier="faint">{decisions.length}</SupportingText>
       </Group>
       <Paper p={0}>
         {decisions.map((entry) => {
@@ -64,9 +63,7 @@ export function ReviewSessionList() {
               </Text>
               <ScopeChips scope={entry.effectiveScope} labels={known.labels} />
               <Group gap="xs" wrap="nowrap">
-                <Text size="xs" c="dimmed">
-                  {formatTimeAgo(entry.at, nowMs)}
-                </Text>
+                <SupportingText tier="faint">{formatTimeAgo(entry.at, nowMs)}</SupportingText>
                 <AnchorLink to="/derivations/$id" params={{ id: entry.derivationId }} size="xs">
                   Open
                 </AnchorLink>
