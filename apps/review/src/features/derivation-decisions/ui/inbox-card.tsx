@@ -32,7 +32,7 @@ const rowCautionsOf = (
   { edited, backlog }: { edited: boolean; backlog: boolean },
 ): ReadonlyArray<DerivationCaution> => {
   const view = card.derivation;
-  const earlier = new Set(versionsOf(view).earlier.map((summary) => summary.id));
+  const earlier = new Set(versionsOf(view).earlier.map(({ summary }) => summary.id));
   // An edited scope is re-checked in the preview, so the row stops vouching for the proposed scope's matches.
   const near = edited ? [] : card.needsAcknowledgement.filter((match) => !earlier.has(match.id));
   const cautions: ReadonlyArray<DerivationCaution | false> = [
