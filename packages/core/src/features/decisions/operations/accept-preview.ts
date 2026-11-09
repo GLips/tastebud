@@ -26,14 +26,10 @@ export const PreviewAcceptanceInput = Schema.Struct({
 export type PreviewAcceptanceInput = typeof PreviewAcceptanceInput.Type;
 
 /**
- * Blocking matches under the scope an accept would settle on that the proposal's `despite` did not
- * already name. Each must be acknowledged before the accept lands.
+ * Blocking matches under the scope an accept would settle on, split by whether the proposal's
+ * `despite` already answered them. Each unanswered one must be acknowledged before the accept lands.
  */
-export const unacknowledgedMatches = (
-  view: ViewSource,
-  derivation: DerivationRecord,
-  effectiveScope: DerivationScope,
-) => {
+const blockingMatchesOf = (view: ViewSource, derivation: DerivationRecord, effectiveScope: DerivationScope) => {
   const repeat = findRepeatMatches(view, {
     kind: derivation.kind,
     statement: derivation.statement,
@@ -41,8 +37,17 @@ export const unacknowledgedMatches = (
     excludeIds: [derivation.id, ...supersessionLineageOf(view.snapshot, derivation.supersedes)],
   });
   const despite = new Set(derivation.despite ?? []);
-  return repeat.blocking.filter((match) => !despite.has(match.id));
+  return {
+    needsAcknowledgement: repeat.blocking.filter((match) => !despite.has(match.id)),
+    answeredByDespite: repeat.blocking.filter((match) => despite.has(match.id)),
+  };
 };
+
+export const unacknowledgedMatches = (
+  view: ViewSource,
+  derivation: DerivationRecord,
+  effectiveScope: DerivationScope,
+) => blockingMatchesOf(view, derivation, effectiveScope).needsAcknowledgement;
 
 /** What the review UI's acceptance preview shows before an accept is sent. */
 export const previewDerivationAcceptance = Effect.fn("decisions.previewDerivationAcceptance")(function* (
@@ -58,6 +63,6 @@ export const previewDerivationAcceptance = Effect.fn("decisions.previewDerivatio
   return {
     derivation: summarizeDerivation(view, derivation),
     effectiveScope,
-    needsAcknowledgement: unacknowledgedMatches(view, derivation, effectiveScope),
+    ...blockingMatchesOf(view, derivation, effectiveScope),
   };
 });

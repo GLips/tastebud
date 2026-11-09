@@ -7,12 +7,13 @@ import { Button, Group, Kbd, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { DerivationSummary, DerivationView } from "@tastebud/core/record-views";
-import { ArrowRight, Undo2 } from "lucide-react";
+import { Undo2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { formatReviewDate, formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 import { DerivationActions, DerivationReviewPanels, DerivationScopeRow } from "./derivation-review.tsx";
@@ -63,7 +64,10 @@ function SupersedingRevisionLink({ view }: { view: DerivationView }) {
   );
 }
 
-/** "Rejected on Sep 16, 2026" for an older decision, "Retracted just now" for a fresh one. */
+/**
+ * "Rejected on Sep 16, 2026 — “only web has a UI”" for an older decision, "Retracted just now" for a
+ * fresh one. A rejection carries its reason in the same sentence.
+ */
 function StatusSentence({ view }: { view: DerivationView }) {
   const nowMs = useReviewClockMs();
   const ago = formatTimeAgo(view.decidedAt, nowMs);
@@ -74,55 +78,52 @@ function StatusSentence({ view }: { view: DerivationView }) {
     <Text fw={600} title={formatReviewTime(view.decidedAt)}>
       {STATUS_HEADLINES[view.status]}
       {when}
+      {view.status === "rejected" && view.reason !== undefined && (
+        <Text span fw={400}>
+          {" — "}“{view.reason}”
+        </Text>
+      )}
     </Text>
   );
 }
 
-/** A pending proposal that came after this one, and how the card leads with it. */
-interface NewerPendingVersion {
+/** A pending proposal that came after this one, and the words the card notes it with. */
+export interface NewerPendingVersion {
   readonly summary: DerivationSummary;
-  readonly headline: string;
-  readonly action: string;
+  readonly sentence: string;
+  readonly link: string;
 }
 
 const isPending = (summary: DerivationSummary) => summary.status === "pending";
 
 /**
- * The pending proposal to lead with: a revision, or one proposed despite this one. On a rejected or
- * retracted one it is usually the next step, ahead of accepting this after all; once this is accepted,
- * a pending near-duplicate still needs its own decision.
+ * A pending revision, or one proposed despite this one. The card notes it beside the decision rather
+ * than leading with it: this one's own state comes first, but believing it should be done knowing.
  */
 export const newerPendingVersionOf = (
   view: DerivationView,
   despitedBy: ReadonlyArray<DerivationSummary>,
 ): NewerPendingVersion | undefined => {
-  if (view.status === "rejected" || view.status === "retracted") {
-    const summary = [...view.revisions, ...despitedBy].find(isPending);
-    return summary && { summary, headline: "A newer version is waiting", action: "Review it" };
-  }
-  if (view.status !== "accepted") return undefined;
+  if (view.status === "pending" || view.status === "superseded") return undefined;
   const revision = view.revisions.find(isPending);
   if (revision !== undefined)
-    return { summary: revision, headline: "A revision of it is waiting", action: "Review it" };
+    return { summary: revision, sentence: "A newer version is still waiting", link: "Review it" };
   const duplicate = despitedBy.find(isPending);
-  return duplicate && { summary: duplicate, headline: "A near-duplicate is still waiting", action: "Decide it too" };
+  if (duplicate === undefined) return undefined;
+  return view.status === "accepted"
+    ? { summary: duplicate, sentence: "A near-duplicate is still waiting", link: "Decide it too" }
+    : { summary: duplicate, sentence: "A newer version is still waiting", link: "Review it" };
 };
 
-function NewerVersionHeadline({ newer }: { newer: NewerPendingVersion }) {
+/** Sits directly above the verbs, so Believe is pressed knowing the newer one is there. */
+function NewerVersionNotice({ newer }: { newer: NewerPendingVersion }) {
   return (
-    <Group gap="xs" wrap="nowrap" justify="space-between">
-      <Text fw={600} {...stylex.props(styles.shrinkable)}>
-        {newer.headline}: “{newer.summary.statement}”
-      </Text>
-      <ButtonLink
-        to="/derivations/$id"
-        params={{ id: newer.summary.id }}
-        rightSection={<ArrowRight size={14} />}
-        data-primary-action
-      >
-        {newer.action}
-      </ButtonLink>
-    </Group>
+    <Text size="sm" c="dimmed">
+      {newer.sentence}: “{newer.summary.statement}” ·{" "}
+      <AnchorLink to="/derivations/$id" params={{ id: newer.summary.id }} size="sm">
+        {newer.link}
+      </AnchorLink>
+    </Text>
   );
 }
 
@@ -151,7 +152,6 @@ export function DerivationStatusCard({
   return (
     <Paper ref={card} px="md" py="sm">
       <Stack gap="sm">
-        {newer !== undefined && <NewerVersionHeadline newer={newer} />}
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
           <Group gap="xs" wrap="nowrap">
             <DerivationStatusDot status={view.status} />
@@ -170,23 +170,24 @@ export function DerivationStatusCard({
               </Button>
             )}
           </Group>
-          {view.status === "rejected" && view.reason !== undefined && (
-            <Text size="sm">Your reason: “{view.reason}”</Text>
-          )}
           {view.status === "superseded" && <SupersedingRevisionLink view={view} />}
           <Text size="xs" c="dimmed">
             {statusMeaningOf(view, kind)}
           </Text>
         </Stack>
+        {newer !== undefined && <NewerVersionNotice newer={newer} />}
+        {!canDecideDerivation(view) && (
+          <Group gap="xs">
+            <Text size="xs" c="dimmed">
+              {view.status === "pending" || view.status === "rejected" ? "Proposed for" : "Applied in"}
+            </Text>
+            <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />
+          </Group>
+        )}
         {canDecideDerivation(view) && (
           <Group justify="space-between" align="center" gap="sm">
             <DerivationScopeRow review={review} known={known} />
-            <DerivationActions
-              review={review}
-              acceptLabel={acceptLabel}
-              known={known}
-              acceptIsPrimary={newer === undefined}
-            />
+            <DerivationActions review={review} acceptLabel={acceptLabel} />
           </Group>
         )}
         {canDecideDerivation(view) && panelsOpen && (

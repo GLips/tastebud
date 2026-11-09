@@ -1,4 +1,18 @@
-import { Box, ActionIcon, Alert, Badge, Code, CopyButton, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import {
+  Box,
+  ActionIcon,
+  Alert,
+  Anchor,
+  Badge,
+  Code,
+  Collapse,
+  CopyButton,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ThreadEntryRecord } from "@tastebud/core/records";
@@ -52,7 +66,7 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
     <Group gap="xs">
       <Box component="span" {...stylex.props(styles.dot, styles.dotIdle)} />
       <Text size="xs" c="dimmed">
-        No agent listening now · notes wait here
+        No agent listening now
       </Text>
     </Group>
   );
@@ -60,24 +74,43 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
 
 const LISTEN_COMMAND = "tastebud review listen --as <name>";
 
-/** How to get an answer when nobody is listening: the command an agent runs, shown and copyable. */
-function StartListenerHint() {
+/**
+ * When nobody is listening, the thread says what happens to a note in words; the command an agent
+ * runs to pick notes up waits behind a disclosure, with a copy button.
+ */
+function NotesWaitHint() {
+  const [open, setOpen] = useState(false);
   return (
-    <Group gap="2xs" wrap="nowrap">
-      <Text size="xs" c="dimmed">
-        For an answer, ask an agent to run
-      </Text>
-      <Code fz="xs">{LISTEN_COMMAND}</Code>
-      <CopyButton value={LISTEN_COMMAND}>
-        {({ copied, copy }) => (
-          <Tooltip label={copied ? "Copied" : "Copy the command"} withArrow>
-            <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the listen command" onClick={copy}>
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </CopyButton>
-    </Group>
+    <Stack gap="3xs">
+      <Group gap="xs">
+        <Text size="xs" c="dimmed">
+          Notes wait here until an agent picks them up.
+        </Text>
+        <Anchor component="button" size="xs" onClick={() => setOpen(!open)} aria-expanded={open}>
+          How agents pick these up
+        </Anchor>
+      </Group>
+      <Collapse expanded={open}>
+        <Group gap="2xs" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            Ask an agent to run
+          </Text>
+          <Code fz="xs">{LISTEN_COMMAND}</Code>
+          <CopyButton value={LISTEN_COMMAND}>
+            {({ copied, copy }) => (
+              <Tooltip label={copied ? "Copied" : "Copy the command"} withArrow>
+                <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the listen command" onClick={copy}>
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </CopyButton>
+          <Text size="xs" c="dimmed">
+            and it answers every unanswered note.
+          </Text>
+        </Group>
+      </Collapse>
+    </Stack>
   );
 }
 
@@ -124,7 +157,7 @@ export function DerivationThread({
         </Text>
         <AgentListeningIndicator listeners={listeners} />
       </Group>
-      {!listeners.some((listener) => listener.listening) && <StartListenerHint />}
+      {!listeners.some((listener) => listener.listening) && <NotesWaitHint />}
       {thread.map((entry) => {
         const isOwner = entry.author === owner;
         return (

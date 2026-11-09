@@ -28,19 +28,21 @@ export function useDerivationReview(view: DerivationView) {
   const [rejectDraft, setRejectDraft] = useState("");
   // The picker's list, held here so the S key can open it and the page's Esc can wait for it.
   const [pickerOpen, setPickerOpen] = useState(false);
-  const accepted = view.status === "accepted";
   // Undo only while the decision made here is still the latest one on record.
   const undoable =
     decision.undoable !== undefined && view.decisions.at(-1)?.id === decision.undoable.decisionId
       ? decision.undoable
       : undefined;
   /*
-   * A decision swaps the buttons under the cursor (Accept becomes Retract), so the second click of a
-   * double-click would decide again. Clicks and keys within a moment of a decision settling are dropped.
+   * A decision swaps the buttons under the cursor (Accept becomes Retract), so a double-click's second
+   * click would make a different decision. Clicks and keys just after a decision settles are dropped;
+   * a repeat while it is in flight is dropped by `useReviewDecision`.
    */
   const settledAt = useRef(0);
+  const wasPending = useRef(false);
   useEffect(() => {
-    if (!decision.pending) settledAt.current = Date.now();
+    if (wasPending.current && !decision.pending) settledAt.current = Date.now();
+    wasPending.current = decision.pending;
   }, [decision.pending]);
   const steady =
     <Args extends ReadonlyArray<unknown>>(act: (...args: Args) => void) =>
@@ -87,6 +89,7 @@ export function useDerivationReview(view: DerivationView) {
   const needsPreview = draft !== undefined && isCompleteScope(draft) && !isScopeNarrowing(baseScope, draft);
   const startAccept = () => {
     if (!isCompleteScope(shownScope)) return;
+    setPickerOpen(false);
     if (needsPreview) setMode("previewing");
     else void accept([]);
   };
@@ -110,7 +113,6 @@ export function useDerivationReview(view: DerivationView) {
   };
   return {
     view,
-    accepted,
     mode,
     setMode,
     decision,
