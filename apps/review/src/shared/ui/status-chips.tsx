@@ -86,7 +86,7 @@ export function KeptPathReachChip({ unreached }: { unreached: number }) {
 
 /** A decision that only changed its reason: the status stays as it was, so this is an event, not a state. */
 export function ReasonChangedChip() {
-  return <Badge color="gray">Reason changed</Badge>;
+  return <NeutralMarkChip label="Reason changed" />;
 }
 
 // Waiting blue, in force green, refused red, out of force gray: colour is reserved for state.
@@ -110,6 +110,33 @@ export function DerivationStatusBadge({ status }: { status: DerivationStatus }) 
       <Badge color={color} leftSection={<Icon size={12} strokeWidth={2.25} aria-hidden />}>
         {DERIVATION_STATUS_WORDS[status]}
       </Badge>
+    </Tooltip>
+  );
+}
+
+/**
+ * A quiet fact about an item, gray with an optional icon: queued, its scope edited, a newer version, a
+ * note count, who it is about. Never a state (DerivationStatusBadge) or a warning (CautionChip).
+ */
+export function NeutralMarkChip({
+  label,
+  icon: Icon,
+  tooltip,
+}: {
+  label: string;
+  icon?: LucideIcon;
+  tooltip?: string;
+}) {
+  const chip = (
+    <Badge color="gray" {...(Icon !== undefined && { leftSection: <Icon size={11} strokeWidth={2} aria-hidden /> })}>
+      {label}
+    </Badge>
+  );
+  return tooltip === undefined ? (
+    chip
+  ) : (
+    <Tooltip label={tooltip} withArrow openDelay={250}>
+      {chip}
     </Tooltip>
   );
 }

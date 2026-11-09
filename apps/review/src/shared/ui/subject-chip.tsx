@@ -1,6 +1,6 @@
-import { Badge, Tooltip } from "@mantine/core";
 import { UserRound } from "lucide-react";
 
+import { NeutralMarkChip } from "./status-chips.tsx";
 import { otherSubjectOf, type SubjectOf } from "./subject-of.ts";
 
 /**
@@ -22,10 +22,10 @@ export function SubjectChip({
   // Sources label a speaker "Jordan (Acme marketing)"; the chip keeps the name and leaves the rest to the tooltip.
   const name = subject.label.replace(/\s*\(.*\)$/, "");
   return (
-    <Tooltip label={`About ${subject.label} · ${subject.account}`} withArrow openDelay={250}>
-      <Badge color="gray" leftSection={<UserRound size={11} strokeWidth={2} aria-hidden />}>
-        {nameOnly ? name : `About ${name}`}
-      </Badge>
-    </Tooltip>
+    <NeutralMarkChip
+      icon={UserRound}
+      label={nameOnly ? name : `About ${name}`}
+      tooltip={`About ${subject.label} · ${subject.account}`}
+    />
   );
 }

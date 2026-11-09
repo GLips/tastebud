@@ -51,16 +51,16 @@ const rowCautionsOf = (
 const rowNotesOf = (card: InboxCard, { editing, queued }: { editing: boolean; queued: boolean }) => {
   const notes = card.derivation.thread.length;
   const facts: ReadonlyArray<InboxRowNote | false> = [
-    queued && { icon: Clock, text: "Queued", tooltip: "Waiting its turn in a bulk decision" },
+    queued && { icon: Clock, label: "Queued", tooltip: "Waiting its turn in a bulk decision" },
     versionsOf(card.derivation).earlier.length > 0 && {
       icon: History,
-      text: "Newer version",
+      label: "Newer version",
       tooltip: "Proposed again in place of an earlier version",
     },
-    editing && { icon: PencilLine, text: "Scope edited", tooltip: "You're changing where it applies" },
+    editing && { icon: PencilLine, label: "Scope edited", tooltip: "You're changing where it applies" },
     notes > 0 && {
       icon: MessageSquare,
-      text: String(notes),
+      label: String(notes),
       tooltip: notes === 1 ? "1 note in its thread" : `${notes} notes in its thread`,
     },
   ];

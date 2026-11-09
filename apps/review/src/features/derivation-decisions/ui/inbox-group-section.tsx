@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { ListSectionHeader } from "#review/shared/ui/list-section-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 
@@ -17,14 +17,6 @@ import type { InboxQueueEntry } from "./inbox-queue.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
-  sectionHeader: {
-    position: "sticky",
-    top: "var(--review-shell-header-height)",
-    zIndex: 5,
-    paddingBlock: "8px",
-    paddingInline: "12px",
-    backgroundColor: "var(--mantine-color-gray-0)",
-  },
   gone: { paddingBlock: "8px", paddingInline: "12px", backgroundColor: "var(--mantine-color-gray-0)" },
 });
 
@@ -104,11 +96,12 @@ export function InboxGroupSection({
   const live = entries.filter((entry) => !entry.gone).length;
   return (
     <Box component="section">
-      <Group gap="xs" {...stylex.props(!first && inboxListStyles.divided, styles.sectionHeader)}>
-        <ScopeTitle scope={scope} known={known} />
-        {/* A section whose rows were all decided here shows their outcomes, not a 0. */}
-        {live > 0 && <CountBadge count={live} />}
-      </Group>
+      <ListSectionHeader
+        title={<ScopeTitle scope={scope} known={known} />}
+        // A section whose rows were all decided here shows their outcomes, not a 0.
+        count={live > 0 ? live : undefined}
+        frame={{ kind: "band", sticky: true, ruled: !first }}
+      />
       {entries.map(renderEntry)}
     </Box>
   );
