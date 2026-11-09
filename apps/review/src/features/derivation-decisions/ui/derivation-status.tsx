@@ -12,6 +12,7 @@ import { Undo2 } from "lucide-react";
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import { DERIVATION_STATUS_TONES, DERIVATION_STATUS_WORDS } from "#review/shared/ui/status-chips.tsx";
 
+import { stateSettingDecisionOf } from "./derivation-history.ts";
 import { DerivationActions } from "./derivation-review.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
@@ -33,6 +34,12 @@ const STATE_CARD_TINTS: Record<DerivationStatus, string> = {
   rejected: "red.0",
   retracted: "gray.0",
   superseded: "gray.0",
+};
+
+/** The card's second line when no decision of the owner's set the state. */
+const STATE_CARD_UNDECIDED_LINES: Partial<Record<DerivationStatus, string>> = {
+  pending: "Waiting for your decision",
+  superseded: "Replaced by a newer version",
 };
 
 function StateCardReason({ review }: { review: DerivationReview }) {
@@ -81,8 +88,8 @@ export function DerivationStateCard({
 }) {
   const { view } = review;
   const { color, icon: Icon } = DERIVATION_STATUS_TONES[view.status];
-  const lastDecision = view.decisions.at(-1);
-  const decided = view.status !== "pending" && view.decidedAt !== undefined;
+  // When and by whom the state was set; a reason edit or an undone decision doesn't move it.
+  const setter = view.status === "pending" || view.status === "superseded" ? undefined : stateSettingDecisionOf(view);
   return (
     <Paper p="md" bg={STATE_CARD_TINTS[view.status]} {...stylex.props(styles.card, styles[view.status])}>
       <Stack gap="sm">
@@ -95,10 +102,10 @@ export function DerivationStateCard({
               <Text size="md" fw={600}>
                 {DERIVATION_STATUS_WORDS[view.status]}
               </Text>
-              <Text size="xs" c="gray.7" title={decided ? formatReviewTime(view.decidedAt) : undefined}>
-                {decided
-                  ? `${formatReviewDate(view.decidedAt)}${lastDecision === undefined ? "" : ` · ${describeAuthor(lastDecision.by, owner)}`}`
-                  : "Waiting for your decision"}
+              <Text size="xs" c="gray.7" title={setter === undefined ? undefined : formatReviewTime(setter.at)}>
+                {setter === undefined
+                  ? STATE_CARD_UNDECIDED_LINES[view.status]
+                  : `${formatReviewDate(setter.at)} · ${describeAuthor(setter.by, owner)}`}
               </Text>
             </Stack>
           </Group>
@@ -117,6 +124,11 @@ export function DerivationStateCard({
           )}
         </Group>
         <StateCardReason review={review} />
+        {review.mode === "previewing" && (
+          <Text size="xs" c="gray.7">
+            Check where it applies and what it overlaps, then confirm under the title.
+          </Text>
+        )}
         <DerivationActions review={review} acceptLabel={acceptLabel} />
       </Stack>
     </Paper>

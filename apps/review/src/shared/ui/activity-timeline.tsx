@@ -36,10 +36,10 @@ export function ActivityTimeline({ events }: { events: ReadonlyArray<ActivityTim
           color={event.color}
           title={
             <Group gap="2xs" wrap="wrap" align="baseline">
-              <Text size="sm" fw={event.muted === true ? 400 : 600} c={event.muted === true ? "dimmed" : undefined}>
+              <Text size="sm" fw={event.muted === true ? 400 : 600} c={event.muted === true ? "dimmed" : "inherit"}>
                 {event.actor}
               </Text>
-              <Text size="sm" c={event.muted === true ? "dimmed" : undefined}>
+              <Text size="sm" c={event.muted === true ? "dimmed" : "inherit"}>
                 {event.action}
               </Text>
               <Text size="xs" c="dimmed" title={formatReviewTime(event.at)}>

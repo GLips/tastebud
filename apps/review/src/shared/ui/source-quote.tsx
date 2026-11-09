@@ -4,7 +4,7 @@ import type { SourceView } from "@tastebud/core/record-views";
 import type { SourceRecord } from "@tastebud/core/records";
 import { TextQuote } from "lucide-react";
 
-import { formatReviewTime } from "#review/shared/format.ts";
+import { describeSpeaker, formatReviewTime } from "#review/shared/format.ts";
 
 import { CautionChip } from "./caution-chip.tsx";
 import { AnchorLink } from "./router-links.tsx";
@@ -102,7 +102,7 @@ export function SourceQuote({
             underline="hover"
             title={`Open this ${view.kindLabel} and what cites it`}
           >
-            — {source.said_by === owner ? "You" : source.said_by_label}, {formatReviewTime(source.said_at)}
+            — {describeSpeaker(source, owner)}, {formatReviewTime(source.said_at)}
             {showKind && ` · ${view.kindLabel}`}
           </AnchorLink>
           {source.revises !== undefined && (

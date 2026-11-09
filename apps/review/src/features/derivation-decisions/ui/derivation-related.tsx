@@ -26,7 +26,7 @@ interface DerivationRelation {
   readonly summary: DerivationSummary;
   readonly place?: DerivationRelationPlace | undefined;
   /** The agent's case for proposing again, under the earlier record it answers. */
-  readonly agentCase?: string;
+  readonly agentCase?: string | undefined;
 }
 
 /** What the page's detail adds about records pointing back; the inbox adds its near matches. */
@@ -62,7 +62,7 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
       relation: "Near a rejection",
       caution: "near-a-rejection" as const,
       summary,
-      ...(index === stillRejected.length - 1 && despiteCase !== undefined && { agentCase: despiteCase }),
+      agentCase: index === stillRejected.length - 1 ? despiteCase : undefined,
     })),
     ...view.contradictingDerivations.map((summary) => ({
       relation: "Says the opposite",

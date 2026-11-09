@@ -84,7 +84,8 @@ export function useDerivationReview(view: DerivationView) {
     if (!isCompleteScope(shownScope)) return;
     setPickerOpen(false);
     if (needsPreview) setMode("previewing");
-    else void accept([]);
+    // Believing again after a retract weighs again what the last accept weighed, without asking twice.
+    else void accept(view.status === "retracted" ? (lastAccept?.acknowledges ?? []) : []);
   };
   /** An undo that lands on a new near repeat opens the preview to acknowledge it, like any accept. */
   const undo = async () => {

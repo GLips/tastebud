@@ -142,7 +142,8 @@ function DecidedMoreMenu({ review }: { review: DerivationReview }) {
 
 /**
  * The actions that fit its status, full width at the foot of the state card. Nothing while a panel
- * is open, or on one that can't be decided.
+ * is open, or on one that can't be decided. Their clicks also ignore a double click's second: the
+ * buttons swap when the refreshed view arrives, which can land after the hook's settle window.
  */
 export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   const { view, mode, draft } = review;

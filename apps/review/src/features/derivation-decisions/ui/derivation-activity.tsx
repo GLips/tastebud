@@ -9,8 +9,8 @@ import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowRight, Check, Inbox, type LucideIcon, MessageSquare, PencilLine, Sparkles, Undo2, X } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { describeAuthor, formatTimeAgo } from "#review/shared/format.ts";
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
+import { describeAuthor, formatTimeAgo } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { ActivityTimeline, type ActivityTimelineEvent } from "#review/shared/ui/activity-timeline.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
@@ -131,7 +131,10 @@ const timelineEventOf = (
       };
     case "decision": {
       // An undone decision and a reason edit change no state, so neither wears the state's colour.
-      const look = event.undone || event.reasonEdit ? { ...DECISION_LOOKS[event.outcome], color: "gray" } : DECISION_LOOKS[event.outcome];
+      const look =
+        event.undone || event.reasonEdit
+          ? { ...DECISION_LOOKS[event.outcome], color: "gray" }
+          : DECISION_LOOKS[event.outcome];
       const icon = event.reasonEdit ? PencilLine : look.icon;
       return {
         ...base,

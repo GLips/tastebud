@@ -136,9 +136,9 @@ const decisionEventsOf = (
 export const stateSettingDecisionOf = (
   view: Pick<DerivationView, "decisions" | "proposedScope">,
 ): DecisionHistoryEvent | undefined => {
-  const setter = decisionEventsOf(view.decisions, view.proposedScope)
-    .filter((event) => !event.undone && !event.reasonEdit)
-    .at(-1);
+  const setter = decisionEventsOf(view.decisions, view.proposedScope).findLast(
+    (event) => !event.undone && !event.reasonEdit,
+  );
   return setter?.outcome === "reopen" ? undefined : setter;
 };
 
