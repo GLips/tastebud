@@ -210,7 +210,7 @@ function AgentHostRow({
         {connection === undefined || badge === undefined ? (
           <Skeleton height={20} width={90} />
         ) : (
-          <Badge color={badge.color} tt="none" fw={500} w="fit-content">
+          <Badge color={badge.color} w="fit-content">
             {badge.label}
           </Badge>
         )}

@@ -45,12 +45,7 @@ const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
 /** The places a path resolved to, or a quiet "no place" when the resolver returned none. */
 function ResolvedPlaces({ places, known }: { places: ReadonlyArray<string> | undefined; known: KnownPlaces }) {
   if (places === undefined) return <SupportingText tier="faint">…</SupportingText>;
-  if (places.length === 0)
-    return (
-      <Badge color="orange" tt="none" fw={500}>
-        No place
-      </Badge>
-    );
+  if (places.length === 0) return <Badge color="orange">No place</Badge>;
   return places.map((place) => <PlaceChip key={place} place={place} label={known.labelOf(place)} />);
 }
 
@@ -102,9 +97,7 @@ export function PlacePathTester({
           <Text fw={600}>Test a path</Text>
           {catalog !== undefined && (
             <Tooltip label={PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]} withArrow multiline maw={300}>
-              <Badge color="gray" tt="none" fw={500}>
-                Resolver: {catalog.resolver}
-              </Badge>
+              <Badge color="gray">Resolver: {catalog.resolver}</Badge>
             </Tooltip>
           )}
         </Group>
@@ -167,7 +160,7 @@ export function PlacePathTester({
               Kept paths
             </Text>
             {audit !== undefined && (
-              <Badge color={unreached > 0 ? "orange" : "tastebud"} tt="none" fw={500}>
+              <Badge color={unreached > 0 ? "orange" : "tastebud"}>
                 {unreached > 0 ? `${unreached} ${unreached === 1 ? "place" : "places"} unreached` : "All reached"}
               </Badge>
             )}

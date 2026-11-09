@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Badge,
   Box,
   Center,
   Code,
@@ -18,14 +17,14 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
-import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { ChevronRight, Ellipsis, MessageSquare } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
-import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
+import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -45,10 +44,7 @@ const styles = stylex.create({
   prompt: { whiteSpace: "pre-wrap", lineHeight: 1.55, maxHeight: "360px", overflow: "auto" },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
-  badge: { flexShrink: 0 },
 });
-
-const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
 function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   const catalog = useReviewCatalog();
@@ -180,16 +176,7 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
           </FactRow>
           {catalog.derivedKinds.map((kind) => (
             <FactRow key={kind.key} label={capitalize(kind.plural)}>
-              <Tooltip label={describeKindDelivery(kind)} withArrow openDelay={150}>
-                <Badge
-                  color={RECALL_POLICY_BADGE_COLORS[kind.recall]}
-                  tt="none"
-                  fw={500}
-                  {...stylex.props(styles.badge)}
-                >
-                  {RECALL_POLICY_LABELS[kind.recall]}
-                </Badge>
-              </Tooltip>
+              <RecallPolicyChip policy={kind.recall} about={describeKindDelivery(kind)} />
             </FactRow>
           ))}
         </Box>

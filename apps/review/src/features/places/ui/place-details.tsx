@@ -7,7 +7,6 @@ import {
   ActionIcon,
   Alert,
   Anchor,
-  Badge,
   Box,
   CopyButton,
   Group,
@@ -23,7 +22,6 @@ import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { placeCovers } from "@tastebud/core/places";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
 import { Check, Copy, Ellipsis, Globe, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
@@ -31,8 +29,10 @@ import { derivationListQuery } from "#review/features/derivation-library/index.t
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { findKindView, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
+import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
@@ -122,22 +122,11 @@ const REACH_COLUMN_TITLES: Record<ReachColumn, string> = {
   settled: "Status",
 };
 
-const RECALL_POLICY_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
-
-/** A kind's delivery as a chip. Kept to one function so the shared PolicyChip can replace it in one place. */
-function PolicyChip({ policy }: { policy: RecallPolicy }) {
-  return (
-    <Badge color={RECALL_POLICY_COLORS[policy]} tt="none" fw={500} w="fit-content">
-      {RECALL_POLICY_LABELS[policy]}
-    </Badge>
-  );
-}
-
 function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn }) {
   const catalog = useReviewCatalog();
   const kind = findKindView(catalog, row.summary.kind);
   if (column === "settled") return <DerivationStatusBadge status={row.summary.status} />;
-  return kind === undefined ? null : <PolicyChip policy={kind.recall} />;
+  return kind === undefined ? null : <RecallPolicyChip policy={kind.recall} />;
 }
 
 function ReachRows({
@@ -221,11 +210,7 @@ function ReachTabs({
           <Tabs.Tab
             key={candidate.value}
             value={candidate.value}
-            rightSection={
-              <Badge color="gray" tt="none" fw={500} size="xs" circle={candidate.rows.length < 10}>
-                {candidate.rows.length}
-              </Badge>
-            }
+            rightSection={<CountBadge count={candidate.rows.length} />}
           >
             {candidate.label}
           </Tabs.Tab>
