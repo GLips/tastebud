@@ -29,6 +29,7 @@ import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceAddress } from "#review/shared/ui/source-address.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+import { WordBoundaryText } from "#review/shared/ui/word-boundary-text.tsx";
 
 const Route = getRouteApi("/sources/$id");
 
@@ -61,6 +62,9 @@ const styles = stylex.create({
   },
   aboveRowLink: { position: "relative", zIndex: 1 },
 });
+
+/** Words that already end a sentence take no trailing ellipsis, which would read as four dots. */
+const endsSentence = (text: string) => /[.!?…]["”’)]?$/.test(text.trimEnd());
 
 /** How many neighbouring quotes to show: the ones said closest in time, then in the order they were said. */
 const NEIGHBOUR_LIMIT = 6;
@@ -144,6 +148,13 @@ function SourceProperties({
   );
 }
 
+/** The earlier words a revision replaces, read from their own record since the source keeps only their id. */
+function RevisedQuote({ id, fallback }: { id: string; fallback: string }) {
+  const earlier = useQuery(recordDetailQuery(id));
+  const quote = earlier.data?.source?.source.quote;
+  return quote === undefined ? fallback : <WordBoundaryText text={`“${quote}”`} />;
+}
+
 /** Earlier words these revise, and later words that revise these, as linked rows. Nothing when neither exists. */
 function SourceRevisions({ view, revisedBy }: { view: SourceView; revisedBy: ReadonlyArray<SourceRecord> }) {
   const { revises } = view.source;
@@ -175,7 +186,11 @@ function SourceRevisions({ view, revisedBy }: { view: SourceView; revisedBy: Rea
                     lineClamp={2}
                     {...stylex.props(styles.rowLink)}
                   >
-                    {row.quote === undefined ? `An earlier ${view.kindLabel}` : `“${row.quote}”`}
+                    {row.quote === undefined ? (
+                      <RevisedQuote id={row.id} fallback={`An earlier ${view.kindLabel}`} />
+                    ) : (
+                      <WordBoundaryText text={`“${row.quote}”`} />
+                    )}
                   </AnchorLink>
                 </Table.Td>
               </Table.Tr>
@@ -337,7 +352,7 @@ export function SourcePage() {
             </Text>
             {source.after !== undefined && (
               <SupportingText tier="secondary" {...stylex.props(styles.around)}>
-                {source.after}…
+                {endsSentence(source.after) ? source.after : `${source.after}…`}
               </SupportingText>
             )}
           </Stack>
