@@ -1,7 +1,8 @@
 /**
  * Which kind's tab the inbox shows. A link's `kind` wins; a bare `/` opens the last tab used if anything
  * waits there, otherwise the busiest, chosen once per visit so deciding a tab's last item shows its
- * empty state rather than switching tabs under the reviewer.
+ * empty state rather than switching tabs under the reviewer. `chosenKind` is what the page writes back
+ * into the URL, so the address always names the tab on screen.
  */
 import type { InboxGroup } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -43,5 +44,5 @@ export function useInboxKind(
   useEffect(() => {
     if (chosenKind !== undefined) rememberBrowserText(LAST_KIND_KEY, chosenKind);
   }, [chosenKind]);
-  return { kind, pendingByKind };
+  return { kind, chosenKind, pendingByKind };
 }
