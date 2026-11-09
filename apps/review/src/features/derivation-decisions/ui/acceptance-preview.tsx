@@ -72,11 +72,12 @@ function OverlapSummary({
   versions: DerivationVersions;
   labels: ReadonlyMap<string, string>;
 }) {
-  const earlier = new Set(versions.earlier.map((summary) => summary.id));
-  const newer = new Set(versions.newer.map((summary) => summary.id));
+  const edges = new Map(
+    [...versions.earlier, ...versions.newer].map((version) => [version.summary.id, version.relation]),
+  );
   const tagOf = (match: RepeatMatch) => {
-    if (earlier.has(match.id)) return "Earlier version";
-    if (newer.has(match.id)) return "Newer version";
+    const edge = edges.get(match.id);
+    if (edge !== undefined) return edge;
     return <CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />;
   };
   const catalog = useReviewCatalog();

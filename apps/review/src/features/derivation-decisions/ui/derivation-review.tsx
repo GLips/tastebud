@@ -3,7 +3,7 @@
  * the Scope property the accept follows, and whichever panel is open (reject reason or acceptance
  * preview). State lives in `use-derivation-review.ts`. Hotkeys live in tooltips, never in the buttons.
  */
-import { ActionIcon, Alert, Button, Group, Menu, Stack, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Menu, Tooltip } from "@mantine/core";
 import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, Ellipsis, Inbox, Undo2, X } from "lucide-react";
@@ -39,7 +39,6 @@ export function PendingDecisionButtons({
   acceptDisabled = false,
   onAccept,
   onReject,
-  stacked = false,
   oneOfSelection = false,
 }: {
   acceptLabel: string;
@@ -48,8 +47,6 @@ export function PendingDecisionButtons({
   acceptDisabled?: boolean;
   onAccept: MouseEventHandler<HTMLButtonElement>;
   onReject: MouseEventHandler<HTMLButtonElement>;
-  /** The state card stacks them full width, Believe on top; the pane's head sets them in a row. */
-  stacked?: boolean;
   /**
    * Rows are checked in the inbox, whose bar then owns a and r: these buttons say they decide just this
    * proposal, and their tooltips drop the keys.
@@ -60,30 +57,19 @@ export function PendingDecisionButtons({
   const keyed = (label: string, key: string) => (oneOfSelection ? label : `${label} · ${key}`);
   const reject = (
     <Tooltip label={keyed("Reject with a reason", "R")} withArrow>
-      <Button variant="default" fullWidth={stacked} leftSection={<X size={14} />} onClick={onReject}>
+      <Button variant="default" leftSection={<X size={14} />} onClick={onReject}>
         {scoped("Reject")}
       </Button>
     </Tooltip>
   );
   const accept = (
     <Tooltip label={keyed(needsPreview ? `Review, then ${acceptLabel.toLowerCase()}` : acceptLabel, "A")} withArrow>
-      <Button
-        fullWidth={stacked}
-        leftSection={<Check size={14} />}
-        loading={pending}
-        disabled={acceptDisabled}
-        onClick={onAccept}
-      >
+      <Button leftSection={<Check size={14} />} loading={pending} disabled={acceptDisabled} onClick={onAccept}>
         {`${scoped(acceptLabel)}${needsPreview ? "…" : ""}`}
       </Button>
     </Tooltip>
   );
-  return stacked ? (
-    <Stack gap="xs">
-      {accept}
-      {reject}
-    </Stack>
-  ) : (
+  return (
     <Group gap="xs" wrap="nowrap">
       {reject}
       {accept}
@@ -156,7 +142,6 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
   if (view.status === "pending")
     return (
       <PendingDecisionButtons
-        stacked
         acceptLabel={acceptLabel}
         pending={review.decision.pending}
         acceptDisabled={!isCompleteScope(review.shownScope)}
