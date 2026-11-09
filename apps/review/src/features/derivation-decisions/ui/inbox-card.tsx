@@ -31,7 +31,8 @@ const rowCautionsOf = (
   const view = card.derivation;
   const cautions: ReadonlyArray<DerivationCaution | false> = [
     !backlog && view.contradictingSources.length > 0 && "says-the-opposite",
-    view.despite.length > 0 && "near-a-rejection",
+    // From the related item's status now: one believed or put back since is no longer a rejection to weigh.
+    view.despite.some((rejected) => rejected.status === "rejected") && "near-a-rejection",
     !edited && card.needsAcknowledgement.length > 0 && "near-a-repeat",
   ];
   return cautions.filter((caution) => caution !== false);
@@ -106,6 +107,7 @@ export function InboxProposalCard({
     known,
     selected,
     queued,
+    selectionHoldsKeys: check.shown,
     cardHandles,
     onDraftChange,
     onEngagedChange,

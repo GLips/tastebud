@@ -41,6 +41,7 @@ export function useInboxCardTriage({
   known,
   selected,
   queued,
+  selectionHoldsKeys,
   cardHandles,
   onDraftChange,
   onEngagedChange,
@@ -52,6 +53,8 @@ export function useInboxCardTriage({
   known: KnownPlaces;
   selected: boolean;
   queued: boolean;
+  /** Rows are checked, so a and r act on them through the selection bar, not on this card. */
+  selectionHoldsKeys: boolean;
   cardHandles: Map<string, InboxCardHandle>;
   onDraftChange: (draft: ScopeDraft | undefined) => void;
   onEngagedChange: (engaged: boolean) => void;
@@ -162,6 +165,7 @@ export function useInboxCardTriage({
     changes,
     needsPreview,
     engaged,
+    selectionHoldsKeys,
     changeDraft,
     accept,
     startReject: () => setMode("rejecting"),

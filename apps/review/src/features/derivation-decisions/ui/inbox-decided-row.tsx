@@ -1,8 +1,8 @@
 /**
  * A card decided here, folded to its outcome where it stood, so the reviewer sees what happened and
  * can take it back. Undo shows only while that decision is still the newest on record: once
- * anything else decides it, undoing would overwrite a decision this row never saw. A batch's
- * last row also offers Undo all, which is what `u` does.
+ * anything else decides it, undoing would overwrite a decision this row never saw. A batch's Undo
+ * all lives in the selection bar; its last row carries the `u` key that does the same.
  */
 import { Box, Button, Group, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -17,7 +17,6 @@ import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { inboxListStyles } from "./inbox-list-styles.ts";
-import { STATUS_AFTER_OUTCOME } from "./review-session-list.tsx";
 import { scopeButtonPhrase } from "./scope-draft.ts";
 import type { UndoableReviewDecision } from "./use-review-decision.ts";
 
@@ -46,7 +45,7 @@ function UndoLatestHotkey({ onUndo }: { onUndo: () => void }) {
 /** How a row belongs to the newest decision: whether it is its last card, and the batch's Undo all if any. */
 export type InboxDecidedRowLatest = {
   last: boolean;
-  undoAll: { count: number; onUndoAll: () => void } | undefined;
+  onUndoAll: (() => void) | undefined;
 };
 
 export function InboxDecidedRow({
@@ -73,24 +72,23 @@ export function InboxDecidedRow({
   const acceptedScope = undoable?.outcome === "accept" ? detail.data?.derivation?.effectiveScope : undefined;
   return (
     <Box {...stylex.props(inboxListStyles.divided, styles.row)}>
-      {canUndo && latest?.last === true && !undoing && (
-        <UndoLatestHotkey onUndo={latest.undoAll?.onUndoAll ?? onUndo} />
-      )}
+      {canUndo && latest?.last === true && !undoing && <UndoLatestHotkey onUndo={latest.onUndoAll ?? onUndo} />}
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
-          <Group gap="xs" wrap="nowrap">
+          {/* Wraps rather than clipping, so the place it was believed in reads whole beside the actions. */}
+          <Group gap="xs" wrap="wrap">
             {undoable !== undefined && (
               <Box {...stylex.props(styles.noShrink)}>
-                <DerivationStatusBadge status={STATUS_AFTER_OUTCOME[undoable.outcome]} />
+                <DerivationStatusBadge status={undoable.status} />
               </Box>
             )}
             {acceptedScope !== undefined && (
-              <SupportingText tier="secondary" fw={500} truncate>
+              <SupportingText tier="secondary" fw={500}>
                 {scopeButtonPhrase(acceptedScope)}
               </SupportingText>
             )}
           </Group>
-          <Text size="sm" c="dimmed" truncate>
+          <Text size="sm" c="dimmed" lineClamp={2}>
             {statement}
           </Text>
         </Stack>
@@ -103,16 +101,6 @@ export function InboxDecidedRow({
               onClick={ignoringRepeatClicks(onUndo)}
             >
               Undo
-            </Button>
-          )}
-          {canUndo && latest?.last === true && latest.undoAll !== undefined && (
-            <Button
-              variant="subtle"
-              color="gray"
-              disabled={undoing}
-              onClick={ignoringRepeatClicks(latest.undoAll.onUndoAll)}
-            >
-              Undo all {latest.undoAll.count}
             </Button>
           )}
           <ButtonLink to="/derivations/$id" params={{ id }} variant="subtle" color="gray">

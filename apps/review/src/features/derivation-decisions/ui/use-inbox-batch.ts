@@ -26,17 +26,26 @@ type InboxBatchFailure = { readonly id: string; readonly sentence: string };
 /** Resolves to the refusal sentence, or undefined once the decision landed. */
 type DecideThroughCard = (handle: InboxCardHandle, batch: InboxBatch) => Promise<string | undefined>;
 
+export type InboxBatchVerb = "believe" | "reject";
+
+/** Where a running batch is: which decision, and the card now being decided, counted from 1. */
+export type InboxBatchProgress = { readonly verb: InboxBatchVerb; readonly at: number; readonly total: number };
+
 export function useInboxBatch(cardHandles: ReadonlyMap<string, InboxCardHandle>) {
   const [queued, setQueued] = useState<ReadonlySet<string>>(() => new Set());
   const [failures, setFailures] = useState<ReadonlyArray<InboxBatchFailure>>([]);
+  const [progress, setProgress] = useState<InboxBatchProgress | undefined>(undefined);
+  const [lastVerb, setLastVerb] = useState<InboxBatchVerb>("believe");
 
-  const run = async (ids: InboxBatch, decide: DecideThroughCard) => {
+  const run = async (ids: InboxBatch, verb: InboxBatchVerb, decide: DecideThroughCard) => {
     setQueued((previous) => new Set([...previous, ...ids]));
     setFailures([]);
+    setLastVerb(verb);
     const failed: Array<InboxBatchFailure> = [];
     // One at a time, in the order shown: a later card may be refused because an earlier one landed.
     const decideInOrder = async ([id, ...rest]: ReadonlyArray<string>): Promise<void> => {
       if (id === undefined) return;
+      setProgress({ verb, at: ids.length - rest.length, total: ids.length });
       // Unqueued as its turn comes, so the card shows its own decision pending rather than "Queued".
       setQueued((previous) => new Set([...previous].filter((kept) => kept !== id)));
       const handle = cardHandles.get(id);
@@ -48,15 +57,18 @@ export function useInboxBatch(cardHandles: ReadonlyMap<string, InboxCardHandle>)
       await decideInOrder(rest);
     };
     await decideInOrder(ids);
+    setProgress(undefined);
     setFailures(failed);
   };
 
   return {
     queued,
-    pending: queued.size > 0,
+    progress,
+    /** What the newest batch did, so its outcome reads "3 believed". */
+    lastVerb,
     failures,
-    believeAsProposed: (ids: InboxBatch) => run(ids, (handle, batch) => handle.acceptAsProposed(batch)),
+    believeAsProposed: (ids: InboxBatch) => run(ids, "believe", (handle, batch) => handle.acceptAsProposed(batch)),
     rejectWithReason: (ids: InboxBatch, reason: string) =>
-      run(ids, (handle, batch) => handle.rejectWithReason(reason, batch)),
+      run(ids, "reject", (handle, batch) => handle.rejectWithReason(reason, batch)),
   };
 }

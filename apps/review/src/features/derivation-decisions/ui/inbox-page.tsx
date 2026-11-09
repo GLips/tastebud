@@ -19,7 +19,7 @@ import { InboxHeaderActions } from "./inbox-header-actions.tsx";
 import { InboxKindTabs } from "./inbox-kind-tabs.tsx";
 import { inboxListStyles } from "./inbox-list-styles.ts";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
-import { InboxSelectionBar } from "./inbox-selection-bar.tsx";
+import { InboxSelectionBar, type InboxSelectionBarState } from "./inbox-selection-bar.tsx";
 import { isBelievableAsProposed, useInboxBatch } from "./use-inbox-batch.ts";
 import { useInboxCardStates } from "./use-inbox-card-states.ts";
 import type { InboxCardHandle } from "./use-inbox-card-triage.ts";
@@ -51,6 +51,23 @@ const styles = stylex.create({
   },
 });
 
+type BarStage<S extends InboxSelectionBarState["stage"]> = Extract<InboxSelectionBarState, { stage: S }>;
+
+/** A running batch outranks a new selection; a landed batch's Undo all holds the bar until rows are checked again. */
+const inboxSelectionBarStateOf = ({
+  running,
+  selecting,
+  done,
+}: {
+  running: BarStage<"running"> | undefined;
+  selecting: BarStage<"selecting"> | false;
+  done: BarStage<"done"> | undefined;
+}): InboxSelectionBarState | undefined => {
+  if (running !== undefined) return running;
+  if (selecting !== false) return selecting;
+  return done;
+};
+
 export function InboxPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -68,6 +85,7 @@ export function InboxPage() {
     order,
     linkedCard: search.card,
     holdsKeyboard: (id) => cards.engagedIds.has(id),
+    onOpen: (id) => void navigate({ to: "/derivations/$id", params: { id } }),
   });
   // One map for the page's life, mutated by the cards: each registers its handle from an effect.
   const [cardHandles] = useState(() => new Map<string, InboxCardHandle>());
@@ -111,16 +129,30 @@ export function InboxPage() {
     await undoInTurn(rest);
   };
   const latestIds = cards.latestDecidedIds;
+  const undoAllLatest = latestIds.length > 1 ? () => void undoInTurn(latestIds.toReversed()) : undefined;
   const latestOf = (id: string): InboxDecidedRowLatest | undefined =>
-    latestIds.includes(id)
-      ? {
-          last: id === latestIds.at(-1),
-          undoAll:
-            latestIds.length > 1
-              ? { count: latestIds.length, onUndoAll: () => void undoInTurn(latestIds.toReversed()) }
-              : undefined,
-        }
-      : undefined;
+    latestIds.includes(id) ? { last: id === latestIds.at(-1), onUndoAll: undoAllLatest } : undefined;
+  const barState = inboxSelectionBarStateOf({
+    running: bulk.progress && { stage: "running", progress: bulk.progress },
+    selecting: checked.checkedIds.length > 0 && {
+      stage: "selecting",
+      counts: {
+        checked: checked.checkedIds.length,
+        believable: believableIds.length,
+        rejectable: rejectableIds.length,
+      },
+      onBelieve: () => {
+        checked.uncheck(believableIds);
+        void bulk.believeAsProposed(believableIds);
+      },
+      onReject: (reason) => {
+        checked.uncheck(rejectableIds);
+        void bulk.rejectWithReason(rejectableIds, reason);
+      },
+      onClear: checked.clear,
+    },
+    done: undoAllLatest && { stage: "done", verb: bulk.lastVerb, count: latestIds.length, onUndoAll: undoAllLatest },
+  });
   // A card mid-decision stays mounted when the refresh finds it gone: its own decision made it so,
   // and only the mounted card knows how to undo it.
   const renderEntry = (entry: InboxQueueEntry) =>
@@ -208,26 +240,7 @@ export function InboxPage() {
                   />
                 ))}
               </Box>
-              {checked.checkedIds.length > 0 && (
-                <InboxSelectionBar
-                  kind={kind}
-                  counts={{
-                    checked: checked.checkedIds.length,
-                    believable: believableIds.length,
-                    rejectable: rejectableIds.length,
-                  }}
-                  pending={bulk.pending}
-                  onBelieve={() => {
-                    checked.uncheck(believableIds);
-                    void bulk.believeAsProposed(believableIds);
-                  }}
-                  onReject={(reason) => {
-                    checked.uncheck(rejectableIds);
-                    void bulk.rejectWithReason(rejectableIds, reason);
-                  }}
-                  onClear={checked.clear}
-                />
-              )}
+              {barState !== undefined && <InboxSelectionBar kind={kind} state={barState} />}
             </Stack>
             {/* The selected card renders its detail in here (see InboxProposalCard). */}
             <Box ref={setPane} {...stylex.props(styles.pane)}>
