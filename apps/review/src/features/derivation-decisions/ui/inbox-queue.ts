@@ -17,14 +17,15 @@ export interface InboxQueueEntry {
   readonly gone: boolean;
 }
 
+/** One section of the queue: every card with the same proposed scope, whoever it is about. */
 export interface InboxQueueBucket {
   readonly key: string;
-  readonly group: InboxGroup;
+  readonly scope: DerivationScope;
   readonly entries: ReadonlyArray<InboxQueueEntry>;
 }
 
 export interface InboxQueue {
-  /** The queue as rendered: bucketed by scope and subject, buckets in a fixed order of scope. */
+  /** The queue as rendered: bucketed by scope, buckets in a fixed order of scope. */
   readonly buckets: ReadonlyArray<InboxQueueBucket>;
   /** Every entry in rendered order, so j/k and "the next card" follow what the reviewer sees. */
   readonly entries: ReadonlyArray<InboxQueueEntry>;
@@ -33,8 +34,6 @@ export interface InboxQueue {
   /** Drops a card decided here, or a gone card the reviewer has acknowledged. */
   readonly remove: (id: string) => void;
 }
-
-const inboxGroupKeyOf = (group: InboxGroup): string => JSON.stringify([group.scopeKey, group.subject ?? null]);
 
 interface QueueMemory {
   /** The poll result last absorbed; a new one is folded in during render. */
@@ -102,15 +101,16 @@ const scopeSectionRankOf = (scope: DerivationScope): number => {
 // group the cards keep their stable order. An arrival appended to the order can still belong to an
 // earlier bucket, which is why the rendered order is the bucketed one and not the raw order.
 const bucketQueueEntries = (entries: ReadonlyArray<InboxQueueEntry>): Array<InboxQueueBucket> => {
-  const buckets = new Map<string, { key: string; group: InboxGroup; entries: Array<InboxQueueEntry> }>();
+  const buckets = new Map<string, { key: string; scope: DerivationScope; entries: Array<InboxQueueEntry> }>();
   for (const entry of entries) {
-    const key = inboxGroupKeyOf(entry.group);
-    const bucket = buckets.get(key) ?? { key, group: entry.group, entries: [] };
+    // Core groups by scope and subject; the queue folds subjects together and shows each on its row.
+    const key = entry.group.scopeKey;
+    const bucket = buckets.get(key) ?? { key, scope: entry.group.scope, entries: [] };
     bucket.entries.push(entry);
     buckets.set(key, bucket);
   }
   return [...buckets.values()].toSorted(
-    (a, b) => scopeSectionRankOf(a.group.scope) - scopeSectionRankOf(b.group.scope) || a.key.localeCompare(b.key),
+    (a, b) => scopeSectionRankOf(a.scope) - scopeSectionRankOf(b.scope) || a.key.localeCompare(b.key),
   );
 };
 

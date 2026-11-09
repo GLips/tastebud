@@ -20,6 +20,8 @@ const INBOX_KEYS: ReadonlyArray<readonly [string, string]> = [
   ["r", "Reject with a reason"],
   ["d", "Write in the thread to the agents"],
   ["u", "Undo the latest decision"],
+  ["x / ⇧-click", "Select one / a range, to decide together"],
+  ["Esc", "Clear the selection"],
   ["⌘↵ / Esc", "Confirm / back, in a preview or note"],
 ];
 

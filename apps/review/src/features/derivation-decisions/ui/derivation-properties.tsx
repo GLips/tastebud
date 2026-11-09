@@ -12,6 +12,8 @@ import type { ReactNode } from "react";
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import { FactList, FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
+import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
+import { otherSubjectOf } from "#review/shared/ui/subject-label.tsx";
 
 import { DerivationIdCopy } from "./derivation-header.tsx";
 
@@ -38,7 +40,6 @@ export function DerivationProperties({
 }) {
   const lastDecision = view.decisions.at(-1);
   const decided = view.status !== "pending" && view.decidedAt !== undefined;
-  const about = view.subject !== undefined && view.subject !== "owner" && view.subject !== owner;
   return (
     <FactList>
       <FactRow label="Scope">{scope}</FactRow>
@@ -50,11 +51,9 @@ export function DerivationProperties({
           </Text>
         </FactRow>
       )}
-      {about && (
+      {otherSubjectOf(view, owner) !== undefined && (
         <FactRow label="About">
-          <Text size="sm" title={view.subject}>
-            {view.subjectLabel ?? view.subject}
-          </Text>
+          <SubjectChip summary={view} owner={owner} />
         </FactRow>
       )}
       <FactRow label="Proposed">

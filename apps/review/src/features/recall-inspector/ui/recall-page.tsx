@@ -58,10 +58,7 @@ export function RecallInspectorPage() {
 
   return (
     <Stack gap="md">
-      <ReviewPageHeader
-        title="Recall"
-        purpose="What an agent is told in a place: everything that applies there, and for a prompt, what gets sent with it and why."
-      />
+      <ReviewPageHeader title="Recall" />
       <Stack gap="2xs">
         <RecallQueryBar
           key={`${search.q ?? ""}|${search.in ?? ""}`}
