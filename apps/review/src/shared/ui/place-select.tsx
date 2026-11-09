@@ -61,6 +61,7 @@ export function PlaceSelect({
       <Combobox.Target targetType="button">
         <Button
           variant="default"
+          fw={400}
           leftSection={icon}
           rightSection={<ChevronDown size={13} />}
           aria-label={`${ariaLabel}: ${label}. Change`}
