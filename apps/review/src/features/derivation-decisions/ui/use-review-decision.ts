@@ -63,7 +63,7 @@ const reversingDecisionsOf = (
 };
 
 /** Sends one decision; a refusal comes back as a failure for the card to show, never a retry. */
-export const sendReviewDecision = async (target: string, input: ReviewDecisionInput) => {
+const sendReviewDecision = async (target: string, input: ReviewDecisionInput) => {
   const outcome = await decideReviewDerivation({
     data: {
       ref: target,

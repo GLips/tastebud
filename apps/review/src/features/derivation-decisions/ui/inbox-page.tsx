@@ -17,10 +17,10 @@ import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 import { inboxGroupsQuery } from "./decision-queries.ts";
-import { InboxProposalCard } from "./inbox-card.tsx";
+import { type InboxBatchAccepter, InboxProposalCard } from "./inbox-card.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
+import { InboxHeaderActions } from "./inbox-header-actions.tsx";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
-import { InboxHeaderActions, InboxRail } from "./inbox-rail.tsx";
 
 /** `card` selects one proposal on arrival, for links that name a specific pending item. */
 export const InboxSearch = Schema.Struct({
@@ -38,8 +38,18 @@ let leftSelectedCard: string | undefined;
 const styles = stylex.create({
   alignStart: { alignSelf: "flex-start" },
   alignCenter: { alignSelf: "center" },
-  // A readable measure with or without the rail, so the queue doesn't jump when the rail appears.
-  queue: { flex: 1, minWidth: 0, maxWidth: "760px" },
+  queue: { flexBasis: "40%", flexShrink: 0, minWidth: 0 },
+  // Sticks below the shell header and scrolls on its own, so the selected proposal's buttons and
+  // evidence stay in view however far down the queue the reviewer is.
+  pane: {
+    flex: 1,
+    minWidth: 0,
+    position: "sticky",
+    top: "calc(var(--review-shell-header-height) + 16px)",
+    maxHeight: "calc(100dvh - var(--review-shell-header-height) - 32px)",
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+  },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
 });
@@ -107,7 +117,9 @@ export function InboxPage() {
     setSelectedId(search.card);
   }
   const [engagedIds, setEngagedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const cardRefs = useRef(new Map<string, HTMLDivElement>()).current;
+  const cardRefs = useRef(new Map<string, HTMLElement>()).current;
+  const batchAccepters = useRef(new Map<string, InboxBatchAccepter>()).current;
+  const [pane, setPane] = useState<HTMLDivElement | null>(null);
 
   // Only a tab actually chosen is remembered, not the placeholder shown before the arrival tab is.
   const chosenKind = requested === undefined ? undefined : kind?.key;
@@ -188,6 +200,11 @@ export function InboxPage() {
   }
 
   const othersWaiting = kinds.filter((other) => other.key !== kind.key && (pendingByKind.get(other.key) ?? 0) > 0);
+  // A batch decides through each card; a card no longer mounted (its kind was switched away mid-batch) is skipped.
+  const acceptOne = async (id: string) => {
+    const accepter = batchAccepters.get(id);
+    return accepter === undefined ? "Left undecided: the inbox moved to another kind before its turn." : accepter();
+  };
   // A card mid-decision stays mounted when the refresh finds it gone: its own decision made it so,
   // and only the mounted card knows how to undo it.
   const renderEntry = (entry: InboxQueueEntry, queued: boolean) =>
@@ -202,6 +219,8 @@ export function InboxPage() {
         queued={queued}
         draft={drafts.get(entry.id)}
         known={known}
+        pane={pane}
+        batchAccepters={batchAccepters}
         onSelect={() => select(entry.id, false)}
         onDraftChange={(draft) => setDraft(entry.id, draft)}
         onEngagedChange={onEngagedChange}
@@ -221,82 +240,91 @@ export function InboxPage() {
         purpose={`Proposals waiting on you. ${describeAcceptedOutcome(kind)}`}
         actions={<InboxHeaderActions />}
       />
-      <Group align="flex-start" wrap="nowrap" gap="xl">
-        <Stack gap="md" {...stylex.props(styles.queue)}>
-          {kinds.length > 1 && (
-            <SegmentedControl
-              size="sm"
-              value={kind.key}
-              onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
-              data={kinds.map((candidate) => ({
-                value: candidate.key,
-                label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
-              }))}
-              {...stylex.props(styles.alignStart)}
-            />
-          )}
+      <Stack gap="md">
+        {kinds.length > 1 && (
+          <SegmentedControl
+            size="sm"
+            value={kind.key}
+            onChange={(value) => void navigate({ search: { kind: value }, replace: true })}
+            data={kinds.map((candidate) => ({
+              value: candidate.key,
+              label: <KindTabLabel kind={candidate} count={pendingByKind.get(candidate.key) ?? 0} />,
+            }))}
+            {...stylex.props(styles.alignStart)}
+          />
+        )}
 
-          {queue.incomingCount > 0 && (
-            <Button
-              variant="light"
-              size="xs"
-              leftSection={<ArrowDown size={13} />}
-              onClick={queue.showIncoming}
-              {...stylex.props(styles.alignCenter)}
-            >
-              {queue.incomingCount === 1 ? "1 new proposal" : `${queue.incomingCount} new proposals`}
-            </Button>
-          )}
+        {queue.incomingCount > 0 && (
+          <Button
+            variant="light"
+            size="xs"
+            leftSection={<ArrowDown size={13} />}
+            onClick={queue.showIncoming}
+            {...stylex.props(styles.alignCenter)}
+          >
+            {queue.incomingCount === 1 ? "1 new proposal" : `${queue.incomingCount} new proposals`}
+          </Button>
+        )}
 
-          {queue.entries.length === 0 ? (
-            <Center py={64}>
-              <Stack align="center" gap="xxs">
-                <PartyPopper size={28} color="var(--mantine-color-tastebud-6)" />
-                <Text fw={600}>No {kind.plural} waiting</Text>
-                {othersWaiting.length > 0 ? (
-                  <Group gap="xxs" mt="2xs">
-                    {othersWaiting.map((other) => (
-                      <Button
-                        key={other.key}
-                        size="xs"
-                        variant="default"
-                        leftSection={<KindGlyph catalog={catalog} kind={other.key} />}
-                        onClick={() => void navigate({ search: { kind: other.key }, replace: true })}
-                      >
-                        Review {pendingByKind.get(other.key)}{" "}
-                        {pendingByKind.get(other.key) === 1 ? other.singular : other.plural}
-                      </Button>
-                    ))}
-                  </Group>
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    Agents propose with <code>tastebud propose</code>.{" "}
-                    <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
-                      Browse {kind.plural}
-                    </AnchorLink>
-                  </Text>
-                )}
-              </Stack>
-            </Center>
-          ) : (
-            queue.buckets.map((bucket) => (
-              <InboxGroupSection
-                key={bucket.key}
-                group={bucket.group}
-                entries={bucket.entries}
-                kind={kind}
-                owner={catalog?.owner}
-                drafts={drafts}
-                engagedIds={engagedIds}
-                known={known}
-                renderEntry={renderEntry}
-                onAccepted={removeFromQueue}
-              />
-            ))
-          )}
-        </Stack>
-        <InboxRail />
-      </Group>
+        {queue.entries.length === 0 ? (
+          <Center py={64}>
+            <Stack align="center" gap="xxs">
+              <PartyPopper size={28} color="var(--mantine-color-tastebud-6)" />
+              <Text fw={600}>No {kind.plural} waiting</Text>
+              {othersWaiting.length > 0 ? (
+                <Group gap="xxs" mt="2xs">
+                  {othersWaiting.map((other) => (
+                    <Button
+                      key={other.key}
+                      size="xs"
+                      variant="default"
+                      leftSection={<KindGlyph catalog={catalog} kind={other.key} />}
+                      onClick={() => void navigate({ search: { kind: other.key }, replace: true })}
+                    >
+                      Review {pendingByKind.get(other.key)}{" "}
+                      {pendingByKind.get(other.key) === 1 ? other.singular : other.plural}
+                    </Button>
+                  ))}
+                </Group>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  Agents propose with <code>tastebud propose</code>.{" "}
+                  <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
+                    Browse {kind.plural}
+                  </AnchorLink>
+                </Text>
+              )}
+            </Stack>
+          </Center>
+        ) : (
+          <Group align="flex-start" wrap="nowrap" gap="lg">
+            <Stack gap="md" {...stylex.props(styles.queue)}>
+              {queue.buckets.map((bucket) => (
+                <InboxGroupSection
+                  key={bucket.key}
+                  group={bucket.group}
+                  entries={bucket.entries}
+                  kind={kind}
+                  owner={catalog?.owner}
+                  drafts={drafts}
+                  engagedIds={engagedIds}
+                  known={known}
+                  renderEntry={renderEntry}
+                  acceptOne={acceptOne}
+                />
+              ))}
+            </Stack>
+            {/* The selected card renders its detail in here (see InboxProposalCard). */}
+            <Box ref={setPane} {...stylex.props(styles.pane)}>
+              {effectiveId === undefined && (
+                <Text c="dimmed" size="sm" ta="center" py="xl">
+                  Everything here is decided. Undo any of them on the left.
+                </Text>
+              )}
+            </Box>
+          </Group>
+        )}
+      </Stack>
     </Stack>
   );
 }
@@ -310,14 +338,14 @@ function InboxCardSlot({
   ...props
 }: Omit<React.ComponentProps<typeof InboxProposalCard>, "card" | "onEngagedChange" | "ref"> & {
   entry: InboxQueueEntry;
-  cardRefs: Map<string, HTMLDivElement>;
+  cardRefs: Map<string, HTMLElement>;
   /** The card a link named (`?card=`): scrolled to once, when it first renders. */
   reveal: boolean;
   onEngagedChange: (id: string, engaged: boolean) => void;
 }) {
   const { id } = entry;
   const reportEngaged = useCallback((engaged: boolean) => onEngagedChange(id, engaged), [id, onEngagedChange]);
-  const element = useRef<HTMLDivElement | null>(null);
+  const element = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (reveal) element.current?.scrollIntoView({ block: "center" });
   }, [reveal]);

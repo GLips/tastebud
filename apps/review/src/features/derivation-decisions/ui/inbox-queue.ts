@@ -4,7 +4,10 @@
  * decided elsewhere stays in place, marked gone, until the reviewer moves past it.
  */
 import type { InboxCard, InboxGroup } from "@tastebud/core/inbox";
+import type { DerivationScope } from "@tastebud/core/places";
 import { useEffect, useState } from "react";
+
+import { placeFormOf } from "#review/shared/ui/place-chips.tsx";
 
 export interface InboxQueueEntry {
   readonly id: string;
@@ -21,7 +24,7 @@ export interface InboxQueueBucket {
 }
 
 export interface InboxQueue {
-  /** The queue as rendered: bucketed by scope and subject, buckets in order of their first card. */
+  /** The queue as rendered: bucketed by scope and subject, buckets in a fixed order of scope. */
   readonly buckets: ReadonlyArray<InboxQueueBucket>;
   /** Every entry in rendered order, so j/k and "the next card" follow what the reviewer sees. */
   readonly entries: ReadonlyArray<InboxQueueEntry>;
@@ -87,8 +90,17 @@ const absorbInboxPoll = (
   return { groups, kind, orders, latest, returning: false };
 };
 
-// An arrival appended to the order can still belong to an earlier bucket, which is why the
-// rendered order is the bucketed one and not the raw order.
+/** Where a group's scope sorts: one repo or folder, one named place, everywhere, then several places. */
+const scopeSectionRankOf = (scope: DerivationScope): number => {
+  if (scope.scope === "global") return 2;
+  const [only, ...rest] = scope.places;
+  if (only === undefined || rest.length > 0) return 3;
+  return placeFormOf(only) === "named" ? 1 : 0;
+};
+
+// Groups sort by a fixed rule, not by arrival, so the sections read the same on every reload. Within a
+// group the cards keep their stable order. An arrival appended to the order can still belong to an
+// earlier bucket, which is why the rendered order is the bucketed one and not the raw order.
 const bucketQueueEntries = (entries: ReadonlyArray<InboxQueueEntry>): Array<InboxQueueBucket> => {
   const buckets = new Map<string, { key: string; group: InboxGroup; entries: Array<InboxQueueEntry> }>();
   for (const entry of entries) {
@@ -97,7 +109,9 @@ const bucketQueueEntries = (entries: ReadonlyArray<InboxQueueEntry>): Array<Inbo
     bucket.entries.push(entry);
     buckets.set(key, bucket);
   }
-  return [...buckets.values()];
+  return [...buckets.values()].toSorted(
+    (a, b) => scopeSectionRankOf(a.group.scope) - scopeSectionRankOf(b.group.scope) || a.key.localeCompare(b.key),
+  );
 };
 
 export function useStableInboxQueue(groups: ReadonlyArray<InboxGroup> | undefined, kind: string): InboxQueue {
