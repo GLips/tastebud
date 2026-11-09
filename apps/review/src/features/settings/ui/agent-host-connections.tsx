@@ -18,10 +18,10 @@ import { CopyableSnippet } from "./copyable-snippet.tsx";
 import { agentHostConnectionsQuery } from "./settings-queries.ts";
 
 const styles = stylex.create({
-  // Tile · host · what it gets · state · action, one grid so every row's columns line up.
+  // Tile · host · what it gets · state and its reason · action, one grid so every row's columns line up.
   row: {
     display: "grid",
-    gridTemplateColumns: "28px 150px 240px 120px minmax(0, 1fr)",
+    gridTemplateColumns: "28px 140px 180px minmax(0, 1fr) auto",
     columnGap: "12px",
     alignItems: "center",
     paddingBlock: "12px",
@@ -75,6 +75,16 @@ const STATE_BADGES = {
   unknown: { label: "Can't tell", color: "yellow" },
 } as const satisfies Record<AgentHostConnection["state"], { label: string; color: string }>;
 
+/**
+ * Whether the host's config mentions Tastebud at all, even when it can't be confirmed as this store: then the
+ * row's action is Details, since there is nothing to connect from scratch.
+ */
+const hasTastebudEntry = (connection: AgentHostConnection | undefined) =>
+  connection !== undefined &&
+  (connection.state === "connected" ||
+    connection.reason === "other-store" ||
+    connection.reason === "store-from-environment");
+
 /** `~/…` for paths under home, so the tooltip reads like the files the owner knows. */
 const tildePath = (path: string, home: string | undefined) =>
   home !== undefined && path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
@@ -93,7 +103,7 @@ const connectionWhy = (connection: AgentHostConnection, home: string | undefined
     case "unreadable":
       return `${where} doesn't parse`;
     case "store-from-environment":
-      return `In ${where}, but no store named: the host's environment picks one`;
+      return `${where} names no store, so its environment picks`;
     case "not-checked":
       return "Tastebud can't see this host's config";
   }
@@ -210,31 +220,30 @@ function AgentHostRow({
         {connection === undefined || badge === undefined ? (
           <Skeleton height={20} width={90} />
         ) : (
-          <Badge color={badge.color} w="fit-content">
-            {badge.label}
-          </Badge>
+          <Group gap="xs" wrap="nowrap" miw={0}>
+            <Badge color={badge.color} w="fit-content">
+              {badge.label}
+            </Badge>
+            <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
+          </Group>
         )}
         <Button variant="default" aria-expanded={open} onClick={() => setOpen(!open)} {...stylex.props(styles.action)}>
-          {connection?.state === "connected" ? "Details" : "Connect"}
+          {hasTastebudEntry(connection) ? "Details" : "Connect"}
         </Button>
       </Box>
       <Collapse expanded={open}>
         <Stack gap="md" {...stylex.props(styles.expansion)}>
-          {connection !== undefined && (
-            <Group gap="xs" wrap="nowrap">
-              <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
-              {connection.state !== "connected" && (
-                <Button
-                  size="compact-sm"
-                  variant="subtle"
-                  leftSection={<RefreshCw size={12} />}
-                  loading={rechecking}
-                  onClick={onRecheck}
-                >
-                  Recheck
-                </Button>
-              )}
-            </Group>
+          {connection !== undefined && connection.state !== "connected" && (
+            <Button
+              size="compact-sm"
+              variant="subtle"
+              w="fit-content"
+              leftSection={<RefreshCw size={12} />}
+              loading={rechecking}
+              onClick={onRecheck}
+            >
+              Recheck
+            </Button>
           )}
           <ConnectSteps steps={connectStepsOf(host, lines)} />
         </Stack>
