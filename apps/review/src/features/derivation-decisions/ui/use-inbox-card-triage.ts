@@ -68,7 +68,6 @@ export function useInboxCardTriage({
   const [pickerOpen, setPickerOpen] = useState(false);
   // The picker lives in the pane, so it closes with the card's selection rather than staying open unseen.
   if (pickerOpen && !selected) setPickerOpen(false);
-  const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
 
   const proposed = view.proposedScope;
   const shownScope = draft ?? proposed;
@@ -85,16 +84,8 @@ export function useInboxCardTriage({
     return () => onEngagedChange(false);
   }, [engaged, onEngagedChange]);
 
-  // Acknowledgements belong to the scope they were given for: any change unchecks every box.
   const changeDraft = (next: ScopeDraft | undefined) => {
-    setAcknowledged(new Set());
     onDraftChange(next === undefined || isSameScope(proposed, next) ? undefined : next);
-  };
-  const acknowledge = (id: string, checked: boolean) => {
-    const ids = new Set(acknowledged);
-    if (checked) ids.add(id);
-    else ids.delete(id);
-    setAcknowledged(ids);
   };
   // Back to idle with nothing half-typed, so an Undo returns a clean card.
   const settleDecided = (batch: InboxBatch | undefined) => {
@@ -151,8 +142,6 @@ export function useInboxCardTriage({
     setRejectReason,
     pickerOpen,
     setPickerOpen,
-    acknowledged,
-    acknowledge,
     proposed,
     shownScope,
     edited,

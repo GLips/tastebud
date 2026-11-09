@@ -87,14 +87,7 @@ function DerivationDetail({
     <Box {...stylex.props(styles.layout)}>
       <Stack gap="md">
         <DerivationHeader view={view} kind={kind} catalog={catalog} owner={owner} back={back} />
-        <DerivationStatusCard
-          review={review}
-          kind={kind}
-          acceptLabel={acceptLabel}
-          known={known}
-          newer={newer}
-          focusPrimary={!discussing}
-        />
+        <DerivationStatusCard review={review} kind={kind} acceptLabel={acceptLabel} known={known} newer={newer} />
         <DerivationEvidence view={view} kind={kind} />
         <Paper p="md" id={DERIVATION_THREAD_HASH}>
           <DerivationThread
@@ -106,14 +99,7 @@ function DerivationDetail({
           />
         </Paper>
       </Stack>
-      <DerivationSidebar
-        view={view}
-        kind={kind}
-        detail={detail}
-        owner={owner}
-        known={known}
-        notedByCard={newer?.summary.id}
-      />
+      <DerivationSidebar view={view} kind={kind} detail={detail} owner={owner} known={known} notedByCard={newer?.id} />
     </Box>
   );
 }

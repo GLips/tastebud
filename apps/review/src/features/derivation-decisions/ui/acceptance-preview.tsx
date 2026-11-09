@@ -1,21 +1,19 @@
 /**
- * The acceptance preview, inside the card: the statement, the scope it would settle on, and each
- * blocking near repeat as its own row to acknowledge. The confirm button names that scope. There is no "acknowledge all" on purpose:
- * each earlier no deserves its own look.
+ * The acceptance preview, inside the card: the statement, the scope it would settle on, and a sentence
+ * naming each close record it overlaps. One "anyway" records every acknowledgement: the sentence is the
+ * look, and a box per match only made the owner tick through it.
  */
-import { Box, Alert, Button, Checkbox, Group, Kbd, Loader, Stack, Text } from "@mantine/core";
+import { Box, Alert, Button, Group, Kbd, Loader, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type DerivationScope, formatPlaceLabel } from "@tastebud/core/places";
 import type { RepeatMatch } from "@tastebud/core/record-views";
 import { TriangleAlert } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Fragment } from "react";
 
-import { formatReviewDate } from "#review/shared/format.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
 
 import { acceptPreviewQuery } from "./decision-queries.ts";
 import { scopeButtonPhrase } from "./scope-draft.ts";
@@ -30,113 +28,63 @@ const styles = stylex.create({
     padding: "12px",
   },
   statement: { fontWeight: 600, lineHeight: 1.4 },
-  match: {
-    borderRadius: "6px",
-    backgroundColor: "white",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--mantine-color-orange-2)",
-    padding: "8px 10px",
-  },
   label: { display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", columnGap: "10px", alignItems: "baseline" },
 });
 
-const acknowledgementWording = (match: RepeatMatch): string => {
-  switch (match.status) {
-    case "rejected":
-      return "I've considered this earlier rejection.";
-    case "pending":
-      return `I've considered this overlapping proposal.`;
-    default:
-      return `I've considered this ${match.status} ${match.kindLabel}.`;
-  }
+/** How a close record is named in the overlap sentence: what it is to the owner, then its words. */
+const MATCH_ROLES: Record<RepeatMatch["status"], string> = {
+  rejected: "your rejection of",
+  pending: "the waiting proposal",
+  accepted: "what you already hold,",
+  retracted: "what you retracted,",
+  superseded: "the replaced",
 };
 
-function BlockingMatchRow({
-  match,
-  checked,
-  onChange,
-  labels,
-}: {
-  match: RepeatMatch;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  labels: ReadonlyMap<string, string>;
-}) {
+function MatchName({ match }: { match: RepeatMatch }) {
   return (
-    <Box {...stylex.props(styles.match)}>
-      <Stack gap="xxs">
-        <Group gap="xs" wrap="nowrap" align="baseline">
-          <DerivationStatusDot status={match.status} />
-          <Text size="sm">
-            <AnchorLink to="/derivations/$id" params={{ id: match.id }} c="inherit" target="_blank">
-              “{match.statement}”
-            </AnchorLink>
-          </Text>
-        </Group>
-        <Group gap="xs">
-          <Text size="xs" c="dimmed" tt="capitalize">
-            {match.status}
-            {match.decidedAt !== undefined && ` ${formatReviewDate(match.decidedAt)}`}
-          </Text>
-          <ScopeChips scope={match.effectiveScope} labels={labels} linked={false} />
-        </Group>
-        {match.reason !== undefined && (
-          <Text size="sm" c="dark.4">
-            Your reason: “{match.reason}”
-          </Text>
-        )}
-        <Checkbox
-          size="xs"
-          checked={checked}
-          onChange={(event) => onChange(event.currentTarget.checked)}
-          label={acknowledgementWording(match)}
-        />
-      </Stack>
-    </Box>
-  );
-}
-
-/** A close record the proposal already answered by naming it in `despite`: shown, never a checkbox. */
-function AnsweredMatchLine({ match }: { match: RepeatMatch }) {
-  return (
-    <Text size="xs" c="dimmed">
-      Close to {match.status === "rejected" ? "your earlier rejection" : `a ${match.status} ${match.kindLabel}`}{" "}
+    <>
+      {MATCH_ROLES[match.status]}{" "}
       <AnchorLink to="/derivations/$id" params={{ id: match.id }} c="inherit" target="_blank">
         “{match.statement}”
       </AnchorLink>
-      {match.decidedAt !== undefined && ` (${match.status} ${formatReviewDate(match.decidedAt)})`}; the agent proposed
-      it anyway and said what changed, so it needs no acknowledgement.
-    </Text>
+      {match.reason !== undefined && ` (you said “${match.reason}”)`}
+    </>
   );
 }
 
+/** What goes before the name at `index` in "a, b and c". */
+const listSeparatorBefore = (index: number, count: number): string => {
+  if (index === 0) return "";
+  return index === count - 1 ? " and " : ", ";
+};
+
+/** "a", "a and b", "a, b and c", as nodes. */
+function NameList({ matches }: { matches: ReadonlyArray<RepeatMatch> }) {
+  return matches.map((match, index) => (
+    <Fragment key={match.id}>
+      {listSeparatorBefore(index, matches.length)}
+      <MatchName match={match} />
+    </Fragment>
+  ));
+}
+
 /**
- * The near repeats an accept must acknowledge one by one, once the preview has found them. The first
- * box takes focus when they appear, so Space ticks it and ⌘↵ confirms.
+ * What else is close under this scope, said in a sentence, each named. The ones the proposal already
+ * answered with `despite` are named too but need nothing; the rest are what "anyway" records weighing.
  */
-function NearRepeatAcknowledgements({
+function OverlapSummary({
   error,
   loaded,
   matches,
   answered,
-  acknowledged,
-  onAcknowledge,
-  labels,
+  verb,
 }: {
   error: Error | null;
   loaded: boolean;
   matches: ReadonlyArray<RepeatMatch>;
   answered: ReadonlyArray<RepeatMatch>;
-  acknowledged: ReadonlySet<string>;
-  onAcknowledge: (id: string, checked: boolean) => void;
-  labels: ReadonlyMap<string, string>;
+  verb: string;
 }) {
-  const list = useRef<HTMLDivElement>(null);
-  const hasMatches = matches.length > 0;
-  useEffect(() => {
-    if (hasMatches) list.current?.querySelector("input")?.focus();
-  }, [hasMatches]);
   if (error)
     return (
       <Alert color="red" variant="light" py="xxs">
@@ -148,55 +96,45 @@ function NearRepeatAcknowledgements({
       <Group gap="xs">
         <Loader size="xs" />
         <Text size="xs" c="dimmed">
-          Checking for overlapping near repeats…
+          Checking for anything close to it…
         </Text>
       </Group>
     );
-  const answeredLines = answered.map((match) => <AnsweredMatchLine key={match.id} match={match} />);
-  if (matches.length === 0)
-    return (
-      <Stack gap="3xs">
-        {answeredLines}
+  return (
+    <Stack gap="3xs">
+      {answered.length > 0 && (
+        <Text size="sm" c="gray.7">
+          It comes after <NameList matches={answered} />; the agent said what changed, so that needs nothing more.
+        </Text>
+      )}
+      {matches.length > 0 ? (
+        <Text size="sm">
+          Under this scope it overlaps <NameList matches={matches} />. “{verb} anyway” records that you weighed{" "}
+          {matches.length === 1 ? "it" : "them"}.
+        </Text>
+      ) : (
         <Text size="xs" c="dimmed">
           {answered.length > 0
             ? "Nothing else close to it overlaps this scope."
             : "Nothing close to it overlaps this scope."}
         </Text>
-      </Stack>
-    );
-  return (
-    <Stack gap="xxs" ref={list}>
-      {answeredLines}
-      <Text size="sm" fw={500}>
-        {matches.length === 1
-          ? "This scope overlaps something close to it"
-          : `This scope overlaps ${matches.length} things close to it`}
-      </Text>
-      {matches.map((match) => (
-        <BlockingMatchRow
-          key={match.id}
-          match={match}
-          checked={acknowledged.has(match.id)}
-          onChange={(checked) => onAcknowledge(match.id, checked)}
-          labels={labels}
-        />
-      ))}
+      )}
     </Stack>
   );
 }
+
+const NO_SCOPE_CHANGES: ReadonlyArray<string> = [];
 
 export function AcceptancePreview({
   target,
   statement,
   override,
   proposedScope,
-  changes,
+  changes = NO_SCOPE_CHANGES,
   verb,
   consequence,
-  active,
-  acknowledged,
-  onAcknowledge,
-  conflict,
+  active = false,
+  conflict = false,
   pending,
   labels,
   onConfirm,
@@ -204,20 +142,19 @@ export function AcceptancePreview({
 }: {
   target: string;
   statement: string;
-  /** The amended scope, or undefined to accept as proposed. */
-  override: DerivationScope | undefined;
+  /** The amended scope; left out to accept as proposed. */
+  override?: DerivationScope | undefined;
   proposedScope: DerivationScope;
-  changes: ReadonlyArray<string>;
-  /** What confirming does, before the scope: the kind's accept label, or "Apply" when moving an accepted one. */
+  /** How the scope differs from the proposed one, a sentence each; none when it doesn't. */
+  changes?: ReadonlyArray<string>;
+  /** The kind's accept label: it names the confirm button ("Believe anyway"). */
   verb: string;
   /** What changes once it lands, in a sentence, when that isn't plain from the verb. */
   consequence?: string | undefined;
-  /** Only the preview on the selected card listens for ⌘↵ and Esc; other cards' previews stay put. */
-  active: boolean;
-  acknowledged: ReadonlySet<string>;
-  onAcknowledge: (id: string, checked: boolean) => void;
+  /** Whether it listens for ⌘↵ and Esc: only the one the owner is working in. Off by default. */
+  active?: boolean;
   /** The server found a match this preview didn't show; the draft is kept and nothing retried. */
-  conflict: boolean;
+  conflict?: boolean;
   pending: boolean;
   labels: ReadonlyMap<string, string>;
   onConfirm: (acknowledges: ReadonlyArray<string>) => void;
@@ -225,8 +162,7 @@ export function AcceptancePreview({
 }) {
   const preview = useQuery(acceptPreviewQuery(target, override));
   const matches = preview.data?.needsAcknowledgement ?? [];
-  const missing = matches.filter((match) => !acknowledged.has(match.id));
-  const ready = preview.data !== undefined && !preview.isFetching && missing.length === 0 && !pending;
+  const ready = preview.data !== undefined && !preview.isFetching && !pending;
   const confirm = () => {
     if (ready) onConfirm(matches.map((match) => match.id));
   };
@@ -265,18 +201,16 @@ export function AcceptancePreview({
 
         {conflict && (
           <Alert color="yellow" variant="light" py="xxs" icon={<TriangleAlert size={14} />}>
-            Something close to it overlaps this scope. Look it over below, then accept anyway or go back.
+            Something close to it overlaps this scope. Read it below, then {verb.toLowerCase()} anyway or go back.
           </Alert>
         )}
 
-        <NearRepeatAcknowledgements
+        <OverlapSummary
           error={preview.error}
           loaded={preview.data !== undefined}
           matches={matches}
           answered={preview.data?.answeredByDespite ?? []}
-          acknowledged={acknowledged}
-          onAcknowledge={onAcknowledge}
-          labels={labels}
+          verb={verb}
         />
 
         <Group justify="flex-end" gap="xxs">
@@ -287,7 +221,9 @@ export function AcceptancePreview({
             </Kbd>
           </Button>
           <Button size="xs" onClick={confirm} disabled={!ready} loading={pending}>
-            {verb} {scopeButtonPhrase(finalScope, (place) => labels.get(place) ?? formatPlaceLabel(place))}
+            {matches.length > 0
+              ? `${verb} anyway`
+              : `${verb} ${scopeButtonPhrase(finalScope, (place) => labels.get(place) ?? formatPlaceLabel(place))}`}
             <Kbd size="xs" ml="xxs">
               ⌘↵
             </Kbd>

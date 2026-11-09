@@ -172,7 +172,7 @@ Records whose kind is no longer in the catalog are **retired**: list and show on
 ### 3.3 Fixed semantics, the same for every kind
 
 - **Statuses:** pending, accepted, rejected, retracted, superseded. Decisions are accept, reject, retract or reopen. The `acceptLabel` changes the button's wording only.
-- **Any decision, any time.** The owner can change their mind: accept from any status (accepting an accepted one again moves it to a new scope), reject anything not already rejected (a reason is always required), retract what is accepted, and reopen anything decided, which puts it back to pending in the inbox. Each change is a new decision record; replaying them in time order, the latest valid one sets the status. Earlier decisions stay on record for provenance.
+- **Any decision, any time.** The owner can change their mind: accept from any status (accepting an accepted one again moves it to a new scope), reject anything (a reason is always required; rejecting a rejected one again changes its reason), retract what is accepted, and reopen anything decided, which puts it back to pending in the inbox. Each change is a new decision record; replaying them in time order, the latest valid one sets the status. Earlier decisions stay on record for provenance.
 - **A superseded derivation can't be decided.** Its accepted revision applies in its place, so the owner decides on the revision; rejecting or retracting that revision makes the original accepted again.
 - **Supersession** requires an accepted target of the same kind: accepting a revision needs its target accepted or retracted.
 - **Evidence:**

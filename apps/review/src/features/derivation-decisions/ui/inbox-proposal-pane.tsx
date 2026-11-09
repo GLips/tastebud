@@ -236,8 +236,6 @@ function InboxDecisionForms({
           changes={triage.changes}
           verb={kind.acceptLabel}
           active
-          acknowledged={triage.acknowledged}
-          onAcknowledge={triage.acknowledge}
           conflict={triage.conflict}
           pending={decision.pending}
           labels={known.labels}

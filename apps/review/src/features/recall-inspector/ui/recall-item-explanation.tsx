@@ -31,7 +31,7 @@ export function RecallItemExplanation({ request }: { request: RecallExplanationR
                       {item.statement}
                     </AnchorLink>
                   </Group>
-                  {recallExplanationLines(item, catalog, explained.context, known).map((line) => (
+                  {recallExplanationLines(item, catalog, known).map((line) => (
                     <Text key={line} size="sm" c="dimmed" pl="md">
                       {line}
                     </Text>
