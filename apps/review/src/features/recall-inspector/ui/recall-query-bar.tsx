@@ -3,13 +3,13 @@
  * kinds. Typed words run on Enter; picking a place, a kind or history runs at once. The place select
  * also offers Nowhere in particular, and a folder typed into it is resolved the way an agent's is.
  */
-import { Box, Button, Checkbox, Group, Paper, Select, TextInput } from "@mantine/core";
+import { Box, Button, Checkbox, Group, Menu, Paper, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { MapPinOff, Search } from "lucide-react";
+import { Check, ChevronDown, Layers, MapPinOff, Search } from "lucide-react";
 import { useState } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { capitalize } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { PlaceSelect } from "#review/shared/ui/place-select.tsx";
 
@@ -56,6 +56,8 @@ export function RecallQueryBar({ check, onRun }: { check: RecallCheck; onRun: (n
         : { at: place, in: undefined, nowhere: undefined },
     );
   const nowhere = check.in === undefined && check.at === undefined;
+  const chosenKind = recallKinds.find((candidate) => candidate.key === check.kind);
+  const kindLabel = chosenKind === undefined ? "All kinds" : capitalize(chosenKind.plural);
 
   return (
     <Paper p="sm">
@@ -92,17 +94,41 @@ export function RecallQueryBar({ check, onRun }: { check: RecallCheck; onRun: (n
               aria-label="Stand at this place, or type a folder"
             />
           </Box>
-          <Select
-            w={130}
-            aria-label="Kinds to check"
-            value={check.kind ?? "all"}
-            allowDeselect={false}
-            data={[
-              { value: "all", label: "All kinds" },
-              ...recallKinds.map((candidate) => ({ value: candidate.key, label: capitalize(candidate.plural) })),
-            ]}
-            onChange={(value) => run({ kind: value === null || value === "all" ? undefined : value })}
-          />
+          {/* A button and menu, not a Select, so it reads as the same control as the place picker beside it. */}
+          <Menu position="bottom-start">
+            <Menu.Target>
+              <Button
+                variant="default"
+                fw={400}
+                leftSection={<Layers size={13} />}
+                rightSection={<ChevronDown size={13} />}
+                aria-label={`Kinds to check: ${kindLabel}. Change`}
+                {...stylex.props(styles.fixed)}
+              >
+                {kindLabel}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                rightSection={check.kind === undefined && <Check size={13} />}
+                onClick={() => run({ kind: undefined })}
+              >
+                All kinds
+              </Menu.Item>
+              {recallKinds.map((candidate) => (
+                <Menu.Item
+                  key={candidate.key}
+                  leftSection={
+                    <KindGlyph catalog={catalog} kind={candidate.key} label={candidate.singular} size={10} />
+                  }
+                  rightSection={check.kind === candidate.key && <Check size={13} />}
+                  onClick={() => run({ kind: candidate.key })}
+                >
+                  {capitalize(candidate.plural)}
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
           <Checkbox
             label="With history"
             title="Include replaced and retracted items"
