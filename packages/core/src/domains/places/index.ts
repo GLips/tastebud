@@ -29,22 +29,21 @@ export {
 export {
   applyScopePick,
   describeScopeChange,
-  describeScopeResult,
+  describeScopeForAgents,
   isCompleteScope,
   isSameScope,
   relativePlacePath,
   type ScopeDraft,
-  scopePlacesReplacedBy,
+  scopePlacesOverlapping,
   type ScopePick,
-  type ScopePickState,
+  type ScopeSideAction,
   typedPlaceChoicesOf,
 } from "./scope-draft.ts";
 export {
   type PlacePickerGroup,
   placePickerGroupsOf,
   type PlacePickerOption,
-  type PlacePickerRowState,
+  type PlacePickerRowExtra,
   placeOfPlacePickerValue,
   scopePickOfPlacePickerValue,
-  type TypedPlaceEffect,
 } from "./place-picker-rows.ts";
