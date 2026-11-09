@@ -1,10 +1,11 @@
+import { useEffect, useState } from "react";
+
 /**
  * Which proposal is open in the inbox's pane, and j/k to move it. The first row is selected on arrival;
  * a decided row leaves the order, and selection falls to whatever now sits at the same position. The
  * selected row scrolls itself into view (see InboxCardSlot), so j/k and an advance both keep it seen.
  */
-import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useEffect, useState } from "react";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 
 /** The card selected when the inbox last unmounted, so a trip to a card's page and back keeps the reviewer's place. */
 let leftSelectedCard: string | undefined;
@@ -50,7 +51,7 @@ export function useInboxSelection({
     const onControl = target instanceof Element && target.closest("button:not([aria-current]), a, [role=button]");
     if (effectiveId !== undefined && !onControl) onOpen(effectiveId);
   };
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "J", callback: move(1), options: { enabled: !engaged } },
     { hotkey: "K", callback: move(-1), options: { enabled: !engaged } },
     { hotkey: "O", callback: open, options: { enabled: !engaged } },

@@ -77,6 +77,7 @@ function InboxDecisionButtons({
       pending={triage.decision.pending}
       onAccept={ignoringRepeatClicks(triage.accept)}
       onReject={ignoringRepeatClicks(triage.startReject)}
+      oneOfSelection={triage.selectionHoldsKeys}
     />
   );
 }

@@ -1,9 +1,10 @@
+import { useState } from "react";
+
 /**
  * The rows checked for a bulk decision, apart from the one open in the pane. `x` checks the open row,
  * a checkbox click checks one, and a shift-click checks the run from the last row checked. Esc clears.
  */
-import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useState } from "react";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 
 /** The ids from `anchor` to `id` inclusive, in shown order; just `id` when the anchor has left the order. */
 const inboxRowRange = (order: ReadonlyArray<string>, anchor: string | undefined, id: string) => {
@@ -60,7 +61,7 @@ export function useInboxCheckedRows({
   const uncheck = (ids: ReadonlyArray<string>) =>
     setStored((previous) => new Set([...previous].filter((id) => !ids.includes(id))));
 
-  useHotkeys([
+  useReviewHotkeys([
     {
       hotkey: "X",
       callback: () => focusedId !== undefined && toggle(focusedId),
@@ -69,7 +70,7 @@ export function useInboxCheckedRows({
     {
       hotkey: "Escape",
       callback: clear,
-      options: { enabled: !holdsKeyboard && checkedIds.length > 0, ignoreInputs: true },
+      options: { enabled: !holdsKeyboard && checkedIds.length > 0 },
     },
   ]);
 

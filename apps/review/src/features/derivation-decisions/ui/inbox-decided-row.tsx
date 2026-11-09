@@ -6,12 +6,12 @@
  */
 import { Box, Button, Group, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Undo2 } from "lucide-react";
 import type { MouseEvent } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -38,7 +38,7 @@ export const ignoringRepeatClicks =
 
 /** Mounted only on the newest decision's last row, so `u` takes back exactly one decision or batch. */
 function UndoLatestHotkey({ onUndo }: { onUndo: () => void }) {
-  useHotkeys([{ hotkey: "U", callback: onUndo }]);
+  useReviewHotkeys([{ hotkey: "U", callback: onUndo }]);
   return null;
 }
 
@@ -75,15 +75,15 @@ export function InboxDecidedRow({
       {canUndo && latest?.last === true && !undoing && <UndoLatestHotkey onUndo={latest.onUndoAll ?? onUndo} />}
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
-          {/* Wraps rather than clipping, so the place it was believed in reads whole beside the actions. */}
-          <Group gap="xs" wrap="wrap">
+          {/* The place wraps within its own column beside the badge, reading whole without leaving the badge alone. */}
+          <Group gap="xs" wrap="nowrap" align="flex-start">
             {undoable !== undefined && (
               <Box {...stylex.props(styles.noShrink)}>
                 <DerivationStatusBadge status={undoable.status} />
               </Box>
             )}
             {acceptedScope !== undefined && (
-              <SupportingText tier="secondary" fw={500}>
+              <SupportingText tier="secondary" fw={500} {...stylex.props(styles.shrinkable)}>
                 {scopeButtonPhrase(acceptedScope)}
               </SupportingText>
             )}

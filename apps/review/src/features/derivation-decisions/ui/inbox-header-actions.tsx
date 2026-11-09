@@ -4,9 +4,10 @@
  */
 import { Box, Button, Group, Kbd, Popover, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { History, Keyboard } from "lucide-react";
 import { useState } from "react";
+
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 
 import { ReviewSessionList } from "./review-session-list.tsx";
 import { useNetReviewSession } from "./review-session-log.ts";
@@ -48,7 +49,7 @@ export function InboxHeaderActions() {
   const decided = useNetReviewSession().length;
   const [keysOpen, setKeysOpen] = useState(false);
   // `?` is Shift+/ on the keyboards this is written for.
-  useHotkeys([{ hotkey: { key: "/", shift: true }, callback: () => setKeysOpen((open) => !open) }]);
+  useReviewHotkeys([{ hotkey: { key: "/", shift: true }, callback: () => setKeysOpen((open) => !open) }]);
   return (
     <Group gap="2xs" wrap="nowrap">
       {decided > 0 && (
