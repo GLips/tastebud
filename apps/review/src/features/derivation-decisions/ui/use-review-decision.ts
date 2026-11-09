@@ -97,6 +97,8 @@ const sendReviewDecision = async (target: string, input: ReviewDecisionInput, fr
 
 /** The decision just made here and the one that would take it back. */
 export interface UndoableReviewDecision {
+  /** The derivation it decided, which the undo is sent to. */
+  readonly target: string;
   /** The decision record's id, so a caller can tell whether it is still the latest. */
   readonly decisionId: string;
   readonly outcome: DecisionOutcome;
@@ -105,7 +107,14 @@ export interface UndoableReviewDecision {
   readonly reverse: ReviewDecisionSequence;
 }
 
+/** Which derivation a decision is for and where it stands; a caller that picks it per decision passes it in. */
+export interface ReviewDecisionSubject {
+  readonly target: string;
+  readonly standing?: DecisionStanding | undefined;
+}
+
 interface ReviewDecisionVariables {
+  readonly target: string;
   readonly inputs: ReviewDecisionSequence;
   /** Set only when the decision can be undone. */
   readonly before: DecisionStanding | undefined;
@@ -123,23 +132,29 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
   const [undoable, setUndoable] = useState<UndoableReviewDecision | undefined>(undefined);
   const mutation = useMutation({
     // Several decisions only for an undo; it stops at the first refusal, which is the outcome shown.
-    mutationFn: async ({ inputs, from }: ReviewDecisionVariables) => {
+    mutationFn: async ({ target: ref, inputs, from }: ReviewDecisionVariables) => {
       const [first, second] = inputs;
-      const outcome = await sendReviewDecision(target, first, from);
+      const outcome = await sendReviewDecision(ref, first, from);
       return second === undefined || !outcome.ok
         ? outcome
-        : sendReviewDecision(target, second, outcome.value.derivation.status);
+        : sendReviewDecision(ref, second, outcome.value.derivation.status);
     },
     onMutate: () => {
       setFailure(undefined);
       setUndoable(undefined);
     },
-    onSuccess: (outcome, { before }) => {
+    onSuccess: (outcome, { target: ref, before }) => {
       if (!outcome.ok) return setFailure(outcome.failure);
       const { decision, derivation } = outcome.value;
       const reverse = before === undefined ? undefined : reversingDecisionsOf(before, derivation.status);
       if (reverse !== undefined)
-        setUndoable({ decisionId: decision.id, outcome: decision.outcome, status: derivation.status, reverse });
+        setUndoable({
+          target: ref,
+          decisionId: decision.id,
+          outcome: decision.outcome,
+          status: derivation.status,
+          reverse,
+        });
     },
     onError: (error) => setFailure({ sentence: error.message, category: "broken", tag: "Network" }),
     onSettled: () => refreshReviewQueriesAfterWrite(queryClient, STORE_WRITE_STALES),
@@ -158,13 +173,17 @@ export function useReviewDecision(target: string, standing?: DecisionStanding) {
     return sent;
   };
   return {
-    decide: (input: ReviewDecisionInput) => send({ inputs: [input], before: standing, from: standing?.status }),
+    /** Decides `subject`, or the hook's own target when absent: a caller can pick the row in the same handler. */
+    decide: (input: ReviewDecisionInput, subject: ReviewDecisionSubject = { target, standing }) =>
+      send({ target: subject.target, inputs: [input], before: subject.standing, from: subject.standing?.status }),
     pending: mutation.isPending,
     failure,
     clearFailure: () => setFailure(undefined),
     undoable,
     /** Writes the reversing decision. It isn't itself undoable: the owner can just decide again. */
     undo: () =>
-      undoable === undefined ? undefined : send({ inputs: undoable.reverse, before: undefined, from: undoable.status }),
+      undoable === undefined
+        ? undefined
+        : send({ target: undoable.target, inputs: undoable.reverse, before: undefined, from: undoable.status }),
   };
 }

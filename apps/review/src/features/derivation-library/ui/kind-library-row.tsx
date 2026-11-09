@@ -323,10 +323,7 @@ export function KindLibraryRow({
                 size="xs"
                 variant="default"
                 disabled={deciding}
-                onClick={() => {
-                  onActivate();
-                  choose(quickAction);
-                }}
+                onClick={() => choose(quickAction)}
                 {...stylex.props(styles.quickAction)}
               >
                 {actionLabels[quickAction]}
