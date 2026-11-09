@@ -29,61 +29,37 @@ export const isSameScope = (left: ScopeDraft, right: ScopeDraft): boolean =>
   scopeDraftKey(left) === scopeDraftKey(right);
 
 /**
- * The chosen places that adding `place` would replace: any inside or around it. Empty means it goes
- * beside them.
+ * The chosen places that `place` is inside or around. A place that overlaps one already chosen
+ * can't go beside it: it would only repeat or swallow it.
  */
-export const scopePlacesReplacedBy = (draft: ScopeDraft, place: PlaceKey): Array<PlaceKey> =>
+export const scopePlacesOverlapping = (draft: ScopeDraft, place: PlaceKey): Array<PlaceKey> =>
   scopePlacesOf(draft).filter((chosen) => placeCovers(chosen, place) || placeCovers(place, chosen));
 
 /**
- * Adds a place beside the chosen ones. A place inside or around one already chosen takes its
- * position instead, so adding `acme/web › apps/checkout` beside `acme/web` narrows it in place.
- */
-const withPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft => {
-  const places = scopePlacesOf(draft);
-  const replaced = new Set(scopePlacesReplacedBy(draft, place));
-  const at = places.findIndex((chosen) => replaced.has(chosen));
-  if (at === -1) return { scope: "places", places: [...places, place] };
-  const kept = places.filter((chosen) => !replaced.has(chosen));
-  return { scope: "places", places: [...kept.slice(0, at), place, ...kept.slice(at)] };
-};
-
-/**
- * One edit in the scope picker. `add` puts a place beside the others, or in place of one it is
- * inside or around (narrow or widen in one step); `earlier` returns to the places Everywhere
- * replaced, which may be none.
+ * One edit in the scope picker, a property menu: `use` makes a place the whole scope (narrow, widen
+ * or move in one step), `add` puts one beside the others, `remove` drops one of several.
  */
 export type ScopePick =
   | { readonly pick: "everywhere" }
-  | { readonly pick: "earlier" }
-  | { readonly pick: "add" | "remove"; readonly place: PlaceKey };
+  | { readonly pick: "use"; readonly place: PlaceKey }
+  | ScopeSideAction;
 
-/** The draft plus the places Everywhere last replaced, so Everywhere and back loses nothing. */
-export interface ScopePickState {
-  readonly draft: ScopeDraft;
-  readonly earlier: ReadonlyArray<PlaceKey>;
+/** The edits a row's side button makes, "+ Also" or ✕, which keep the menu open. */
+export interface ScopeSideAction {
+  readonly pick: "add" | "remove";
+  readonly place: PlaceKey;
 }
 
-export const applyScopePick = (state: ScopePickState, pick: ScopePick): ScopePickState => {
-  const { draft, earlier } = state;
+export const applyScopePick = (draft: ScopeDraft, pick: ScopePick): ScopeDraft => {
   switch (pick.pick) {
     case "everywhere":
-      return {
-        draft: { scope: "global" },
-        earlier: draft.scope === "places" && draft.places.length > 0 ? draft.places : earlier,
-      };
-    case "earlier":
-      return { draft: { scope: "places", places: earlier }, earlier };
+      return { scope: "global" };
+    case "use":
+      return { scope: "places", places: [pick.place] };
     case "add":
-      return { draft: withPlace(draft, pick.place), earlier };
+      return { scope: "places", places: [...scopePlacesOf(draft), pick.place] };
     case "remove":
-      return {
-        draft:
-          draft.scope === "global"
-            ? draft
-            : { scope: "places", places: draft.places.filter((kept) => kept !== pick.place) },
-        earlier,
-      };
+      return { scope: "places", places: scopePlacesOf(draft).filter((kept) => kept !== pick.place) };
   }
 };
 
@@ -142,14 +118,14 @@ export const typedPlaceChoicesOf = (
 const joinWithAnd = (parts: ReadonlyArray<string>): string =>
   parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 
-/** The draft as one sentence: "Applies in acme/web › apps/checkout". */
-export const describeScopeResult = (
+/** The draft as what agents get: "Agents working in acme/web › apps/checkout will be told this". */
+export const describeScopeForAgents = (
   draft: ScopeDraft,
   labelOf: (place: PlaceKey) => string = formatPlaceLabel,
 ): string => {
-  if (draft.scope === "global") return "Applies everywhere, including places that don't exist yet";
-  if (draft.places.length === 0) return "Applies nowhere yet: pick a place, or Everywhere";
-  return `Applies in ${joinWithAnd(draft.places.map(labelOf))}`;
+  if (draft.scope === "global") return "Agents working anywhere will be told this";
+  if (draft.places.length === 0) return "No agent will be told this until it has a place";
+  return `Agents working in ${joinWithAnd(draft.places.map(labelOf))} will be told this`;
 };
 
 /**

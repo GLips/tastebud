@@ -1,7 +1,7 @@
 /**
- * The review app's scope picker as the owner uses it, through the core rules it runs on: what a
- * click on a row does to the draft, which rows it lists, what a typed name means, and what the
- * draft says it changed.
+ * The review app's scope picker as the owner uses it, through the core rules it runs on: a property
+ * menu where a click uses a place and "+ Also" adds one, which rows it lists with which side
+ * action, what a typed name means, and what the draft says it changed.
  */
 import { expect, test } from "bun:test";
 
@@ -9,10 +9,10 @@ import {
   applyScopePick,
   type DerivationScope,
   describeScopeChange,
+  type PlacePickerOption,
   placePickerGroupsOf,
   type ScopeDraft,
   scopePickOfPlacePickerValue,
-  type ScopePickState,
   typedPlaceChoicesOf,
 } from "@tastebud/core/places";
 
@@ -21,50 +21,48 @@ const CHECKOUT = "github.com/acme/web::apps/checkout";
 const BILLING = "github.com/acme/billing-api::";
 const PROPOSED_WEB: DerivationScope = { scope: "places", places: [WEB] };
 
-/** Clicks rows by value, as the picker does, and returns the state after the last one. */
-const clickRows = (start: ScopeDraft, values: ReadonlyArray<string>): ScopePickState =>
-  values.reduce<ScopePickState>(
-    (state, value) => {
-      const pick = scopePickOfPlacePickerValue(value, state.draft);
-      return pick === undefined ? state : applyScopePick(state, pick);
-    },
-    { draft: start, earlier: [] },
-  );
+const clickRow = (draft: ScopeDraft, value: string): ScopeDraft => {
+  const pick = scopePickOfPlacePickerValue(value);
+  return pick === undefined ? draft : applyScopePick(draft, pick);
+};
 
-test("a repo's known folders are listed indented under it", () => {
-  const groups = placePickerGroupsOf({
+const repoRowsOf = (draft: ScopeDraft): ReadonlyArray<PlacePickerOption> =>
+  placePickerGroupsOf({
     mode: "scope",
-    draft: PROPOSED_WEB,
+    draft,
     places: [BILLING, WEB, CHECKOUT],
     labelOf: (place) => place,
     search: "",
-  });
-  const repos = groups.find((group) => group.heading === "Repos")?.options ?? [];
-  expect(repos.map((option) => [option.value, option.kind === "place" && option.nested])).toEqual([
-    [`place:${BILLING}`, false],
-    [`place:${WEB}`, false],
-    [`place:${CHECKOUT}`, true],
+  }).find((group) => group.heading === "Repos")?.options ?? [];
+
+test("a repo's folders are listed under it, reading 'only' while the repo is chosen", () => {
+  expect(
+    repoRowsOf(PROPOSED_WEB).map((option) => option.kind === "place" && [option.label, option.nested, option.extra]),
+  ).toEqual([
+    [BILLING, false, "also"],
+    [WEB, false, undefined],
+    ["only apps/checkout", true, undefined],
   ]);
 });
 
-test("ticking a folder inside the chosen repo narrows to it in place", () => {
-  const { draft } = clickRows({ scope: "places", places: [BILLING, WEB] }, [`place:${CHECKOUT}`]);
-  expect(draft).toEqual({ scope: "places", places: [BILLING, CHECKOUT] });
+test("a click uses that place: narrowing and swapping are one click each", () => {
+  expect(clickRow(PROPOSED_WEB, `place:${CHECKOUT}`)).toEqual({ scope: "places", places: [CHECKOUT] });
+  const swapped = clickRow(PROPOSED_WEB, `place:${BILLING}`);
+  expect(swapped).toEqual({ scope: "places", places: [BILLING] });
+  expect(describeScopeChange(PROPOSED_WEB, swapped)).toEqual(["Moves it from acme/web to acme/billing-api"]);
 });
 
-test("swapping one repo for another is untick then tick, and reads as a move", () => {
-  const { draft } = clickRows(PROPOSED_WEB, [`place:${WEB}`, `place:${BILLING}`]);
-  expect(draft).toEqual({ scope: "places", places: [BILLING] });
-  expect(describeScopeChange(PROPOSED_WEB, draft)).toEqual(["Moves it from acme/web to acme/billing-api"]);
+test("+ Also adds beside the chosen places, and each of several can then be removed", () => {
+  const both = applyScopePick(PROPOSED_WEB, { pick: "add", place: BILLING });
+  expect(both).toEqual({ scope: "places", places: [WEB, BILLING] });
+  expect(repoRowsOf(both).flatMap((option) => (option.kind === "place" ? [option.extra] : []))).toEqual([
+    "remove",
+    "remove",
+    undefined,
+  ]);
 });
 
 test("a typed unknown name is offered first as a named place", () => {
   const [first] = typedPlaceChoicesOf("clients/globex", { repoRoots: [WEB], namedPlaces: ["clients/acme"] });
   expect(first).toMatchObject({ place: "clients/globex", meaning: "as a named place" });
-});
-
-test("ticking Everywhere then unticking it restores the places chosen before it", () => {
-  const start: ScopeDraft = { scope: "places", places: [CHECKOUT, BILLING] };
-  expect(clickRows(start, ["everywhere"]).draft).toEqual({ scope: "global" });
-  expect(clickRows(start, ["everywhere", "everywhere"]).draft).toEqual(start);
 });
