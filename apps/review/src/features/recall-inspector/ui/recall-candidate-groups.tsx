@@ -1,9 +1,9 @@
 /**
- * The recall inspector's answer for one prompt: counts as chips, then one table of every item the words
- * reached (sent first, then on request, held back, history) and what applies here unmatched, each row
- * with its outcome and a short why.
+ * The recall inspector's answer for one prompt: a verdict line with its counts, then one table of every item the
+ * words reached (sent first, then on request, rejected, not sent, history) with its status, outcome and why. What
+ * applies here but didn't match folds away below.
  */
-import { Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { HookPayload } from "@tastebud/core/recall";
@@ -12,15 +12,17 @@ import { ChevronRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
+import type { RecallOutcomeTone } from "#review/shared/ui/outcome-chip.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallItemRow } from "./recall-item-row.tsx";
 import {
   exclusionOutcome,
-  historyOutcome,
+  HISTORY_OUTCOME,
   hookSilenceWording,
   onRequestOutcome,
+  type RecallOutcome,
   rejectionOutcome,
   sentOutcome,
   UNMATCHED_OUTCOME,
@@ -32,7 +34,7 @@ const styles = stylex.create({
   chevronOpen: { transform: "rotate(90deg)" },
 });
 
-function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+function Disclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <Stack gap="2xs">
@@ -72,91 +74,106 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
   );
 }
 
-function CountChip({ count, label, color, about }: { count: number; label: string; color: string; about: string }) {
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+type RecallAnswerRow = { readonly item: DerivationSummary; readonly outcome: RecallOutcome };
+
+// The verdict line's counts, in the Outcome column's own words; a tone with no rows is left out.
+const VERDICT_COUNTS: ReadonlyArray<{ tone: RecallOutcomeTone; word: string }> = [
+  { tone: "sent", word: "sent" },
+  { tone: "on-request", word: "on request" },
+  { tone: "held-back", word: "held back" },
+  { tone: "not-sent", word: "not sent" },
+];
+
+/** The answer in one line: what is sent, or that nothing about these words is; then the counts, quietly. */
+function RecallVerdict({
+  rows,
+  query,
+  where,
+  silence,
+}: {
+  rows: ReadonlyArray<RecallAnswerRow>;
+  query: string;
+  where: string | undefined;
+  silence: string | undefined;
+}) {
+  const sent = rows.filter((row) => row.outcome.tone === "sent").length;
+  const counts = VERDICT_COUNTS.map(({ tone, word }) => ({
+    word,
+    count: rows.filter((row) => row.outcome.tone === tone).length,
+  })).filter(({ count }) => count > 0);
+  const verdict =
+    sent > 0
+      ? `${plural(sent, "item is", "items are")} sent with this prompt`
+      : `Nothing about “${query}” is sent${where === undefined ? "" : ` in ${where}`}`;
   return (
-    <Tooltip label={about} withArrow multiline maw={320} openDelay={150}>
-      <Badge color={count === 0 ? "gray" : color} variant={count === 0 ? "outline" : "light"} tt="none" fw={500}>
-        {count} {label}
-      </Badge>
-    </Tooltip>
+    <Group gap="sm" align="baseline">
+      <Tooltip
+        label={silence}
+        disabled={sent > 0 || silence === undefined || silence === ""}
+        withArrow
+        multiline
+        maw={360}
+      >
+        <Text fw={600}>{verdict}</Text>
+      </Tooltip>
+      <SupportingText tier="faint">{counts.map(({ count, word }) => `${count} ${word}`).join(" · ")}</SupportingText>
+    </Group>
   );
 }
-
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 export function RecallCandidateGroups({
   recall,
   hook,
   catalog,
   appliesUnmatched,
+  query,
+  where,
 }: {
   recall: RecallResult;
   hook: HookPayload;
   catalog: CatalogView | undefined;
   /** Accepted items that apply here but these words never brought up. */
   appliesUnmatched: ReadonlyArray<DerivationSummary>;
+  query: string;
+  /** Where the inspector stands, in words; undefined when nowhere in particular. */
+  where: string | undefined;
 }) {
   const known = useKnownPlaces();
   const injected = new Set(hook.items.map((item) => item.id));
   const limit = catalog?.hook.limit ?? 3;
-  const lookUp = recall.accepted.filter((hit) => !injected.has(hit.id));
-  const heldBackCount = recall.rejected.length + recall.excluded.length;
-  const silence = hookSilenceWording(hook, catalog);
+  const rows: ReadonlyArray<RecallAnswerRow> = [
+    ...hook.items.map((item) => ({ item, outcome: sentOutcome(item.explanation.matchedPlace, known) })),
+    ...recall.accepted
+      .filter((hit) => !injected.has(hit.id))
+      .map((hit) => ({ item: hit, outcome: onRequestOutcome(hit, catalog, limit) })),
+    ...recall.rejected.map((hit) => ({ item: hit, outcome: rejectionOutcome(hit) })),
+    ...recall.excluded.map((hit) => ({ item: hit, outcome: exclusionOutcome(hit, catalog, known) })),
+    ...recall.history.map((hit) => ({ item: hit, outcome: HISTORY_OUTCOME })),
+  ];
   return (
     <Stack gap="md">
-      <Group gap="xs">
-        <CountChip
-          count={hook.items.length}
-          label="sent"
-          color="tastebud"
-          about={
-            hook.items.length === 0 && silence !== undefined && silence !== ""
-              ? silence
-              : `Read by the agent with this prompt: accepted, of a kind that may be sent, at most ${limit}`
-          }
-        />
-        <CountChip
-          count={lookUp.length}
-          label="on request"
-          color="cyan"
-          about="Not sent on its own, but an agent that asks Tastebud about these words gets it"
-        />
-        <CountChip
-          count={heldBackCount}
-          label="held back"
-          color="orange"
-          about="Matched these words, but agents don't get them as advice here"
-        />
-        <CountChip
-          count={appliesUnmatched.length}
-          label="apply, not matched"
-          color="gray"
-          about="Accepted and applies where the agent stands, but these words didn't bring it up"
-        />
-      </Group>
+      <RecallVerdict rows={rows} query={query} where={where} silence={hookSilenceWording(hook, catalog)} />
 
-      <Box>
-        <RecallItemRow.Head />
-        {hook.items.map((item) => (
-          <RecallItemRow key={item.id} item={item} outcome={sentOutcome(item.explanation.matchedPlace, known)} />
-        ))}
-        {lookUp.map((hit) => (
-          <RecallItemRow key={hit.id} item={hit} outcome={onRequestOutcome(hit, catalog, limit, known)} />
-        ))}
-        {recall.rejected.map((hit) => (
-          <RecallItemRow key={hit.id} item={hit} outcome={rejectionOutcome(hit)} />
-        ))}
-        {recall.excluded.map((hit) => (
-          <RecallItemRow key={hit.id} item={hit} outcome={exclusionOutcome(hit, catalog, known)} />
-        ))}
-        {recall.history.map((hit) => (
-          <RecallItemRow key={hit.id} item={hit} outcome={historyOutcome(hit)} />
-        ))}
-        {appliesUnmatched.map((item) => (
-          <RecallItemRow key={item.id} item={item} outcome={UNMATCHED_OUTCOME} />
-        ))}
-      </Box>
+      {rows.length > 0 && (
+        <Box>
+          <RecallItemRow.Head />
+          {rows.map(({ item, outcome }) => (
+            <RecallItemRow key={item.id} item={item} outcome={outcome} />
+          ))}
+        </Box>
+      )}
 
+      {appliesUnmatched.length > 0 && (
+        <Disclosure label={`Apply here, didn't match · ${appliesUnmatched.length}`}>
+          <Box>
+            {appliesUnmatched.map((item) => (
+              <RecallItemRow key={item.id} item={item} outcome={UNMATCHED_OUTCOME} />
+            ))}
+          </Box>
+        </Disclosure>
+      )}
       {hook.items.length > 0 && (
         <Disclosure label="Show exactly what’s sent">
           <HookPayloadView hook={hook} />

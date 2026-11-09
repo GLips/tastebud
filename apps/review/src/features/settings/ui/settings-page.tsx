@@ -1,14 +1,14 @@
 import {
-  Badge,
+  ActionIcon,
   Box,
-  Button,
   Center,
   Code,
   Collapse,
   Group,
   Loader,
+  Menu,
+  Modal,
   Paper,
-  Popover,
   Stack,
   Text,
   Tooltip,
@@ -17,14 +17,14 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
-import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
-import { ChevronRight, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, Ellipsis, MessageSquare } from "lucide-react";
+import { type ReactNode, useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
-import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
+import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
@@ -44,10 +44,7 @@ const styles = stylex.create({
   prompt: { whiteSpace: "pre-wrap", lineHeight: 1.55, maxHeight: "360px", overflow: "auto" },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
-  badge: { flexShrink: 0 },
 });
-
-const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
 function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   const catalog = useReviewCatalog();
@@ -126,21 +123,30 @@ const ownerDecisionsOf = (catalog: CatalogView): string => {
   return `${actions.slice(0, -1).join(", ")} or ${actions.at(-1)}`;
 };
 
-function AskAgentToChange({ configPath }: { configPath: string }) {
+/** How it behaves' ⋯ menu: the only way to change behaviour is to ask an agent, so its prompt lives here. */
+function HowItBehavesMenu({ configPath }: { configPath: string }) {
+  const [asking, setAsking] = useState(false);
   return (
-    <Popover withArrow position="bottom-end" shadow="md" width={560} trapFocus returnFocus>
-      <Popover.Target>
-        <Button variant="default" leftSection={<MessageSquare size={14} />}>
-          Ask your agent to change this
-        </Button>
-      </Popover.Target>
-      <Popover.Dropdown>
+    <>
+      <Menu position="bottom-end" withArrow>
+        <Menu.Target>
+          <ActionIcon variant="subtle" color="gray" size="input-sm" aria-label="More for How it behaves">
+            <Ellipsis size={16} />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item leftSection={<MessageSquare size={14} />} onClick={() => setAsking(true)}>
+            Ask your agent to change this…
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+      <Modal opened={asking} onClose={() => setAsking(false)} title="Ask your agent to change this" size="xl">
         <Stack gap="xs">
           <SupportingText tier="secondary">Paste this to your agent, with what you want changed.</SupportingText>
           <CopyableSnippet code={askAgentPromptOf(configPath)} label="prompt to change the setup" />
         </Stack>
-      </Popover.Dropdown>
-    </Popover>
+      </Modal>
+    </>
   );
 }
 
@@ -149,7 +155,7 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
     <Stack gap="sm" component="section" aria-label="How it behaves">
       <Group justify="space-between" align="center">
         <Text fw={600}>How it behaves</Text>
-        <AskAgentToChange configPath={configPath} />
+        <HowItBehavesMenu configPath={configPath} />
       </Group>
       <Paper p="md">
         <Box {...stylex.props(styles.facts)}>
@@ -170,20 +176,32 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
           </FactRow>
           {catalog.derivedKinds.map((kind) => (
             <FactRow key={kind.key} label={capitalize(kind.plural)}>
-              <Tooltip label={describeKindDelivery(kind)} withArrow openDelay={150}>
-                <Badge
-                  color={RECALL_POLICY_BADGE_COLORS[kind.recall]}
-                  tt="none"
-                  fw={500}
-                  {...stylex.props(styles.badge)}
-                >
-                  {RECALL_POLICY_LABELS[kind.recall]}
-                </Badge>
-              </Tooltip>
+              <RecallPolicyChip policy={kind.recall} about={describeKindDelivery(kind)} />
             </FactRow>
           ))}
         </Box>
       </Paper>
+    </Stack>
+  );
+}
+
+/** A rarely needed section, collapsed to its title and a quiet summary until opened. */
+function DisclosureSection({ title, summary, children }: { title: string; summary: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Stack gap="sm" component="section" aria-label={title}>
+      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
+        <Group gap="2xs">
+          <ChevronRight
+            size={14}
+            color="var(--mantine-color-gray-6)"
+            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
+          />
+          <Text fw={600}>{title}</Text>
+          <SupportingText tier="faint">{summary}</SupportingText>
+        </Group>
+      </UnstyledButton>
+      <Collapse expanded={open}>{children}</Collapse>
     </Stack>
   );
 }
@@ -198,8 +216,7 @@ function StoreFacts({
   configPath: string;
 }) {
   return (
-    <Stack gap="sm" component="section" aria-label="Store">
-      <Text fw={600}>Store</Text>
+    <DisclosureSection title="Store" summary={storeRoot}>
       <Paper p="md">
         <Box {...stylex.props(styles.facts)}>
           <FactRow label="Folder">
@@ -222,63 +239,50 @@ function StoreFacts({
           </FactRow>
         </Box>
       </Paper>
-    </Stack>
+    </DisclosureSection>
   );
 }
 
 /** The kinds as configured: labels, button wording, sources and the prompts agents read. Rarely needed. */
 function KindDetails({ catalog }: { catalog: CatalogView }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Stack gap="sm" component="section" aria-label="Kinds">
-      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
-        <Group gap="2xs">
-          <ChevronRight
-            size={14}
-            color="var(--mantine-color-gray-6)"
-            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
-          />
-          <Text fw={600}>Kinds</Text>
-          <SupportingText tier="faint">
-            {catalog.derivedKinds.length} derived · {catalog.sourceKinds.length} source
-          </SupportingText>
-        </Group>
-      </UnstyledButton>
-      <Collapse expanded={open}>
-        <Stack gap="lg">
-          <Stack gap="sm">
-            <Text size="sm" fw={600}>
-              Derived
-            </Text>
-            {catalog.derivedKinds.map((kind) => (
-              <DerivedKindCard key={kind.key} kind={kind} />
-            ))}
-          </Stack>
-          <Stack gap="sm">
-            <Text size="sm" fw={600}>
-              Source
-            </Text>
-            <Paper p="md">
-              <Box {...stylex.props(styles.facts)}>
-                {catalog.sourceKinds.map((kind) => (
-                  <FactRow key={kind.key} label={kind.key}>
-                    <Text size="sm">
-                      {capitalize(kind.plural)}
-                      {kind.description !== undefined && (
-                        <SupportingText span tier="secondary">
-                          {" "}
-                          — {kind.description}
-                        </SupportingText>
-                      )}
-                    </Text>
-                  </FactRow>
-                ))}
-              </Box>
-            </Paper>
-          </Stack>
+    <DisclosureSection
+      title="Kinds"
+      summary={`${catalog.derivedKinds.length} derived · ${catalog.sourceKinds.length} source`}
+    >
+      <Stack gap="lg">
+        <Stack gap="sm">
+          <Text size="sm" fw={600}>
+            Derived
+          </Text>
+          {catalog.derivedKinds.map((kind) => (
+            <DerivedKindCard key={kind.key} kind={kind} />
+          ))}
         </Stack>
-      </Collapse>
-    </Stack>
+        <Stack gap="sm">
+          <Text size="sm" fw={600}>
+            Source
+          </Text>
+          <Paper p="md">
+            <Box {...stylex.props(styles.facts)}>
+              {catalog.sourceKinds.map((kind) => (
+                <FactRow key={kind.key} label={kind.key}>
+                  <Text size="sm">
+                    {capitalize(kind.plural)}
+                    {kind.description !== undefined && (
+                      <SupportingText span tier="secondary">
+                        {" "}
+                        — {kind.description}
+                      </SupportingText>
+                    )}
+                  </Text>
+                </FactRow>
+              ))}
+            </Box>
+          </Paper>
+        </Stack>
+      </Stack>
+    </DisclosureSection>
   );
 }
 

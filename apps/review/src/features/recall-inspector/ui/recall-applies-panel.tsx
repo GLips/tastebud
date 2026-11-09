@@ -1,15 +1,14 @@
 /** Recall with no prompt: everything agents can be told where the inspector stands, by kind, and the no's they hear. */
-import { Badge, Box, Group, Stack, Text, Tooltip } from "@mantine/core";
-import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
+import { Box, Group, Stack, Text, Tooltip } from "@mantine/core";
 import type { ReactNode } from "react";
 
-import { capitalize, describeKindDelivery, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { capitalize, describeKindDelivery } from "#review/shared/ui/kind-identity.tsx";
+import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
 
 import type { RecallAppliesHere } from "./recall-applies.ts";
 import { RecallItemRow } from "./recall-item-row.tsx";
 import { rejectionOutcome } from "./recall-reasons.ts";
-
-const RECALL_POLICY_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
 function SectionTitle({ title, count, children }: { title: string; count: number; children?: ReactNode }) {
   return (
@@ -17,9 +16,7 @@ function SectionTitle({ title, count, children }: { title: string; count: number
       <Text size="sm" fw={600}>
         {title}
       </Text>
-      <Badge color="gray" tt="none" fw={500}>
-        {count}
-      </Badge>
+      <CountBadge count={count} />
       {children}
     </Group>
   );
@@ -46,16 +43,10 @@ export function RecallAppliesPanel({
       {applies.byKind.map(({ kind, accepted }) => (
         <Stack key={kind.key} gap="2xs">
           <SectionTitle title={capitalize(kind.plural)} count={accepted.length}>
-            <Tooltip
-              label={`${describeKindDelivery(kind)}${kind.recall === "inject" ? ` At most ${hookLimit} go with one prompt.` : ""}`}
-              withArrow
-              multiline
-              maw={320}
-            >
-              <Badge color={RECALL_POLICY_COLORS[kind.recall]} tt="none" fw={500}>
-                {RECALL_POLICY_LABELS[kind.recall]}
-              </Badge>
-            </Tooltip>
+            <RecallPolicyChip
+              policy={kind.recall}
+              about={`${describeKindDelivery(kind)}${kind.recall === "inject" ? ` At most ${hookLimit} go with one prompt.` : ""}`}
+            />
           </SectionTitle>
           <Box>
             {accepted.map((item) => (
