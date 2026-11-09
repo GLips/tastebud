@@ -1,9 +1,9 @@
 /**
- * The recall inspector's answer for one prompt: a short headline, then labelled sections (empty ones left out) for what
- * matched but is held back and why, what is sent with the prompt, what an agent can look up, and what
- * applies here but didn't match the words at all.
+ * The recall inspector's answer for one prompt: counts as chips, then one table of every item the words
+ * reached (sent first, then on request, held back, history) and what applies here unmatched, each row
+ * with its outcome and a short why.
  */
-import { Box, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { HookPayload } from "@tastebud/core/recall";
@@ -17,11 +17,13 @@ import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallItemRow } from "./recall-item-row.tsx";
 import {
-  availableThroughRecallReason,
-  exclusionReason,
+  exclusionOutcome,
+  historyOutcome,
   hookSilenceWording,
-  matchedPlaceWording,
-  rejectedHitWording,
+  onRequestOutcome,
+  rejectionOutcome,
+  sentOutcome,
+  UNMATCHED_OUTCOME,
 } from "./recall-reasons.ts";
 
 const styles = stylex.create({
@@ -29,32 +31,6 @@ const styles = stylex.create({
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
 });
-
-/** A section of the answer; empty ones are left out, since the headline already says so. */
-function AnswerSection({
-  title,
-  count,
-  hint,
-  children,
-}: {
-  title: string;
-  count: number;
-  hint: string;
-  children: ReactNode;
-}) {
-  if (count === 0) return null;
-  return (
-    <Stack gap="2xs">
-      <Stack gap="3xs">
-        <Text size="sm" fw={600}>
-          {title} ({count})
-        </Text>
-        <SupportingText tier="secondary">{hint}</SupportingText>
-      </Stack>
-      {children}
-    </Stack>
-  );
-}
 
 function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -81,7 +57,6 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
   return (
     <Stack gap="2xs">
       <SegmentedControl
-        size="xs"
         w="fit-content"
         value={view}
         onChange={(value) => setView(value === "stdout" ? "stdout" : "context")}
@@ -97,11 +72,17 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
   );
 }
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+function CountChip({ count, label, color, about }: { count: number; label: string; color: string; about: string }) {
+  return (
+    <Tooltip label={about} withArrow multiline maw={320} openDelay={150}>
+      <Badge color={count === 0 ? "gray" : color} variant={count === 0 ? "outline" : "light"} tt="none" fw={500}>
+        {count} {label}
+      </Badge>
+    </Tooltip>
+  );
+}
 
-/** The answer in a few words: whether anything goes with this prompt. The sections below say the rest. */
-const recallHeadline = (sent: number): string =>
-  sent === 0 ? "Nothing is sent for these words." : `${plural(sent, "item is", "items are")} sent with these words.`;
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 export function RecallCandidateGroups({
   recall,
@@ -120,92 +101,67 @@ export function RecallCandidateGroups({
   const limit = catalog?.hook.limit ?? 3;
   const lookUp = recall.accepted.filter((hit) => !injected.has(hit.id));
   const heldBackCount = recall.rejected.length + recall.excluded.length;
-  const lookUpCount = lookUp.length + recall.history.length;
+  const silence = hookSilenceWording(hook, catalog);
   return (
-    <Stack gap="lg">
-      <Stack gap="3xs">
-        <Text size="md" fw={500}>
-          {recallHeadline(hook.items.length)}
-        </Text>
-        {hook.items.length === 0 && (
-          <SupportingText tier="secondary">{hookSilenceWording(hook, catalog)}</SupportingText>
-        )}
-      </Stack>
+    <Stack gap="md">
+      <Group gap="xs">
+        <CountChip
+          count={hook.items.length}
+          label="sent"
+          color="tastebud"
+          about={
+            hook.items.length === 0 && silence !== undefined && silence !== ""
+              ? silence
+              : `Read by the agent with this prompt: accepted, of a kind that may be sent, at most ${limit}`
+          }
+        />
+        <CountChip
+          count={lookUp.length}
+          label="on request"
+          color="cyan"
+          about="Not sent on its own, but an agent that asks Tastebud about these words gets it"
+        />
+        <CountChip
+          count={heldBackCount}
+          label="held back"
+          color="orange"
+          about="Matched these words, but agents don't get them as advice here"
+        />
+        <CountChip
+          count={appliesUnmatched.length}
+          label="apply, not matched"
+          color="gray"
+          about="Accepted and applies where the agent stands, but these words didn't bring it up"
+        />
+      </Group>
 
-      <AnswerSection
-        title="Held back"
-        count={heldBackCount}
-        hint="Close matches for these words that agents don't get as advice."
-      >
-        <Box>
-          {recall.rejected.map((hit) => (
-            <RecallItemRow key={hit.id} item={hit} reason={`Matched the words, but ${rejectedHitWording(hit)}`} />
-          ))}
-          {recall.excluded.map((hit) => (
-            <RecallItemRow
-              key={hit.id}
-              item={hit}
-              reason={`Matched the words, but ${exclusionReason(hit, catalog, known)}`}
-            />
-          ))}
-        </Box>
-      </AnswerSection>
+      <Box>
+        <RecallItemRow.Head />
+        {hook.items.map((item) => (
+          <RecallItemRow key={item.id} item={item} outcome={sentOutcome(item.explanation.matchedPlace, known)} />
+        ))}
+        {lookUp.map((hit) => (
+          <RecallItemRow key={hit.id} item={hit} outcome={onRequestOutcome(hit, catalog, limit, known)} />
+        ))}
+        {recall.rejected.map((hit) => (
+          <RecallItemRow key={hit.id} item={hit} outcome={rejectionOutcome(hit)} />
+        ))}
+        {recall.excluded.map((hit) => (
+          <RecallItemRow key={hit.id} item={hit} outcome={exclusionOutcome(hit, catalog, known)} />
+        ))}
+        {recall.history.map((hit) => (
+          <RecallItemRow key={hit.id} item={hit} outcome={historyOutcome(hit)} />
+        ))}
+        {appliesUnmatched.map((item) => (
+          <RecallItemRow key={item.id} item={item} outcome={UNMATCHED_OUTCOME} />
+        ))}
+      </Box>
 
-      <AnswerSection
-        title="Sent with the prompt"
-        count={hook.items.length}
-        hint={`The agent reads these along with the prompt: accepted, of a kind that may be sent, at most ${limit}.`}
-      >
-        <Box>
-          {hook.items.map((item) => (
-            <RecallItemRow
-              key={item.id}
-              item={item}
-              reason={`Sent: ${matchedPlaceWording(item.explanation.matchedPlace, known)}`}
-              sent
-            />
-          ))}
-        </Box>
+      {hook.items.length > 0 && (
         <Disclosure label="Show exactly what’s sent">
           <HookPayloadView hook={hook} />
         </Disclosure>
-      </AnswerSection>
-
-      <AnswerSection
-        title="An agent can look this up"
-        count={lookUpCount}
-        hint="Not sent on its own, but an agent that asks Tastebud about these words gets it."
-      >
-        <Box>
-          {lookUp.map((hit) => (
-            <RecallItemRow
-              key={hit.id}
-              item={hit}
-              reason={`${availableThroughRecallReason(hit, catalog, limit)}; ${matchedPlaceWording(hit.explanation.matchedPlace, known)}`}
-            />
-          ))}
-          {recall.history.map((hit) => (
-            <RecallItemRow
-              key={hit.id}
-              item={hit}
-              reason={`${hit.status === "superseded" ? "Replaced by a newer revision" : "Retracted"}; shown because you included them`}
-            />
-          ))}
-        </Box>
-      </AnswerSection>
-
-      <AnswerSection
-        title="Also applies here"
-        count={appliesUnmatched.length}
-        hint="Accepted and applies where the agent stands, but these words didn't bring it up."
-      >
-        <Box>
-          {appliesUnmatched.map((item) => (
-            <RecallItemRow key={item.id} item={item} />
-          ))}
-        </Box>
-      </AnswerSection>
-
+      )}
       {recall.sources.length > 0 && (
         <Disclosure label={`${plural(recall.sources.length, "saved quote", "saved quotes")} also match these words`}>
           <Stack gap="xxs">

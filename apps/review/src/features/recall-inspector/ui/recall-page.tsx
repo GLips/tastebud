@@ -7,7 +7,6 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { placeFormOf } from "#review/shared/ui/place-chips.tsx";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallAppliesPanel } from "./recall-applies-panel.tsx";
 import { RecallCandidateGroups } from "./recall-candidate-groups.tsx";
@@ -66,11 +65,6 @@ export function RecallInspectorPage() {
           onRun={(next) => void navigate({ search: next, replace: true })}
         />
         {check.in !== undefined && standing !== undefined && <RecallContextSummary context={standing} />}
-        {check.at !== undefined && search.at === undefined && (
-          <SupportingText tier="secondary">
-            Standing in {known.labelOf(check.at)}, your first repo. Pick another place, or nowhere, in the bar.
-          </SupportingText>
-        )}
       </Stack>
 
       {itemRef !== undefined && <RecallItemExplanation request={{ ...submitted, lookup: { ref: itemRef } }} />}
