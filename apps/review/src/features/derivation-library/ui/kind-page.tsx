@@ -5,7 +5,6 @@ import {
   Center,
   Group,
   Paper,
-  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -28,6 +27,7 @@ import { Fragment } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
@@ -47,8 +47,6 @@ import { useLibraryDecision } from "./use-library-decision.ts";
 const styles = stylex.create({
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
   sectionToggle: { width: "100%" },
-  tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
-  tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
   // Floats over the page's foot so a decision's outcome never pushes the rows under the cursor.
   decisionToast: {
@@ -139,23 +137,16 @@ function LibraryStatusTabs({
   onPick: (status: DerivationStatus | undefined) => void;
 }) {
   return (
-    <SegmentedControl
+    <CountedTabs<DerivationStatus | "all">
+      label="Status"
       value={status ?? "all"}
-      onChange={(value) => onPick(value === "all" ? undefined : Schema.decodeSync(DerivationStatusSchema)(value))}
-      data={[
+      onChange={(value) => onPick(value === "all" ? undefined : value)}
+      options={[
         { value: "all", label: "All" },
         ...DERIVATION_STATUSES.map((each) => ({
           value: each,
-          label: (
-            <Box component="span" {...stylex.props(styles.tabLabel)}>
-              {DERIVATION_STATUS_WORDS[each]}
-              {(counts.get(each) ?? 0) > 0 && (
-                <Box component="span" {...stylex.props(styles.tabCount)}>
-                  {counts.get(each)}
-                </Box>
-              )}
-            </Box>
-          ),
+          label: DERIVATION_STATUS_WORDS[each],
+          count: counts.get(each) ?? 0,
         })),
       ]}
     />
@@ -278,7 +269,7 @@ export function KindLibraryPage() {
       <Group gap="sm" wrap="wrap">
         <TextInput
           flex={1}
-          miw={144}
+          miw={120}
           aria-label="Filter by words"
           placeholder="Search"
           leftSection={<Search size={14} />}

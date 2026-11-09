@@ -1,15 +1,4 @@
-import {
-  Center,
-  Group,
-  Paper,
-  SegmentedControl,
-  Select,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-  UnstyledButton,
-} from "@mantine/core";
+import { Center, Group, Paper, Select, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +11,7 @@ import { useState } from "react";
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { describeSpeaker, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { CountedTabs } from "#review/shared/ui/counted-tabs.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
@@ -233,9 +223,10 @@ export function SourceListPage() {
           }}
         />
         {sourceKinds.length > 1 && (
-          <SegmentedControl
+          <CountedTabs
+            label="Kind"
             value={search.kind ?? "all"}
-            data={[
+            options={[
               { value: "all", label: "All" },
               ...sourceKinds.map((kind) => ({ value: kind.key, label: capitalize(kind.plural) })),
             ]}
