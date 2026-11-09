@@ -23,7 +23,7 @@ import {
   DerivationStatusSchema,
 } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
-import { ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
+import { ArrowDownUp, ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
 import { Fragment } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -57,7 +57,25 @@ const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
   reopen: "pending",
 };
 
+const LIBRARY_SORTS = ["newest", "oldest", "decided"] as const;
+type LibrarySort = (typeof LIBRARY_SORTS)[number];
+
+const LIBRARY_SORT_LABELS: Record<LibrarySort, string> = {
+  newest: "Newest",
+  oldest: "Oldest",
+  decided: "Recently decided",
+};
+
+// Undecided rows have no decision date, so they sort after every decided one.
+const LIBRARY_SORT_ORDERS: Record<LibrarySort, (left: DerivationRow, right: DerivationRow) => number> = {
+  newest: (left, right) => right.proposedAt.localeCompare(left.proposedAt),
+  oldest: (left, right) => left.proposedAt.localeCompare(right.proposedAt),
+  decided: (left, right) => (right.decidedAt ?? "").localeCompare(left.decidedAt ?? ""),
+};
+
 export const KindLibrarySearch = Schema.Struct({
+  /** Newest proposed first when absent. */
+  sort: Schema.optionalKey(Schema.Literals(LIBRARY_SORTS)),
   /** One status tab; absent is All, where every status has its own foldable section. */
   status: Schema.optionalKey(DerivationStatusSchema),
   /** Status sections folded shut; every section is open by default. */
@@ -74,11 +92,12 @@ const librarySectionsOf = (
   rows: ReadonlyArray<DerivationRow>,
   picked: DerivationStatus | undefined,
   isOpen: (status: DerivationStatus) => boolean,
+  sort: LibrarySort,
 ) =>
   DERIVATION_STATUSES.filter((status) => picked === undefined || status === picked)
     .map((status) => ({
       status,
-      rows: rows.filter((row) => row.status === status),
+      rows: rows.filter((row) => row.status === status).toSorted(LIBRARY_SORT_ORDERS[sort]),
       withHeader: picked === undefined,
       open: picked !== undefined || isOpen(status),
     }))
@@ -162,7 +181,7 @@ function LibrarySectionHeader({
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
     <Table.Tr {...stylex.props(styles.groupRow)}>
-      <Table.Td colSpan={5} py="xxs" pl="xs">
+      <Table.Td colSpan={4} py="xxs" pl="xs">
         <UnstyledButton onClick={onToggle} aria-expanded={open} {...stylex.props(styles.sectionToggle)}>
           <Group gap="xs" wrap="nowrap">
             <Chevron size={14} color="var(--mantine-color-gray-6)" aria-hidden />
@@ -233,7 +252,8 @@ export function KindLibraryPage() {
 
       <Group gap="sm" wrap="wrap">
         <TextInput
-          w={240}
+          flex={1}
+          miw={144}
           aria-label="Filter by words"
           placeholder="Search"
           leftSection={<Search size={14} />}
@@ -246,7 +266,7 @@ export function KindLibraryPage() {
           onPick={(status) => setFilter({ status })}
         />
         <Select
-          w={200}
+          w={160}
           leftSection={<MapPin size={14} />}
           placeholder="Any place"
           aria-label="Only what applies at this place"
@@ -262,6 +282,15 @@ export function KindLibraryPage() {
           )}
           onChange={(value) => setFilter({ place: value ?? undefined })}
         />
+        <Select
+          w={160}
+          leftSection={<ArrowDownUp size={14} />}
+          aria-label="Sort"
+          allowDeselect={false}
+          value={search.sort ?? "newest"}
+          data={LIBRARY_SORTS.map((value) => ({ value, label: LIBRARY_SORT_LABELS[value] }))}
+          onChange={(value) => setFilter({ sort: LIBRARY_SORTS.find((sort) => sort === value) })}
+        />
       </Group>
 
       <Box {...stylex.props(styles.stickyNotice)}>
@@ -270,21 +299,26 @@ export function KindLibraryPage() {
 
       <LoadedQueryContent query={list}>
         {(allRows) => {
-          const sections = librarySectionsOf(allRows, search.status, isSectionOpen);
+          const sections = librarySectionsOf(allRows, search.status, isSectionOpen, search.sort ?? "newest");
           return sections.length === 0 ? (
             <Center py="xxl">
               <Text c="dimmed">{libraryEmptyMessage(plural, search.status, filtered)}</Text>
             </Center>
           ) : (
             <Paper p={0}>
-              <Table verticalSpacing="xs" horizontalSpacing="md" layout="fixed">
+              <Table
+                verticalSpacing="xs"
+                horizontalSpacing="md"
+                layout="fixed"
+                stickyHeader
+                stickyHeaderOffset="var(--review-shell-header-height)"
+              >
                 <Table.Thead>
                   <Table.Tr>
                     <LibraryColumnHead label={capitalize(kind?.singular ?? kindKey)} />
-                    <LibraryColumnHead label="Notes" w={96} />
                     <LibraryColumnHead label="Applies in" w={280} />
                     <LibraryColumnHead label="Proposed" align="right" w={120} />
-                    <Table.Th w={44} />
+                    <Table.Th w={140} />
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
