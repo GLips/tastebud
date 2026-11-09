@@ -2,14 +2,15 @@
  * Where a derivation applies, as a property menu: a chip showing the scope that opens a list
  * floating under it, so the host never moves. A click on a row makes that place the scope (narrow,
  * widen or move) and closes the menu; "+ Also" adds a place beside the others and keeps it open, an
- * ✕ drops one of several. Esc closes and puts back the scope it opened with. It only edits a draft:
+ * ✕ drops one of several. Esc closes and keeps what was done; Restore under it goes back. It only edits a draft:
  * the host decides when the draft is used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { Anchor, Badge, Button, Combobox, Stack, Text, Tooltip, useCombobox } from "@mantine/core";
+import { Anchor, Button, Combobox, Stack, Text, useCombobox } from "@mantine/core";
 import {
   applyScopePick,
   type DerivationScope,
   describeScopeForAgents,
+  isSameScope,
   type PlaceKey,
   type ScopeDraft,
   scopePickOfPlacePickerValue,
@@ -20,12 +21,12 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { PlacePickerList } from "#review/shared/ui/place-picker-list.tsx";
 
-/** The trigger's words: "Everywhere", "acme/web", "acme/web and 2 more". */
+/** The trigger's words, short enough for the properties column: "Everywhere", "acme/web", "acme/web +2". */
 const scopeSummaryOf = (draft: ScopeDraft, labelOf: (place: PlaceKey) => string): string => {
   if (draft.scope === "global") return "Everywhere";
   const [first, ...rest] = draft.places;
   if (first === undefined) return "Pick a place";
-  return rest.length === 0 ? labelOf(first) : `${labelOf(first)} and ${rest.length} more`;
+  return rest.length === 0 ? labelOf(first) : `${labelOf(first)} +${rest.length}`;
 };
 
 interface ScopePickerProps {
@@ -64,7 +65,8 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
     value.scope === "global" ? <Globe size={13} /> : firstPlace && <PlaceFormIcon place={firstPlace} size={13} />;
   const Chevron = combobox.dropdownOpened ? ChevronUp : ChevronDown;
   return (
-    <Combobox store={combobox} onOptionSubmit={submit} width={420} position="bottom-start" shadow="md">
+    // To the left, so the list never covers the properties under Scope; it flips when there is no room.
+    <Combobox store={combobox} onOptionSubmit={submit} width={420} position="left-start" shadow="md">
       <Combobox.Target targetType="button">
         <Button
           variant="default"
@@ -72,6 +74,7 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
           disabled={disabled}
           leftSection={triggerIcon}
           rightSection={<Chevron size={13} />}
+          title={value.scope === "places" ? value.places.map(known.labelOf).join(", ") : undefined}
           aria-label={`Where this applies: ${summary}. Change`}
           onClick={() => combobox.toggleDropdown()}
         >
@@ -79,7 +82,7 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
         </Button>
       </Combobox.Target>
       <Combobox.Dropdown>
-        {/* Mounted only while open, so the search starts empty and Esc restores this opening's scope. */}
+        {/* Mounted only while open, so the search starts empty on each opening. */}
         {combobox.dropdownOpened && (
           <PlacePickerList
             combobox={combobox}
@@ -88,12 +91,14 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
             scope={{
               proposed,
               onSideAction: (pick) => onChange(applyScopePick(value, pick)),
-              onRestore: onChange,
             }}
             footer={
-              <Text size="xs" px="2xs" py="3xs">
-                {describeScopeForAgents(value, known.labelOf)}
-              </Text>
+              // What agents will be told only matters once it differs from what was proposed.
+              isSameScope(proposed, value) ? undefined : (
+                <Text size="xs" px="2xs" py="3xs">
+                  {describeScopeForAgents(value, known.labelOf)}
+                </Text>
+              )
             }
           />
         )}
@@ -122,12 +127,10 @@ export function ScopePropertyField({
   return (
     <Stack gap="2xs" align="flex-start">
       <ScopePicker {...picker} />
-      {guessed && changes.length === 0 && (
-        <Tooltip label="Guessed from where the agent was working" withArrow>
-          <Badge color="gray" tt="none" variant="outline">
-            Guessed
-          </Badge>
-        </Tooltip>
+      {guessed && changes.length === 0 && picker.opened !== true && (
+        <Text size="xs" c="dimmed">
+          Guessed from where the agent was working
+        </Text>
       )}
       {changes.length > 0 && (
         <Text size="xs" c="gray.7">

@@ -4,8 +4,9 @@ import type { SourceView } from "@tastebud/core/record-views";
 import type { SourceRecord } from "@tastebud/core/records";
 import { TextQuote } from "lucide-react";
 
-import { formatReviewTime } from "#review/shared/format.ts";
+import { describeSpeaker, formatReviewTime } from "#review/shared/format.ts";
 
+import { CautionChip } from "./caution-chip.tsx";
 import { AnchorLink } from "./router-links.tsx";
 import { SourceAddress } from "./source-address.tsx";
 
@@ -60,30 +61,24 @@ function SurroundingContext({ source }: { source: SourceRecord }) {
  */
 export type SourceQuoteRole = "supports" | "contradicts" | "prompted" | "plain";
 
-/** The role as a small chip before the attribution, where it changes how the quote reads. */
-const ROLE_WORDS: Record<SourceQuoteRole, string | undefined> = {
-  supports: undefined,
-  contradicts: "Says the opposite",
-  prompted: "Prompted this",
-  plain: undefined,
-};
-
 /**
  * Someone's exact words with who said them and when. Every extra is a worded control, never a hover-only
  * icon: the attribution opens the source's page, and the surrounding conversation opens on click.
  */
 export function SourceQuote({
   view,
+  owner,
   role = "supports",
   showKind = false,
 }: {
   view: SourceView;
+  /** Who the owner is, so their own words are attributed to "You". */
+  owner: string;
   role?: SourceQuoteRole;
   showKind?: boolean;
 }) {
   const { source } = view;
   const hasContext = source.before !== undefined || source.after !== undefined;
-  const roleWords = ROLE_WORDS[role];
   return (
     <div {...stylex.props(styles.quote)}>
       <span
@@ -97,11 +92,8 @@ export function SourceQuote({
           {source.quote}
         </Text>
         <span {...stylex.props(styles.meta)}>
-          {roleWords !== undefined && (
-            <Badge size="xs" tt="none" color={role === "contradicts" ? "red" : "gray"}>
-              {roleWords}
-            </Badge>
-          )}
+          {role === "contradicts" && <CautionChip caution="says-the-opposite" about="This quote says the opposite" />}
+          {role === "prompted" && <Badge color="gray">Prompted this</Badge>}
           <AnchorLink
             to="/sources/$id"
             params={{ id: source.id }}
@@ -110,7 +102,7 @@ export function SourceQuote({
             underline="hover"
             title={`Open this ${view.kindLabel} and what cites it`}
           >
-            — {source.said_by_label}, {formatReviewTime(source.said_at)}
+            — {describeSpeaker(source, owner)}, {formatReviewTime(source.said_at)}
             {showKind && ` · ${view.kindLabel}`}
           </AnchorLink>
           {source.revises !== undefined && (

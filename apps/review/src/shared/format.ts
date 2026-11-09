@@ -35,6 +35,10 @@ export const formatTimeAgo = (iso: string | undefined, now: number): string => {
   return days < 14 ? `${days}d ago` : formatReviewDate(iso);
 };
 
+/** Who said a source, as the owner reads it: "You" for their own words, the speaker's label for anyone else's. */
+export const describeSpeaker = (source: { said_by: string; said_by_label: string }, owner: string | undefined) =>
+  source.said_by === owner ? "You" : source.said_by_label;
+
 /** `human:demo` reads as "you" to the owner; anything else is shown as written. */
 export const describeAuthor = (author: string, owner: string | undefined): string =>
   author === owner ? "You" : author;

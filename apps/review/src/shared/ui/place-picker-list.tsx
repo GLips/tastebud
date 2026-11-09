@@ -2,8 +2,8 @@
  * The open list of a place picker, a property menu: a search, then the rows from
  * `placePickerGroupsOf`. A click on a row uses it; a chosen row shows a check. In the scope picker a
  * row also carries a quiet "+ Also" (add it beside the chosen places) or an ✕ (drop one of several).
- * It mounts with each opening, so the search starts empty, and it remembers the draft it opened with
- * for Esc.
+ * It mounts with each opening, so the search starts empty. Esc closes it and keeps every edit made
+ * in it; the host offers the way back (the scope picker's Restore).
  */
 import { ActionIcon, Box, Button, Combobox, type ComboboxStore, ScrollArea, Text, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -37,13 +37,11 @@ const styles = stylex.create({
   note: { opacity: 0.75, flexShrink: 0 },
 });
 
-/** What only the scope picker has: its proposal, the side actions, and the way Esc restores. */
+/** What only the scope picker has: its proposal and the side actions. */
 export interface PlacePickerScopeRows {
   proposed: DerivationScope;
   /** "+ Also" or ✕ on a row: an edit that keeps the menu open. */
   onSideAction: (pick: ScopeSideAction) => void;
-  /** Esc: the draft the list opened with, to restore before it closes. */
-  onRestore: (draft: ScopeDraft) => void;
 }
 
 /** A row of the host's own above the places, like Recall's "Nowhere in particular". */
@@ -211,7 +209,6 @@ export function PlacePickerList({
   footer?: ReactNode;
 }) {
   const [search, setSearch] = useState("");
-  const [openingDraft] = useState(draft);
   const searchRef = useRef<HTMLInputElement>(null);
   // When "+ Also" or ✕ last ran: a double click's second click lands on the row that moved under it.
   const lastSideActionAt = useRef(0);
@@ -223,6 +220,9 @@ export function PlacePickerList({
     labelOf: known.labelOf,
     search,
   });
+  // The hint only helps once a search finds nothing known: the rows left are what was typed.
+  const noMatch =
+    search.trim() !== "" && groups.every((group) => group.options.every((option) => option.kind === "typed"));
 
   // The store object is new on every render but its methods are stable. Depending on the object
   // re-ran the mount effect on any re-render, moving the selection to the chosen row (or none) after
@@ -273,12 +273,8 @@ export function PlacePickerList({
             if (next.trim() === "") combobox.resetSelectedOption();
           }}
           // While open the menu owns Enter, ⌘↵ and Esc: none may reach the host's accept or back.
-          // Esc in the capture phase: the popover closes on Esc while capturing, which unmounts this
-          // list before any bubbling handler of its own could restore the opening scope.
           onKeyDownCapture={(event) => {
-            if (event.key !== "Escape") return;
-            event.stopPropagation();
-            scope?.onRestore(openingDraft);
+            if (event.key === "Escape") event.stopPropagation();
           }}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
@@ -327,7 +323,7 @@ export function PlacePickerList({
             );
           })}
         </ScrollArea.Autosize>
-        {search.trim() === "" && (
+        {noMatch && (
           <Text size="xs" c="dimmed" px="xs" py="2xs">
             Not listed? Type a folder like apps/admin, or a name.
           </Text>

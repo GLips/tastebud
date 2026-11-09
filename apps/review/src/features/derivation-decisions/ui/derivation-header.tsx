@@ -1,25 +1,24 @@
 /**
  * The parts a derivation's detail is built from, on its page and in the inbox pane alike: the way back,
- * the title row with its state and actions, the section frame, and what it rests on.
+ * the title row with its state, the section frame, and what it rests on.
  */
 import { Anchor, Box, CopyButton, Group, Kbd, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { DerivationView } from "@tastebud/core/record-views";
-import { shortIdOf } from "@tastebud/core/taste-vocabulary";
+import { type DerivationStatus, shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft, Copy } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 
 const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
   id: { fontFamily: "var(--mantine-font-family-monospace)" },
   copy: { cursor: "copy" },
-  titleText: { minWidth: 0, flex: 1 },
-  actions: { flexShrink: 0 },
   quoteRow: {
     paddingBlock: "10px",
     paddingInline: "12px",
@@ -74,40 +73,45 @@ export function DerivationBackLink({
 }
 
 /**
- * The statement with its state under it and the actions that fit that state at the right, as Graphite
- * and GitHub lay out a PR's head. `size` is the page's large title or the pane's card-sized one.
+ * The statement across the full width, never squeezed by buttons, with a line under it: the kind's
+ * glyph and the status badge, then any `meta`, and any `actions` at its right (the pane's decision
+ * buttons; the page keeps its actions in the state card). `size` is the page's large title or the
+ * pane's card-sized one.
  */
 export function DerivationTitleRow({
   glyph,
   statement,
+  status,
   meta,
   actions,
   size,
 }: {
   glyph?: ReactNode;
   statement: string;
-  /** The line under the statement: the status badge, or the pane's link to the full page. */
-  meta: ReactNode;
-  actions: ReactNode;
+  status: DerivationStatus;
+  /** After the badge, such as the pane's link to the full page. */
+  meta?: ReactNode;
+  actions?: ReactNode;
   size: "page" | "pane";
 }) {
   return (
-    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-      <Stack gap="xxs" {...stylex.props(styles.titleText)}>
-        <Group gap="xs" wrap="nowrap" align="baseline">
+    <Stack gap="xs">
+      {size === "page" ? (
+        <Title order={3}>{statement}</Title>
+      ) : (
+        <Text fz="cardStatement" fw={600}>
+          {statement}
+        </Text>
+      )}
+      <Group justify="space-between" wrap="nowrap" gap="md">
+        <Group gap="xs" wrap="nowrap">
           {glyph}
-          {size === "page" ? (
-            <Title order={3}>{statement}</Title>
-          ) : (
-            <Text fz="cardStatement" fw={600}>
-              {statement}
-            </Text>
-          )}
+          <DerivationStatusBadge status={status} />
+          {meta}
         </Group>
-        <Group gap="xs">{meta}</Group>
-      </Stack>
-      <Box {...stylex.props(styles.actions)}>{actions}</Box>
-    </Group>
+        {actions}
+      </Group>
+    </Stack>
   );
 }
 
@@ -150,7 +154,15 @@ export function DerivationIdCopy({ id }: { id: string }) {
 }
 
 /** The agent's reasoning, labelled, then each quote it rests on as a row; a contradicting quote is chipped. */
-export function DerivationRestsOn({ view, kind }: { view: DerivationView; kind: DerivedKindView | undefined }) {
+export function DerivationRestsOn({
+  view,
+  kind,
+  owner,
+}: {
+  view: DerivationView;
+  kind: DerivedKindView | undefined;
+  owner: string;
+}) {
   const backlogKind = kind?.recall === "never";
   const reasoning = view.derivation.reasoning.trim();
   const quotes = view.supportingSources.length + view.contradictingSources.length;
@@ -170,12 +182,12 @@ export function DerivationRestsOn({ view, kind }: { view: DerivationView; kind: 
         )}
         {view.supportingSources.map((source) => (
           <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
-            <SourceQuote view={source} role={backlogKind ? "prompted" : "supports"} showKind />
+            <SourceQuote view={source} owner={owner} role={backlogKind ? "prompted" : "supports"} showKind />
           </Box>
         ))}
         {view.contradictingSources.map((source) => (
           <Box key={source.source.id} {...stylex.props(styles.quoteRow)}>
-            <SourceQuote view={source} role={backlogKind ? "plain" : "contradicts"} showKind />
+            <SourceQuote view={source} owner={owner} role={backlogKind ? "plain" : "contradicts"} showKind />
           </Box>
         ))}
       </Paper>

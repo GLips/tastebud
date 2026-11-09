@@ -1,19 +1,20 @@
 /**
- * The acceptance preview, inside the card: the statement, the scope it would settle on, and a sentence
- * naming each close record it overlaps. One "anyway" records every acknowledgement: the sentence is the
- * look, and a box per match only made the owner tick through it.
+ * The acceptance preview: the statement, the scope it would settle on, and a line counting the close
+ * records it overlaps over a linked row for each. One "anyway" records every acknowledgement: the rows
+ * are the look, and a box per match only made the owner tick through it.
  */
-import { Box, Alert, Button, Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
+import { Box, Alert, Button, Group, Loader, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type DerivationScope, formatPlaceLabel } from "@tastebud/core/places";
 import type { RepeatMatch } from "@tastebud/core/record-views";
 import { TriangleAlert } from "lucide-react";
-import { Fragment } from "react";
 
+import { useReviewCatalog } from "#review/features/review-shell/index.ts";
+import { CautionChip } from "#review/shared/ui/caution-chip.tsx";
+import { DerivationRelationRow } from "#review/shared/ui/derivation-relation-row.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
-import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { acceptPreviewQuery } from "./decision-queries.ts";
@@ -32,60 +33,46 @@ const styles = stylex.create({
   label: { display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", columnGap: "10px", alignItems: "baseline" },
 });
 
-/** How a close record is named in the overlap sentence: what it is to the owner, then its words. */
-const MATCH_ROLES: Record<RepeatMatch["status"], string> = {
-  rejected: "your rejection of",
-  pending: "the waiting proposal",
-  accepted: "what you already hold,",
-  retracted: "what you retracted,",
-  superseded: "the replaced",
+/** What a close record is to the owner, counted in the overlap line: "1 waiting proposal". */
+const MATCH_NOUNS: Record<RepeatMatch["status"], readonly [one: string, many: string]> = {
+  rejected: ["rejection", "rejections"],
+  pending: ["waiting proposal", "waiting proposals"],
+  accepted: ["accepted item", "accepted items"],
+  retracted: ["retracted item", "retracted items"],
+  superseded: ["replaced item", "replaced items"],
 };
 
-function MatchName({ match }: { match: RepeatMatch }) {
-  return (
-    <>
-      {MATCH_ROLES[match.status]}{" "}
-      <AnchorLink to="/derivations/$id" params={{ id: match.id }} c="inherit" target="_blank">
-        “{match.statement}”
-      </AnchorLink>
-      {match.reason !== undefined && ` (you said “${match.reason}”)`}
-    </>
-  );
-}
+const OVERLAP_ORDER = ["pending", "rejected", "accepted", "retracted", "superseded"] as const;
 
-/** What goes before the name at `index` in "a, b and c". */
-const listSeparatorBefore = (index: number, count: number): string => {
-  if (index === 0) return "";
-  return index === count - 1 ? " and " : ", ";
+/** "Overlaps 1 waiting proposal and 2 rejections". */
+const overlapLineOf = (matches: ReadonlyArray<RepeatMatch>): string => {
+  const phrases = OVERLAP_ORDER.flatMap((status) => {
+    const count = matches.filter((match) => match.status === status).length;
+    const [one, many] = MATCH_NOUNS[status];
+    return count === 0 ? [] : [`${count} ${count === 1 ? one : many}`];
+  });
+  const last = phrases.pop();
+  return `Overlaps ${phrases.length === 0 ? last : `${phrases.join(", ")} and ${last}`}`;
 };
-
-/** "a", "a and b", "a, b and c", as nodes. */
-function NameList({ matches }: { matches: ReadonlyArray<RepeatMatch> }) {
-  return matches.map((match, index) => (
-    <Fragment key={match.id}>
-      {listSeparatorBefore(index, matches.length)}
-      <MatchName match={match} />
-    </Fragment>
-  ));
-}
 
 /**
- * What else is close under this scope, said in a sentence, each named. The ones the proposal already
- * answered with `despite` are named too but need nothing; the rest are what "anyway" records weighing.
+ * What else is close under this scope: one line, then each as a linked row, so "anyway" is pressed
+ * knowing what it weighs. The ones the proposal already answered with `despite` need nothing.
  */
 function OverlapSummary({
   error,
   loaded,
   matches,
   answered,
-  verb,
+  labels,
 }: {
   error: Error | null;
   loaded: boolean;
   matches: ReadonlyArray<RepeatMatch>;
   answered: ReadonlyArray<RepeatMatch>;
-  verb: string;
+  labels: ReadonlyMap<string, string>;
 }) {
+  const catalog = useReviewCatalog();
   if (error)
     return (
       <Alert color="red" variant="light" py="xxs">
@@ -99,25 +86,31 @@ function OverlapSummary({
         <SupportingText tier="secondary">Checking for anything close to it…</SupportingText>
       </Group>
     );
+  if (matches.length === 0)
+    return (
+      <SupportingText tier="secondary">
+        {answered.length > 0
+          ? "Nothing close overlaps this scope beyond what the agent already answered."
+          : "Nothing close to it overlaps this scope."}
+      </SupportingText>
+    );
   return (
-    <Stack gap="3xs">
-      {answered.length > 0 && (
-        <SupportingText tier="secondary">
-          It comes after <NameList matches={answered} />; the agent said what changed, so that needs nothing more.
-        </SupportingText>
-      )}
-      {matches.length > 0 ? (
-        <Text size="sm">
-          Under this scope it overlaps <NameList matches={matches} />. “{verb} anyway” records that you weighed{" "}
-          {matches.length === 1 ? "it" : "them"}.
-        </Text>
-      ) : (
-        <SupportingText tier="secondary">
-          {answered.length > 0
-            ? "Nothing else close to it overlaps this scope."
-            : "Nothing close to it overlaps this scope."}
-        </SupportingText>
-      )}
+    <Stack gap="xs">
+      <Text size="sm" fw={500}>
+        {overlapLineOf(matches)}
+      </Text>
+      <Paper>
+        {matches.map((match) => (
+          <DerivationRelationRow
+            key={match.id}
+            relation={match.status === "rejected" ? "Near a rejection" : "Near a repeat"}
+            relationChip={<CautionChip caution={match.status === "rejected" ? "near-a-rejection" : "near-a-repeat"} />}
+            summary={match}
+            catalog={catalog}
+            labels={labels}
+          />
+        ))}
+      </Paper>
     </Stack>
   );
 }
@@ -205,7 +198,7 @@ export function AcceptancePreview({
           loaded={preview.data !== undefined}
           matches={matches}
           answered={preview.data?.answeredByDespite ?? []}
-          verb={verb}
+          labels={labels}
         />
 
         <Group justify="flex-end" gap="xs">

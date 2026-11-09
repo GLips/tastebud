@@ -20,16 +20,14 @@ import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { formatReviewClock, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { describeSpeaker, formatReviewClock, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { DerivationRelationRow } from "#review/shared/ui/derivation-relation-row.tsx";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
-import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
-import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
-import { PlaceChip, ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { capitalize } from "#review/shared/ui/kind-identity.tsx";
+import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceAddress } from "#review/shared/ui/source-address.tsx";
-import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
-import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const Route = getRouteApi("/sources/$id");
@@ -82,13 +80,21 @@ const CITATION_ROLE_WORDS: Record<Citation["role"], string> = {
 };
 
 /** The source's properties, Linear-style: who said it, when and where, what kind it is, and its record-keeping. */
-function SourceProperties({ view, labelOf }: { view: SourceView; labelOf: (place: string) => string }) {
+function SourceProperties({
+  view,
+  labelOf,
+  owner,
+}: {
+  view: SourceView;
+  labelOf: (place: string) => string;
+  owner: string | undefined;
+}) {
   const { source } = view;
   return (
     <Paper p="md">
       <Box {...stylex.props(styles.facts)}>
         <FactRow label="Said by">
-          <Text size="sm">{source.said_by_label}</Text>
+          <Text size="sm">{describeSpeaker(source, owner)}</Text>
         </FactRow>
         <FactRow label="When">
           <Text size="sm">{formatReviewTime(source.said_at)}</Text>
@@ -202,55 +208,15 @@ function SourceLedTo({ cited }: { cited: ReadonlyArray<Citation> }) {
         <SupportingText tier="secondary">Nothing cites these words yet.</SupportingText>
       ) : (
         <Paper p={0}>
-          <Table verticalSpacing="xs" horizontalSpacing="md">
-            <Table.Tbody>
-              {cited.map((citation) => (
-                <Table.Tr key={citation.id} {...stylex.props(styles.row)}>
-                  <Table.Td {...stylex.props(styles.fitCell)}>
-                    <Box {...stylex.props(styles.aboveRowLink)}>
-                      <DerivationStatusBadge status={citation.status} />
-                    </Box>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" align="baseline">
-                      <KindGlyph catalog={catalog} kind={citation.kind} label={citation.kindLabel} size={10} />
-                      <Text size="sm" lineClamp={2}>
-                        <AnchorLink
-                          to="/derivations/$id"
-                          params={{ id: citation.id }}
-                          c="inherit"
-                          fw={500}
-                          size="sm"
-                          underline="never"
-                          {...stylex.props(styles.rowLink)}
-                        >
-                          {citation.statement}
-                        </AnchorLink>{" "}
-                        <SupportingText tier="secondary" span>
-                          <SubjectLabel summary={citation} owner={catalog?.owner} />
-                        </SupportingText>
-                      </Text>
-                    </Group>
-                    {citation.reason !== undefined && (
-                      <SupportingText tier="secondary" lineClamp={1}>
-                        {capitalize(citation.status)}: “{citation.reason}”
-                      </SupportingText>
-                    )}
-                  </Table.Td>
-                  <Table.Td {...stylex.props(styles.fitCell)}>
-                    <Box {...stylex.props(styles.aboveRowLink)}>
-                      <ScopeChips scope={citation.effectiveScope} labels={known.labels} />
-                    </Box>
-                  </Table.Td>
-                  <Table.Td {...stylex.props(styles.fitCell)} ta="right">
-                    <Text size="sm" c={citation.role === "contradicts" ? "red.8" : "gray.7"}>
-                      {CITATION_ROLE_WORDS[citation.role]}
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+          {cited.map((citation) => (
+            <DerivationRelationRow
+              key={citation.id}
+              relation={CITATION_ROLE_WORDS[citation.role]}
+              summary={citation}
+              catalog={catalog}
+              labels={known.labels}
+            />
+          ))}
         </Paper>
       )}
     </Stack>
@@ -266,6 +232,7 @@ function SourceNeighbours({
   neighbours,
   when,
   bySpeaker,
+  owner,
 }: {
   title: string;
   neighbours: ReadonlyArray<SourceView>;
@@ -273,6 +240,7 @@ function SourceNeighbours({
   when: (saidAt: string) => string;
   /** Every row has the page's speaker, so the speaker column would only repeat the heading. */
   bySpeaker: boolean;
+  owner: string | undefined;
 }) {
   if (neighbours.length === 0) return null;
   return (
@@ -292,7 +260,7 @@ function SourceNeighbours({
                 </Table.Td>
                 {!bySpeaker && (
                   <Table.Td {...stylex.props(styles.fitCell)}>
-                    <SupportingText tier="secondary">{neighbour.source.said_by_label}</SupportingText>
+                    <SupportingText tier="secondary">{describeSpeaker(neighbour.source, owner)}</SupportingText>
                   </Table.Td>
                 )}
                 <Table.Td>
@@ -321,6 +289,7 @@ export function SourcePage() {
   const { id } = Route.useParams();
   const detail = useQuery(recordDetailQuery(id));
   const known = useKnownPlaces();
+  const owner = useReviewCatalog()?.owner;
 
   if (detail.error) return <QueryErrorAlert error={detail.error} />;
   if (detail.data === undefined) {
@@ -347,17 +316,12 @@ export function SourcePage() {
 
   return (
     <Stack gap="lg">
-      <ReviewPageHeader
-        crumb={
-          <AnchorLink to="/sources" size="sm" c="gray.7" underline="hover" aria-label="Back to all sources">
-            <Group gap="2xs">
-              <ArrowLeft size={14} aria-hidden />
-              Sources
-            </Group>
-          </AnchorLink>
-        }
-        title={`${source.said_by_label} · ${formatReviewDate(source.said_at)}`}
-      />
+      <AnchorLink to="/sources" size="sm" c="gray.7" underline="hover" aria-label="Back to all sources">
+        <Group gap="2xs">
+          <ArrowLeft size={14} aria-hidden />
+          Sources
+        </Group>
+      </AnchorLink>
 
       <Box {...stylex.props(styles.layout)}>
         <Stack gap="lg">
@@ -367,7 +331,8 @@ export function SourcePage() {
                 …{source.before}
               </SupportingText>
             )}
-            <Text component="blockquote" fz="sourceQuote" m={0} {...stylex.props(styles.quote)}>
+            {/* The words are the page's title: who said them and when sit in the properties beside them. */}
+            <Text component="h1" fz="sourceQuote" m={0} {...stylex.props(styles.quote)}>
               “{source.quote}”
             </Text>
             {source.after !== undefined && (
@@ -385,17 +350,19 @@ export function SourcePage() {
               neighbours={nearestNeighboursOf(source.said_at, detail.data.saidAlongside)}
               when={formatReviewClock}
               bySpeaker={false}
+              owner={owner}
             />
           ) : (
             <SourceNeighbours
-              title={`More from ${source.said_by_label}`}
+              title={source.said_by === owner ? "More from you" : `More from ${source.said_by_label}`}
               neighbours={detail.data.moreFromSpeaker}
               when={formatReviewDate}
               bySpeaker
+              owner={owner}
             />
           )}
         </Stack>
-        <SourceProperties view={view} labelOf={known.labelOf} />
+        <SourceProperties view={view} labelOf={known.labelOf} owner={owner} />
       </Box>
     </Stack>
   );
