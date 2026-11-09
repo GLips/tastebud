@@ -18,10 +18,10 @@ import { CopyableSnippet } from "./copyable-snippet.tsx";
 import { agentHostConnectionsQuery } from "./settings-queries.ts";
 
 const styles = stylex.create({
-  // Tile · host · what it gets · state and its reason · action, one grid so every row's columns line up.
+  // Tile · host · what it gets · state · action, one grid so every row's columns line up.
   row: {
     display: "grid",
-    gridTemplateColumns: "28px 140px 180px minmax(0, 1fr) auto",
+    gridTemplateColumns: "28px 150px 230px minmax(0, 1fr) auto",
     columnGap: "12px",
     alignItems: "center",
     paddingBlock: "12px",
@@ -42,6 +42,7 @@ const styles = stylex.create({
     color: "var(--mantine-color-gray-7)",
   },
   action: { justifySelf: "end" },
+  oneLine: { whiteSpace: "nowrap" },
 });
 
 const HOST_ICONS: Record<AgentHost, LucideIcon> = {
@@ -103,7 +104,7 @@ const connectionWhy = (connection: AgentHostConnection, home: string | undefined
     case "unreadable":
       return `${where} doesn't parse`;
     case "store-from-environment":
-      return `${where} names no store, so its environment picks`;
+      return `${where} names no store, so its environment picks the store`;
     case "not-checked":
       return "Tastebud can't see this host's config";
   }
@@ -168,6 +169,20 @@ function connectStepsOf(host: AgentHost, lines: AgentHostConnectLines): Readonly
   }
 }
 
+/**
+ * The steps still to do: none once connected, and without the first (installing the plugin, or downloading
+ * the package) when the host's config already has a Tastebud entry, since that step made it.
+ */
+const remainingConnectStepsOf = (
+  host: AgentHost,
+  lines: AgentHostConnectLines,
+  connection: AgentHostConnection | undefined,
+): ReadonlyArray<ConnectStep> => {
+  if (connection?.state === "connected") return [];
+  const steps = connectStepsOf(host, lines);
+  return hasTastebudEntry(connection) ? steps.slice(1) : steps;
+};
+
 function ConnectSteps({ steps }: { steps: ReadonlyArray<ConnectStep> }) {
   return (
     <Stack gap="sm" component="ol" {...stylex.props(styles.steps)}>
@@ -201,10 +216,12 @@ function AgentHostRow({
   home: string | undefined;
   lines: AgentHostConnectLines;
   divided: boolean;
-  onRecheck: () => void;
+  /** Settles once the readout has been read again. */
+  onRecheck: () => Promise<void>;
   rechecking: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [rechecked, setRechecked] = useState(false);
   const badge = connection === undefined ? undefined : STATE_BADGES[connection.state];
   const Icon = HOST_ICONS[host];
   return (
@@ -216,36 +233,41 @@ function AgentHostRow({
         <Text size="sm" fw={500}>
           {HOST_NAMES[host]}
         </Text>
-        <SupportingText tier="secondary">{HOST_GETS[host]}</SupportingText>
+        <SupportingText tier="secondary" {...stylex.props(styles.oneLine)}>
+          {HOST_GETS[host]}
+        </SupportingText>
         {connection === undefined || badge === undefined ? (
           <Skeleton height={20} width={90} />
         ) : (
-          <Group gap="xs" wrap="nowrap" miw={0}>
+          <Group gap="xs" wrap="nowrap">
             <Badge color={badge.color} w="fit-content">
               {badge.label}
             </Badge>
-            <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
+            {connection.state === "unknown" && (
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                leftSection={<RefreshCw size={12} />}
+                loading={rechecking}
+                onClick={() => void onRecheck().then(() => setRechecked(true))}
+              >
+                Recheck
+              </Button>
+            )}
+            {rechecked && !rechecking && <SupportingText tier="faint">Checked just now</SupportingText>}
           </Group>
         )}
+        {/* Set up only shows the steps, so it says so; a host with any Tastebud entry has details to read. */}
         <Button variant="default" aria-expanded={open} onClick={() => setOpen(!open)} {...stylex.props(styles.action)}>
-          {hasTastebudEntry(connection) ? "Details" : "Connect"}
+          {hasTastebudEntry(connection) ? "Details" : "Set up"}
         </Button>
       </Box>
       <Collapse expanded={open}>
         <Stack gap="md" {...stylex.props(styles.expansion)}>
-          {connection !== undefined && connection.state !== "connected" && (
-            <Button
-              size="compact-sm"
-              variant="subtle"
-              w="fit-content"
-              leftSection={<RefreshCw size={12} />}
-              loading={rechecking}
-              onClick={onRecheck}
-            >
-              Recheck
-            </Button>
+          {connection !== undefined && (
+            <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
           )}
-          <ConnectSteps steps={connectStepsOf(host, lines)} />
+          <ConnectSteps steps={remainingConnectStepsOf(host, lines, connection)} />
         </Stack>
       </Collapse>
     </Box>
@@ -270,7 +292,7 @@ export function AgentHostConnections({ storeRoot }: { storeRoot: string | undefi
             home={home}
             lines={lines}
             divided={index > 0}
-            onRecheck={() => void readout.refetch()}
+            onRecheck={async () => void (await readout.refetch())}
             rechecking={readout.isFetching}
           />
         ))}

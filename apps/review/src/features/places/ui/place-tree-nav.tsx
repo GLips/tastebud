@@ -1,9 +1,21 @@
 /** The Places page's left column: a searchable tree of every place a scope names, with counts. */
-import { Box, Button, Group, Paper, ScrollArea, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Paper,
+  Popover,
+  ScrollArea,
+  Text,
+  TextInput,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import { Globe, LocateFixed, Search, TriangleAlert } from "lucide-react";
+import { Globe, Info, LocateFixed, Search, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { derivationListQuery } from "#review/features/derivation-library/index.ts";
@@ -115,7 +127,7 @@ function TreeNodes({
 
 /**
  * A named place is a scope that isn't a folder: an agent with no working folder, such as a chat app,
- * names it instead. Shown under the section's title, since the term is Tastebud's own.
+ * names it instead. Its ⓘ opens this on click, since the term is Tastebud's own.
  */
 const NAMED_PLACE_MEANING =
   "Work that isn't a folder, like clients/acme. An agent outside a folder, such as a chat app, names it.";
@@ -230,12 +242,25 @@ export function PlaceTreeNav({
             <Box key={title}>
               <Box fz="xs" {...stylex.props(styles.section, styles.indent(0))}>
                 {title}
+                {about !== undefined && (
+                  <Popover position="right-start" withArrow width={260}>
+                    <Popover.Target>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="xs"
+                        aria-label={`What ${title.toLowerCase()} are`}
+                      >
+                        <Info size={12} />
+                      </ActionIcon>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <Text size="sm">{about}</Text>
+                    </Popover.Dropdown>
+                  </Popover>
+                )}
               </Box>
-              {about !== undefined && (
-                <Text size="xs" c="dimmed" mb="2xs" {...stylex.props(styles.indent(0))}>
-                  {about}
-                </Text>
-              )}
+
               {nodes.length === 0 ? (
                 <Text size="xs" c="dimmed" {...stylex.props(styles.indent(0))}>
                   {empty}

@@ -10,12 +10,16 @@ import { useRememberedBrowserValue } from "#review/infrastructure/browser-storag
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 
+import { PLACE_REACH_TABS } from "./place-applicability.ts";
 import { PlaceDetails } from "./place-details.tsx";
 import { PlacePathTester } from "./place-test-bench.tsx";
 import { PlaceTreeNav, selectedPlaceOf } from "./place-tree-nav.tsx";
 import { placesAuditQuery } from "./places-queries.ts";
 
-export const PlacesSearch = Schema.Struct({ place: Schema.optionalKey(Schema.String) });
+export const PlacesSearch = Schema.Struct({
+  place: Schema.optionalKey(Schema.String),
+  tab: Schema.optionalKey(Schema.Literals(PLACE_REACH_TABS)),
+});
 
 const Route = getRouteApi("/places");
 
@@ -83,6 +87,8 @@ export function PlacesPage() {
                   probes={probes}
                   known={known}
                   onSelect={select}
+                  tab={search.tab}
+                  onTabChange={(tab) => void navigate({ search: { ...search, tab }, replace: true })}
                 />
               )}
             </Paper>

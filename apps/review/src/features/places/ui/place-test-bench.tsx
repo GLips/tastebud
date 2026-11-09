@@ -40,11 +40,11 @@ const styles = stylex.create({
   mono: { fontFamily: "var(--mantine-font-family-monospace)" },
 });
 
-// What a path is matched by, as the bench's header chip; the description is its tooltip.
-const PLACE_RESOLVER_NAMES: Record<PlaceResolverName, string> = {
-  git: "Matched by git repo",
-  directories: "Matched by folder",
-  custom: "Matched by your rule",
+// The store's setting, said as one, so it never reads as the result of the path just tested.
+const PLACE_RESOLVER_SETTINGS: Record<PlaceResolverName, string> = {
+  git: "This store matches places by git repo",
+  directories: "This store matches places by folder",
+  custom: "This store matches places by its own rule",
 };
 
 const PLACE_RESOLVER_DESCRIPTIONS: Record<PlaceResolverName, string> = {
@@ -106,10 +106,13 @@ export function PlacePathTester({
   const catalog = useReviewCatalog();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [emptySubmit, setEmptySubmit] = useState(false);
   const [asked, setAsked] = useState<string | undefined>(undefined);
-  const resolved = useQuery({ ...reviewContextQuery({ in: asked }), enabled: asked !== undefined });
-  // The store's folder always exists, so the placeholder resolves when tried as written.
+  // The store's folder always exists, so the placeholder resolves; until a path is typed the bench shows it
+  // resolved, so it opens on a result rather than an empty field.
   const storeRoot = useQuery(reviewShellQuery).data?.storeRoot;
+  const shown = asked ?? storeRoot;
+  const resolved = useQuery({ ...reviewContextQuery({ in: shown }), enabled: shown !== undefined });
   const resolvedKnown = useKnownPlaces(resolved.data?.places ?? []);
   const unreached = probes.length === 0 ? 0 : (audit?.audit.unmatched.length ?? 0);
 
@@ -132,7 +135,9 @@ export function PlacePathTester({
           <Text fw={600}>Test a path</Text>
           {catalog !== undefined && (
             <Tooltip label={PLACE_RESOLVER_DESCRIPTIONS[catalog.resolver]} withArrow multiline maw={300}>
-              <Badge color="gray">{PLACE_RESOLVER_NAMES[catalog.resolver]}</Badge>
+              <SupportingText tier="secondary" w="fit-content">
+                {PLACE_RESOLVER_SETTINGS[catalog.resolver]}
+              </SupportingText>
             </Tooltip>
           )}
         </Group>
@@ -145,7 +150,8 @@ export function PlacePathTester({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (draft.trim() !== "") test(draft.trim());
+          if (draft.trim() === "") setEmptySubmit(true);
+          else test(draft.trim());
         }}
       >
         <Group gap="xs" wrap="nowrap">
@@ -154,7 +160,11 @@ export function PlacePathTester({
             placeholder={storeRoot ?? "A folder"}
             leftSection={<LocateFixed size={14} />}
             value={draft}
-            onChange={(event) => setDraft(event.currentTarget.value)}
+            onChange={(event) => {
+              setDraft(event.currentTarget.value);
+              setEmptySubmit(false);
+            }}
+            error={emptySubmit && "Type a folder path to test"}
             autoFocus
             {...stylex.props(styles.grow)}
           />
@@ -163,18 +173,18 @@ export function PlacePathTester({
           </Button>
         </Group>
       </form>
-      {asked !== undefined && (
+      {/* Core's sentence already names the path, so a failure stands alone rather than after it. */}
+      {shown !== undefined && resolved.error && (
+        <SupportingText tier="secondary">{resolved.error.message}</SupportingText>
+      )}
+      {shown !== undefined && !resolved.error && (
         <Box {...stylex.props(styles.pathRow)}>
-          <PathText path={asked} />
+          <PathText path={shown} />
           <ArrowRight size={12} color="var(--mantine-color-gray-5)" />
-          {resolved.error ? (
-            <SupportingText tier="secondary">{resolved.error.message}</SupportingText>
-          ) : (
-            <Group gap="2xs">
-              <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
-            </Group>
-          )}
-          {probes.includes(asked) || resolved.error ? (
+          <Group gap="2xs">
+            <ResolvedPlaces places={resolved.data?.places} known={resolvedKnown} />
+          </Group>
+          {asked === undefined || probes.includes(asked) ? (
             <Box />
           ) : (
             <Tooltip label="Warn me if a place stops being reached" withArrow>

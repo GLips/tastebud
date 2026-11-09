@@ -107,10 +107,13 @@ export const onRequestOutcome = (
   hookLimit: number,
 ): RecallOutcome => ({ tone: "on-request", why: availableThroughRecallReason(hit, catalog, hookLimit) });
 
+/**
+ * The prompt hook only ever sends accepted items; a rejection reaches an agent through Recall's lookup, which
+ * lists it as not accepted so the agent doesn't propose it again.
+ */
 export const rejectionOutcome = (hit: Pick<RecallResult["rejected"][number], "reason">): RecallOutcome => ({
-  tone: "not-sent",
-  label: "Told no",
-  why: `Agents are told you said no${hit.reason === undefined ? "" : `: “${hit.reason}”`}`,
+  tone: "told-no",
+  why: `An agent that looks this up hears you said no${hit.reason === undefined ? "" : `: “${hit.reason}”`}`,
 });
 
 // Only a scope holds an item back; every other exclusion is not sent, some with a narrower word.

@@ -32,6 +32,15 @@ const styles = stylex.create({
   payload: { whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.55 },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
+  groupRow: {
+    display: "block",
+    width: "100%",
+    paddingBlock: "8px",
+    paddingInline: "6px",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: "var(--mantine-color-gray-2)",
+  },
 });
 
 function Disclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -74,6 +83,26 @@ function HookPayloadView({ hook }: { hook: HookPayload }) {
   );
 }
 
+/** The table's last group, folded by default: what applies where the agent stands but these words missed. */
+function UnmatchedGroup({ items }: { items: ReadonlyArray<DerivationSummary> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} {...stylex.props(styles.groupRow)}>
+        <Group gap="2xs">
+          <ChevronRight
+            size={12}
+            color="var(--mantine-color-gray-6)"
+            {...stylex.props(styles.chevron, open && styles.chevronOpen)}
+          />
+          <SupportingText tier="secondary">Apply here, didn't match · {items.length}</SupportingText>
+        </Group>
+      </UnstyledButton>
+      {open && items.map((item) => <RecallItemRow key={item.id} item={item} outcome={UNMATCHED_OUTCOME} />)}
+    </>
+  );
+}
+
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 type RecallAnswerRow = { readonly item: DerivationSummary; readonly outcome: RecallOutcome };
@@ -82,11 +111,15 @@ type RecallAnswerRow = { readonly item: DerivationSummary; readonly outcome: Rec
 const VERDICT_COUNTS: ReadonlyArray<{ tone: RecallOutcomeTone; word: string }> = [
   { tone: "sent", word: "sent" },
   { tone: "on-request", word: "on request" },
+  { tone: "told-no", word: "told no on lookup" },
   { tone: "held-back", word: "held back" },
   { tone: "not-sent", word: "not sent" },
 ];
 
-/** The answer in one line: what is sent, or that nothing about these words is; then the counts, quietly. */
+/**
+ * The answer in one line: what the prompt hook sends, which is only ever accepted items, then every row's
+ * outcome counted in the Outcome column's own words, so a no heard on lookup never reads as "nothing".
+ */
 function RecallVerdict({
   rows,
   query,
@@ -105,8 +138,8 @@ function RecallVerdict({
   })).filter(({ count }) => count > 0);
   const verdict =
     sent > 0
-      ? `${plural(sent, "item is", "items are")} sent with this prompt`
-      : `Nothing about “${query}” is sent${where === undefined ? "" : ` in ${where}`}`;
+      ? `${plural(sent, "item is", "items are")} sent with this prompt${where === undefined ? "" : ` in ${where}`}`
+      : `Nothing about “${query}” is sent with the prompt${where === undefined ? "" : ` in ${where}`}`;
   return (
     <Group gap="sm" align="baseline">
       <Tooltip
@@ -156,23 +189,14 @@ export function RecallCandidateGroups({
     <Stack gap="md">
       <RecallVerdict rows={rows} query={query} where={where} silence={hookSilenceWording(hook, catalog)} />
 
-      {rows.length > 0 && (
+      {(rows.length > 0 || appliesUnmatched.length > 0) && (
         <Box>
           <RecallItemRow.Head />
           {rows.map(({ item, outcome }) => (
             <RecallItemRow key={item.id} item={item} outcome={outcome} />
           ))}
+          {appliesUnmatched.length > 0 && <UnmatchedGroup items={appliesUnmatched} />}
         </Box>
-      )}
-
-      {appliesUnmatched.length > 0 && (
-        <Disclosure label={`Apply here, didn't match · ${appliesUnmatched.length}`}>
-          <Box>
-            {appliesUnmatched.map((item) => (
-              <RecallItemRow key={item.id} item={item} outcome={UNMATCHED_OUTCOME} />
-            ))}
-          </Box>
-        </Disclosure>
       )}
       {hook.items.length > 0 && (
         <Disclosure label="Show exactly what’s sent">

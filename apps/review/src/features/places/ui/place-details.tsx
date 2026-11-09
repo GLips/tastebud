@@ -30,6 +30,7 @@ import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
+import { FactList, FactRow } from "#review/shared/ui/fact-row.tsx";
 import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
@@ -38,7 +39,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
-import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
+import { type PlaceReachRow, type PlaceReachTab, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
 
 const styles = stylex.create({
@@ -55,15 +56,16 @@ const styles = stylex.create({
   },
   origin: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start" },
   columnHead: { paddingBlock: "2px" },
+  key: { fontFamily: "var(--mantine-font-family-monospace)", overflowWrap: "anywhere" },
   tabLink: { alignSelf: "center", paddingRight: "4px" },
 });
 
-/** The full place key, copied on click; it shows only in the tooltip, never in the header line. */
+/** The full place key, copied on click. */
 function PlaceKeyCopyButton({ place }: { place: string }) {
   return (
     <CopyButton value={place}>
       {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : `Copy the key: ${place}`} withArrow fz="xs">
+        <Tooltip label={copied ? "Copied" : "Copy the key"} withArrow fz="xs">
           <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the place key" onClick={copy}>
             {copied ? <Check size={12} /> : <Copy size={12} />}
           </ActionIcon>
@@ -145,7 +147,9 @@ function ReachRows({
     <Box>
       <Box {...stylex.props(styles.row, styles.columnHead)} aria-hidden>
         <Box />
-        <Box />
+        <Text size="xs" c="dimmed" fw={500}>
+          Statement
+        </Text>
         <Text size="xs" c="dimmed" fw={500}>
           Set on
         </Text>
@@ -175,22 +179,25 @@ function ReachRows({
   );
 }
 
-type ReachTab = "applies" | "waiting" | "settled";
-
 /** The detail's tab strip: what applies, what waits for you, what doesn't apply, each with its count. */
 function ReachTabs({
   reach,
   place,
   known,
   onSelect,
+  tab,
+  onTabChange,
 }: {
   reach: ReturnType<typeof placeReachOf>;
   place: string;
   known: KnownPlaces;
   onSelect: (place: string) => void;
+  /** The tab in the URL; without one, the first tab with rows. */
+  tab: PlaceReachTab | undefined;
+  onTabChange: (tab: PlaceReachTab) => void;
 }) {
   const tabs: ReadonlyArray<{
-    value: ReachTab;
+    value: PlaceReachTab;
     label: string;
     rows: ReadonlyArray<PlaceReachRow>;
     column: ReachColumn;
@@ -199,11 +206,11 @@ function ReachTabs({
     { value: "waiting", label: "Waiting", rows: reach.waiting, column: "waiting" },
     { value: "settled", label: "Doesn't apply", rows: reach.settledAgainst, column: "settled" },
   ];
-  const [tab, setTab] = useState<ReachTab>(tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies");
+  const shown = tab ?? tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies";
   return (
     <Tabs
-      value={tab}
-      onChange={(value) => setTab(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
+      value={shown}
+      onChange={(value) => onTabChange(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
     >
       <Tabs.List>
         {tabs.map((candidate) => (
@@ -277,12 +284,16 @@ export function PlaceDetails({
   probes,
   known,
   onSelect,
+  tab,
+  onTabChange,
 }: {
   place: string;
   audit: AuditPlacesResult;
   probes: ReadonlyArray<string>;
   known: KnownPlaces;
   onSelect: (place: string) => void;
+  tab: PlaceReachTab | undefined;
+  onTabChange: (tab: PlaceReachTab) => void;
 }) {
   const [repointing, setRepointing] = useState(false);
   const all = useQuery(derivationListQuery({}));
@@ -305,11 +316,7 @@ export function PlaceDetails({
           <Group justify="space-between" wrap="nowrap" align="flex-start">
             <Group gap="xs" wrap="nowrap" {...stylex.props(styles.shrinkable)}>
               <PlaceFormIcon place={place} size={16} />
-              <Tooltip label={place} withArrow openDelay={300} fz="xs">
-                <Title order={4}>{known.labelOf(place)}</Title>
-              </Tooltip>
-              <SupportingText tier="secondary">{PLACE_FORM_NAMES[placeFormOf(place)]}</SupportingText>
-              <PlaceKeyCopyButton place={place} />
+              <Title order={4}>{known.labelOf(place)}</Title>
             </Group>
             {acceptedScopedHere.length > 0 && (
               <Menu position="bottom-end" withArrow>
@@ -332,6 +339,21 @@ export function PlaceDetails({
             <PlaceRepointSheet from={place} opened={repointing} onClose={() => setRepointing(false)} known={known} />
           </Group>
         )}
+        {!isGlobal && (
+          <FactList>
+            <FactRow label="Type">
+              <Text size="sm">{PLACE_FORM_NAMES[placeFormOf(place)]}</Text>
+            </FactRow>
+            <FactRow label="Key">
+              <Group gap="2xs" wrap="nowrap">
+                <Text fz="xs" {...stylex.props(styles.key)}>
+                  {place}
+                </Text>
+                <PlaceKeyCopyButton place={place} />
+              </Group>
+            </FactRow>
+          </FactList>
+        )}
       </Stack>
 
       {all.error && <QueryErrorAlert error={all.error} />}
@@ -348,7 +370,14 @@ export function PlaceDetails({
             />
           )}
 
-          <ReachTabs reach={reach} place={place} known={known} onSelect={onSelect} />
+          <ReachTabs
+            reach={reach}
+            place={place}
+            known={known}
+            onSelect={onSelect}
+            tab={tab}
+            onTabChange={onTabChange}
+          />
         </>
       )}
     </Stack>

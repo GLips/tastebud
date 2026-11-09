@@ -17,6 +17,10 @@ export interface PlaceReachRow {
   readonly origin: PlaceReachOrigin;
 }
 
+/** The detail's tabs, one per `PlaceReach` list; `settled` is "Doesn't apply". Kept in the URL. */
+export const PLACE_REACH_TABS = ["applies", "waiting", "settled"] as const;
+export type PlaceReachTab = (typeof PLACE_REACH_TABS)[number];
+
 export interface PlaceReach {
   /** Accepted: what agents are told here. */
   readonly applies: ReadonlyArray<PlaceReachRow>;
