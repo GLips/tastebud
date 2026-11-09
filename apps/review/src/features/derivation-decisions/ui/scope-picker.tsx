@@ -5,7 +5,7 @@
  * ✕ drops one of several. Esc closes and keeps what was done; Restore under it goes back. It only edits a draft:
  * the host decides when the draft is used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { Anchor, Badge, Button, Combobox, Group, Stack, Text, Tooltip, useCombobox } from "@mantine/core";
+import { Anchor, Button, Combobox, Group, Stack, Text, useCombobox } from "@mantine/core";
 import {
   applyScopePick,
   type DerivationScope,
@@ -21,6 +21,7 @@ import { useCallback, useState } from "react";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { PlacePickerList } from "#review/shared/ui/place-picker-list.tsx";
+import { ScopeGuessedChip } from "#review/shared/ui/status-chips.tsx";
 
 /** On the box the list must stay inside (the page's rail); without one it keeps to the viewport. */
 const SCOPE_PICKER_BOUNDS = "data-scope-picker-bounds";
@@ -158,11 +159,7 @@ export function ScopePropertyField({
         {/* Remounted once the rail is found: floating-ui compares middlewares by their source text, so a
             boundary arriving after the first render would otherwise never reach the list. */}
         <ScopePicker key={bounds === null ? "viewport" : "bounded"} {...picker} bounds={bounds} />
-        {guessed && changes.length === 0 && picker.opened !== true && (
-          <Tooltip label="Guessed from where the agent was working" withArrow>
-            <Badge color="gray">guessed</Badge>
-          </Tooltip>
-        )}
+        {guessed && changes.length === 0 && picker.opened !== true && <ScopeGuessedChip />}
       </Group>
       {changes.length > 0 && (
         <Text size="xs" c="gray.7">

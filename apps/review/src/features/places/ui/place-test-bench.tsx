@@ -3,7 +3,7 @@
  * lands on, and the paths you keep checking, which the audit warns about when none reach a place.
  * The kept paths live in this browser.
  */
-import { ActionIcon, Badge, Box, Button, Group, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
@@ -21,6 +21,7 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { ReviewQueryError } from "#review/shared/review-outcome.ts";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
+import { KeptPathReachChip, NoPlaceChip } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
@@ -75,7 +76,7 @@ function PathText({ path }: { path: string }) {
 /** The places a path resolved to, or a quiet "no place" when the resolver returned none. */
 function ResolvedPlaces({ places, known }: { places: ReadonlyArray<string> | undefined; known: KnownPlaces }) {
   if (places === undefined) return <SupportingText tier="faint">…</SupportingText>;
-  if (places.length === 0) return <Badge color="orange">No place</Badge>;
+  if (places.length === 0) return <NoPlaceChip />;
   return places.map((place) => <PlaceChip key={place} place={place} label={known.labelOf(place)} />);
 }
 
@@ -234,11 +235,7 @@ export function PlacePathTester({
             <Text size="sm" fw={600}>
               Kept paths
             </Text>
-            {audit !== undefined && (
-              <Badge color={unreached > 0 ? "orange" : "tastebud"}>
-                {unreached > 0 ? `${unreached} ${unreached === 1 ? "place" : "places"} unreached` : "All reached"}
-              </Badge>
-            )}
+            {audit !== undefined && <KeptPathReachChip unreached={unreached} />}
           </Group>
           {probes.map((probe) => (
             <Box key={probe} {...stylex.props(styles.pathRow)}>

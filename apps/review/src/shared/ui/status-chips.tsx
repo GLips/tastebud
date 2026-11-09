@@ -1,5 +1,6 @@
 import { Badge, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import type { AgentHostConnection } from "@tastebud/core/agent-hosts";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
 import { CircleCheck, CircleDot, CircleMinus, CircleX, CornerDownRight, type LucideIcon } from "lucide-react";
 
@@ -39,6 +40,53 @@ export function DerivationStatusDot({ status }: { status: DerivationStatus }) {
       <span aria-label={DERIVATION_STATUS_WORDS[status]} role="img" {...stylex.props(styles.dot, styles[status])} />
     </Tooltip>
   );
+}
+
+// The chips below are the review UI's remaining one-off states, named so each meaning has one shape.
+
+// Connected is the green of what reaches agents, not connected the gray of what doesn't; Can't tell stays yellow.
+const HOST_CONNECTION_TONES: Record<AgentHostConnection["state"], { word: string; color: string }> = {
+  connected: { word: "Connected", color: "tastebud" },
+  "not-connected": { word: "Not connected", color: "gray" },
+  unknown: { word: "Can't tell", color: "yellow" },
+};
+
+/** Whether an agent host's own config wires Tastebud to this store, as Settings reads it. */
+export function HostConnectionChip({ state }: { state: AgentHostConnection["state"] }) {
+  const { word, color } = HOST_CONNECTION_TONES[state];
+  return (
+    <Badge color={color} w="fit-content">
+      {word}
+    </Badge>
+  );
+}
+
+/** A proposal's scope Tastebud guessed from where the agent was working, until the owner touches it. */
+export function ScopeGuessedChip() {
+  return (
+    <Tooltip label="Guessed from where the agent was working" withArrow>
+      <Badge color="gray">guessed</Badge>
+    </Tooltip>
+  );
+}
+
+/** A path the place resolver lands nowhere: orange, as a scope that holds something back is. */
+export function NoPlaceChip() {
+  return <Badge color="orange">No place</Badge>;
+}
+
+/** Whether every place in use is reached by one of the kept test paths, or how many aren't. */
+export function KeptPathReachChip({ unreached }: { unreached: number }) {
+  return (
+    <Badge color={unreached > 0 ? "orange" : "tastebud"}>
+      {unreached > 0 ? `${unreached} ${unreached === 1 ? "place" : "places"} unreached` : "All reached"}
+    </Badge>
+  );
+}
+
+/** A decision that only changed its reason: the status stays as it was, so this is an event, not a state. */
+export function ReasonChangedChip() {
+  return <Badge color="gray">Reason changed</Badge>;
 }
 
 // Waiting blue, in force green, refused red, out of force gray: colour is reserved for state.

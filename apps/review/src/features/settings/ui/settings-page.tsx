@@ -21,6 +21,7 @@ import { type ReactNode, useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
+import { InlineDisclosure } from "#review/shared/ui/inline-disclosure.tsx";
 import { capitalize, describeKindDelivery, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
@@ -47,7 +48,6 @@ const styles = stylex.create({
 
 function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   const catalog = useReviewCatalog();
-  const [open, setOpen] = useState(false);
   const sources = (catalog?.sourceKinds ?? []).filter((source) => kind.sources.includes(source.key));
   return (
     <Paper p="md">
@@ -77,21 +77,11 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
             </Text>
           </FactRow>
         </Box>
-        <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open}>
-          <Group gap="2xs">
-            <ChevronRight
-              size={13}
-              color="var(--mantine-color-gray-6)"
-              {...stylex.props(styles.chevron, open && styles.chevronOpen)}
-            />
-            <SupportingText tier="secondary">Proposal prompt agents read</SupportingText>
-          </Group>
-        </UnstyledButton>
-        <Collapse expanded={open}>
+        <InlineDisclosure label="Proposal prompt agents read">
           <Code block fz="xs" {...stylex.props(styles.prompt)}>
             {kind.proposalPrompt}
           </Code>
-        </Collapse>
+        </InlineDisclosure>
       </Stack>
     </Paper>
   );

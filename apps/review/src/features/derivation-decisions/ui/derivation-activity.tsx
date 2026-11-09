@@ -1,30 +1,19 @@
 /** A derivation's Activity section: proposal, decisions and notes in one feed, with the note composer at its foot. */
-import { Anchor, Collapse, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
+import { Box, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { DerivationView } from "@tastebud/core/record-views";
 import type { DecisionRecord } from "@tastebud/core/records";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 import { shortIdOf } from "@tastebud/core/taste-vocabulary";
-import {
-  ArrowRight,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Inbox,
-  type LucideIcon,
-  MessageSquare,
-  PencilLine,
-  Sparkles,
-  Undo2,
-  X,
-} from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { ArrowRight, Check, Inbox, type LucideIcon, MessageSquare, PencilLine, Sparkles, Undo2, X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { describeAuthor, formatTimeAgo } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { ActivityTimeline, type ActivityTimelineEvent } from "#review/shared/ui/activity-timeline.tsx";
+import { InlineDisclosure } from "#review/shared/ui/inline-disclosure.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
@@ -76,21 +65,14 @@ function WeighedRecordLink({ id }: { id: string }) {
 
 /** The reason the rail already shows, behind a disclosure so the feed doesn't say it twice. */
 function FoldedReason({ reason }: { reason: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Stack gap="3xs" mt="3xs">
-      <Anchor component="button" size="xs" c="dimmed" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <Group gap="3xs" wrap="nowrap" component="span">
-          {open ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
-          Reason
-        </Group>
-      </Anchor>
-      <Collapse expanded={open}>
+    <Box mt="3xs">
+      <InlineDisclosure label="Reason">
         <Text size="sm" {...stylex.props(styles.prose)}>
           “{reason}”
         </Text>
-      </Collapse>
-    </Stack>
+      </InlineDisclosure>
+    </Box>
   );
 }
 
