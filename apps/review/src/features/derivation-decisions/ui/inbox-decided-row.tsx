@@ -3,7 +3,7 @@
  * can take it back. Undo shows only while that decision is still the newest on record: once
  * anything else decides it, undoing would overwrite a decision this row never saw.
  */
-import { Badge, Button, Group, Paper, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
@@ -14,11 +14,13 @@ import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 
 import { DECISION_OUTCOME_LABELS } from "./review-session-list.tsx";
+import { scopeButtonPhrase } from "./scope-draft.ts";
 import type { UndoableReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
   row: { backgroundColor: "var(--mantine-color-gray-0)" },
   shrinkable: { minWidth: 0, flex: 1 },
+  noShrink: { flexShrink: 0 },
 });
 
 /**
@@ -58,20 +60,29 @@ export function InboxDecidedRow({
   const latestId = detail.data?.derivation?.decisions.at(-1)?.id;
   const canUndo = undoable !== undefined && latestId === undoable.decisionId;
   const outcome = undoable === undefined ? undefined : DECISION_OUTCOME_LABELS[undoable.outcome];
+  // Where it was believed, read back from the store, so a batch or an edited scope reads the same.
+  const acceptedScope = undoable?.outcome === "accept" ? detail.data?.derivation?.effectiveScope : undefined;
   return (
     <Paper px="md" py="xs" {...stylex.props(styles.row)}>
       {canUndo && latest && !undoing && <UndoLatestHotkey onUndo={onUndo} />}
-      <Group justify="space-between" wrap="nowrap" gap="md">
-        <Group gap="xs" wrap="nowrap" {...stylex.props(styles.shrinkable)}>
-          {outcome !== undefined && (
-            <Badge size="sm" color={outcome.color}>
-              {outcome.word}
-            </Badge>
-          )}
+      <Group justify="space-between" wrap="nowrap" gap="sm">
+        <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
+          <Group gap="xs" wrap="nowrap">
+            {outcome !== undefined && (
+              <Badge size="sm" color={outcome.color} {...stylex.props(styles.noShrink)}>
+                {outcome.word}
+              </Badge>
+            )}
+            {acceptedScope !== undefined && (
+              <Text size="sm" fw={500} truncate>
+                {scopeButtonPhrase(acceptedScope)}
+              </Text>
+            )}
+          </Group>
           <Text size="sm" c="dimmed" truncate>
             {statement}
           </Text>
-        </Group>
+        </Stack>
         <Group gap="2xs" wrap="nowrap">
           {canUndo && (
             <Button

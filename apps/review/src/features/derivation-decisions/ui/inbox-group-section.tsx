@@ -1,11 +1,11 @@
 /**
- * One scope-and-subject group of the inbox: its header, batch accept for the cards that need no
- * review, and the cards themselves. A batch locks the cards it queued until each one is written, so
+ * One scope-and-subject group of the inbox queue: its header, batch accept for the cards that need no
+ * review, and the rows themselves. A batch locks the cards it queued until each one is written, so
  * nothing it counted as unchanged can be edited under it.
  */
 import { Alert, Button, Group, Paper, Stack, Text, Title, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { InboxGroup } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { type DerivationScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
@@ -13,16 +13,12 @@ import { CheckCheck, Globe } from "lucide-react";
 import { type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
-import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { STORE_WRITE_STALES } from "#review/shared/query-keys.ts";
-import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
-import { AnchorLink, ButtonLink } from "#review/shared/ui/router-links.tsx";
+import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 
 import type { InboxQueueEntry } from "./inbox-queue.ts";
-import { sendReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
@@ -37,19 +33,12 @@ const styles = stylex.create({
   gone: { borderStyle: "dashed", backgroundColor: "var(--mantine-color-gray-0)" },
 });
 
-/** The Places page node that lists what applies in a scope; a scope of several places has no one node. */
-const placesNodeOf = (scope: DerivationScope): string | undefined => {
-  if (scope.scope === "global") return GLOBAL_PLACE_NODE;
-  const [only, ...rest] = scope.places;
-  return rest.length === 0 ? only : undefined;
-};
-
 /** The group's scope as a section title: the place names themselves, not chips. */
 function ScopeTitle({ scope, known }: { scope: DerivationScope; known: KnownPlaces }) {
   if (scope.scope === "global") {
     return (
       <Group gap="xxs" wrap="nowrap">
-        <Globe size={16} color="var(--mantine-color-orange-6)" aria-hidden />
+        <Globe size={16} aria-hidden />
         <Title order={4}>Everywhere</Title>
       </Group>
     );
@@ -126,8 +115,11 @@ const subscribeToBatchQueue = (listener: () => void) => {
 };
 const readBatchQueuedIds = () => batchQueuedIds;
 
-function useBatchAccept(onAccepted: (id: string) => void, groupIds: ReadonlyArray<string>) {
-  const queryClient = useQueryClient();
+/**
+ * Accepts each card through the card itself, so every one folds to its outcome with its own Undo just
+ * as a single decision does. `acceptOne` resolves to the refusal sentence, or undefined once it landed.
+ */
+function useBatchAccept(acceptOne: (id: string) => Promise<string | undefined>, groupIds: ReadonlyArray<string>) {
   const allQueued = useSyncExternalStore(subscribeToBatchQueue, readBatchQueuedIds, readBatchQueuedIds);
   const queued = new Set(groupIds.filter((id) => allQueued.has(id)));
   const [failures, setFailures] = useState<ReadonlyArray<{ id: string; sentence: string }>>([]);
@@ -139,18 +131,14 @@ function useBatchAccept(onAccepted: (id: string) => void, groupIds: ReadonlyArra
     const acceptInOrder = async (remaining: ReadonlyArray<string>): Promise<void> => {
       const [id, ...rest] = remaining;
       if (id === undefined) return;
-      const outcome = await sendReviewDecision(id, { outcome: "accept" }).catch((error: Error) => ({
-        ok: false as const,
-        failure: { sentence: error.message, category: "broken" as const, tag: "Network" },
-      }));
-      if (outcome.ok) onAccepted(id);
-      else failed.push({ id, sentence: outcome.failure.sentence });
+      // Unqueued as its turn comes, so the card shows its own decision pending rather than "Queued".
       updateBatchQueuedIds((previous) => new Set([...previous].filter((kept) => kept !== id)));
+      const refusal = await acceptOne(id);
+      if (refusal !== undefined) failed.push({ id, sentence: refusal });
       await acceptInOrder(rest);
     };
     await acceptInOrder(ids);
     setFailures(failed);
-    void refreshReviewQueriesAfterWrite(queryClient, STORE_WRITE_STALES);
   };
   return { acceptAll, queued, pending: queued.size > 0, failures };
 }
@@ -164,7 +152,7 @@ export function InboxGroupSection({
   engagedIds,
   known,
   renderEntry,
-  onAccepted,
+  acceptOne,
 }: {
   group: InboxGroup;
   entries: ReadonlyArray<InboxQueueEntry>;
@@ -175,10 +163,10 @@ export function InboxGroupSection({
   engagedIds: ReadonlySet<string>;
   known: KnownPlaces;
   renderEntry: (entry: InboxQueueEntry, queued: boolean) => ReactNode;
-  onAccepted: (id: string) => void;
+  acceptOne: (id: string) => Promise<string | undefined>;
 }) {
   const batch = useBatchAccept(
-    onAccepted,
+    acceptOne,
     entries.map((entry) => entry.id),
   );
   const live = entries.filter((entry) => !entry.gone).length;
@@ -186,41 +174,38 @@ export function InboxGroupSection({
   const needReview = live - ready.length;
   // Every card in a group shares its subject, so the first speaks for the group.
   const [first] = group.cards;
-  const placesNode = placesNodeOf(group.scope);
   return (
-    <Stack gap="sm" component="section">
-      <Group justify="space-between" wrap="nowrap" gap="md" {...stylex.props(styles.groupHeader)}>
-        <Group gap="sm" {...stylex.props(styles.shrinkable)}>
-          <ScopeTitle scope={group.scope} known={known} />
-          <Text c="dimmed">
-            {live} waiting {first !== undefined && <SubjectLabel summary={first.derivation} owner={owner} />}
-          </Text>
-          {placesNode !== undefined && (
-            <AnchorLink to="/places" search={{ place: placesNode }} size="sm">
-              What applies here
-            </AnchorLink>
+    <Stack gap="xs" component="section">
+      <Stack gap="2xs" {...stylex.props(styles.groupHeader)}>
+        <Group justify="space-between" wrap="wrap" gap="xs">
+          <Group gap="sm" {...stylex.props(styles.shrinkable)}>
+            <ScopeTitle scope={group.scope} known={known} />
+            <Text size="sm" c="dimmed">
+              {live} waiting {first !== undefined && <SubjectLabel summary={first.derivation} owner={owner} />}
+            </Text>
+          </Group>
+          {(ready.length > 1 || batch.pending) && (
+            <Tooltip
+              label={
+                needReview > 0 && !batch.pending
+                  ? `${needReview} edited, open or overlapping are left for you to decide one by one`
+                  : "Each one can be undone after"
+              }
+              withArrow
+            >
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<CheckCheck size={14} />}
+                loading={batch.pending}
+                onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
+              >
+                {`${kind.acceptLabel} ${ready.length === 2 ? "both" : `all ${ready.length}`} as proposed`}
+              </Button>
+            </Tooltip>
           )}
         </Group>
-        {(ready.length > 1 || batch.pending) && (
-          <Group gap="xs" wrap="nowrap">
-            {needReview > 0 && !batch.pending && (
-              <Tooltip label="Edited, open and overlapping cards are left for you to decide one by one" withArrow>
-                <Text size="xs" c="dimmed">
-                  {needReview} to review
-                </Text>
-              </Tooltip>
-            )}
-            <Button
-              variant="default"
-              leftSection={<CheckCheck size={14} />}
-              loading={batch.pending}
-              onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
-            >
-              {`${kind.acceptLabel} ${ready.length === 2 ? "both" : `all ${ready.length}`} as proposed`}
-            </Button>
-          </Group>
-        )}
-      </Group>
+      </Stack>
       {batch.failures.length > 0 && (
         <Alert color="red" variant="light" title="Some weren't accepted">
           <Stack gap="2xs">
