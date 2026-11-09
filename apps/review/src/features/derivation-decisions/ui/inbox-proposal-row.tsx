@@ -14,10 +14,10 @@ const styles = stylex.create({
   row: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: "2px",
     width: "100%",
-    paddingBlock: "10px",
-    paddingInline: "12px",
+    paddingBlock: "6px",
+    paddingInline: "10px",
     borderRadius: "var(--mantine-radius-md)",
     borderWidth: "1px",
     borderStyle: "solid",
@@ -36,6 +36,8 @@ const styles = stylex.create({
     backgroundColor: "var(--mantine-color-tastebud-0)",
   },
   statement: { fontWeight: 600, lineHeight: 1.35 },
+  // One line of chips and flags; what doesn't fit is in the pane, which shows everything.
+  details: { overflow: "hidden" },
 });
 
 /** A word flag on a row; `caution` ones are worth reading before believing. */
@@ -69,13 +71,13 @@ export function InboxProposalRow({
       onClick={onSelect}
       {...stylex.props(styles.row, selected && styles.selected)}
     >
-      <Text size="sm" lineClamp={2} {...stylex.props(styles.statement)}>
+      <Text size="sm" truncate="end" title={statement} {...stylex.props(styles.statement)}>
         {statement}
       </Text>
-      <Group gap="xs" wrap="wrap">
+      <Group gap="xs" wrap="nowrap" {...stylex.props(styles.details)}>
         {scope !== undefined && <ScopeChips scope={scope} linked={false} />}
         {flags.map((flag) => (
-          <Text key={flag.text} size="xs" c={flag.caution ? "orange.8" : "dimmed"}>
+          <Text key={flag.text} size="xs" c={flag.caution ? "orange.8" : "dimmed"} span>
             {flag.text}
           </Text>
         ))}

@@ -19,9 +19,12 @@ import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 
 import type { InboxQueueEntry } from "./inbox-queue.ts";
+import type { InboxBatch } from "./use-inbox-card-triage.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
+  titleSide: { minWidth: 0, flex: 1 },
+  noShrink: { flexShrink: 0 },
   groupHeader: {
     position: "sticky",
     top: "var(--review-shell-header-height)",
@@ -119,11 +122,14 @@ const readBatchQueuedIds = () => batchQueuedIds;
  * Accepts each card through the card itself, so every one folds to its outcome with its own Undo just
  * as a single decision does. `acceptOne` resolves to the refusal sentence, or undefined once it landed.
  */
-function useBatchAccept(acceptOne: (id: string) => Promise<string | undefined>, groupIds: ReadonlyArray<string>) {
+function useBatchAccept(
+  acceptOne: (id: string, batch: InboxBatch) => Promise<string | undefined>,
+  groupIds: ReadonlyArray<string>,
+) {
   const allQueued = useSyncExternalStore(subscribeToBatchQueue, readBatchQueuedIds, readBatchQueuedIds);
   const queued = new Set(groupIds.filter((id) => allQueued.has(id)));
   const [failures, setFailures] = useState<ReadonlyArray<{ id: string; sentence: string }>>([]);
-  const acceptAll = async (ids: ReadonlyArray<string>) => {
+  const acceptAll = async (ids: InboxBatch) => {
     updateBatchQueuedIds((previous) => new Set([...previous, ...ids]));
     setFailures([]);
     const failed: Array<{ id: string; sentence: string }> = [];
@@ -133,7 +139,7 @@ function useBatchAccept(acceptOne: (id: string) => Promise<string | undefined>, 
       if (id === undefined) return;
       // Unqueued as its turn comes, so the card shows its own decision pending rather than "Queued".
       updateBatchQueuedIds((previous) => new Set([...previous].filter((kept) => kept !== id)));
-      const refusal = await acceptOne(id);
+      const refusal = await acceptOne(id, ids);
       if (refusal !== undefined) failed.push({ id, sentence: refusal });
       await acceptInOrder(rest);
     };
@@ -163,7 +169,7 @@ export function InboxGroupSection({
   engagedIds: ReadonlySet<string>;
   known: KnownPlaces;
   renderEntry: (entry: InboxQueueEntry, queued: boolean) => ReactNode;
-  acceptOne: (id: string) => Promise<string | undefined>;
+  acceptOne: (id: string, batch: InboxBatch) => Promise<string | undefined>;
 }) {
   const batch = useBatchAccept(
     acceptOne,
@@ -175,10 +181,11 @@ export function InboxGroupSection({
   // Every card in a group shares its subject, so the first speaks for the group.
   const [first] = group.cards;
   return (
-    <Stack gap="xs" component="section">
+    <Stack gap="2xs" component="section">
       <Stack gap="2xs" {...stylex.props(styles.groupHeader)}>
-        <Group justify="space-between" wrap="wrap" gap="xs">
-          <Group gap="sm" {...stylex.props(styles.shrinkable)}>
+        {/* Never wraps, so batch Believe sits at the right of the title row in every group. */}
+        <Group justify="space-between" wrap="nowrap" gap="xs">
+          <Group gap="sm" {...stylex.props(styles.titleSide)}>
             <ScopeTitle scope={group.scope} known={known} />
             <Text size="sm" c="dimmed">
               {live} waiting {first !== undefined && <SubjectLabel summary={first.derivation} owner={owner} />}
@@ -197,6 +204,7 @@ export function InboxGroupSection({
                 size="xs"
                 variant="default"
                 leftSection={<CheckCheck size={14} />}
+                {...stylex.props(styles.noShrink)}
                 loading={batch.pending}
                 onClick={() => void batch.acceptAll(ready.map((entry) => entry.id))}
               >
