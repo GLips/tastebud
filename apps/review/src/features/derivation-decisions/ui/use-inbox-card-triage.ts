@@ -126,7 +126,6 @@ export function useInboxCardTriage({
   };
   const accept = () => {
     if (decision.pending || queued) return;
-    if (draft !== undefined && !isCompleteScope(draft)) return setPickerOpen(true);
     setPickerOpen(false);
     if (!needsPreview) return void submitAccept([]);
     setConflict(false);

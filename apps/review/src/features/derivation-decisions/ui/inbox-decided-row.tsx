@@ -1,8 +1,8 @@
 /**
  * A card decided here, folded to its outcome where it stood, so the reviewer sees what happened and
  * can take it back. Undo shows only while that decision is still the newest on record: once
- * anything else decides it, undoing would overwrite a decision this row never saw. A row from a batch
- * also offers to undo the whole batch, as `u` does.
+ * anything else decides it, undoing would overwrite a decision this row never saw. A batch's
+ * last row also offers Undo all, which is what `u` does.
  */
 import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -103,7 +103,7 @@ export function InboxDecidedRow({
               Undo
             </Button>
           )}
-          {canUndo && latest?.undoAll !== undefined && (
+          {canUndo && latest?.last === true && latest.undoAll !== undefined && (
             <Button
               variant="subtle"
               color="gray"
