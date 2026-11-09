@@ -13,6 +13,7 @@ export function useInboxSelection({
   order,
   linkedCard,
   holdsKeyboard,
+  onOpen,
 }: {
   /** The ids j/k step through, in the order shown. */
   order: ReadonlyArray<string>;
@@ -20,6 +21,8 @@ export function useInboxSelection({
   linkedCard: string | undefined;
   /** Whether a card is mid-decision, which keeps j/k from moving away from it. */
   holdsKeyboard: (id: string) => boolean;
+  /** Opens a card's full page: Enter or o. */
+  onOpen: (id: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | undefined>(linkedCard ?? leftSelectedCard);
   const [seenLink, setSeenLink] = useState(linkedCard);
@@ -41,9 +44,17 @@ export function useInboxSelection({
     const at = effectiveId === undefined ? -1 : order.indexOf(effectiveId);
     setSelectedId(order[Math.max(0, Math.min(order.length - 1, at + by))]);
   };
+  const open = (event: KeyboardEvent) => {
+    // Enter on a focused control is that control's own; only a row (or nothing focused) hands it to the page.
+    const { target } = event;
+    const onControl = target instanceof Element && target.closest("button:not([aria-current]), a, [role=button]");
+    if (effectiveId !== undefined && !onControl) onOpen(effectiveId);
+  };
   useHotkeys([
     { hotkey: "J", callback: move(1), options: { enabled: !engaged } },
     { hotkey: "K", callback: move(-1), options: { enabled: !engaged } },
+    { hotkey: "O", callback: open, options: { enabled: !engaged } },
+    { hotkey: "Enter", callback: open, options: { enabled: !engaged, preventDefault: false } },
   ]);
   return { effectiveId, select: setSelectedId, linkedCard: seenLink };
 }
