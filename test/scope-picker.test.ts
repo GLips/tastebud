@@ -35,13 +35,13 @@ const repoRowsOf = (draft: ScopeDraft): ReadonlyArray<PlacePickerOption> =>
     search: "",
   }).find((group) => group.heading === "Repos")?.options ?? [];
 
-test("a repo's folders are listed under it, reading 'only' while the repo is chosen", () => {
+test("a repo's folders are listed under it, by their path alone", () => {
   expect(
     repoRowsOf(PROPOSED_WEB).map((option) => option.kind === "place" && [option.label, option.nested, option.extra]),
   ).toEqual([
     [BILLING, false, "also"],
     [WEB, false, undefined],
-    ["only apps/checkout", true, undefined],
+    ["apps/checkout", true, undefined],
   ]);
 });
 

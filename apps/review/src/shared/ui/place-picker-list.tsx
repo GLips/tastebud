@@ -15,7 +15,7 @@ import {
   type ScopeDraft,
   type ScopeSideAction,
 } from "@tastebud/core/places";
-import { Check, CornerDownRight, Globe, Plus, X } from "lucide-react";
+import { Check, CornerDownRight, Globe, Plus, Search, X } from "lucide-react";
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
@@ -132,7 +132,7 @@ function PlacePickerRow({
             <Text size="sm" fw={500}>
               Everywhere
             </Text>
-            <RowNote>{option.proposed ? "proposed" : "every place, including future ones"}</RowNote>
+            {option.proposed && <RowNote>proposed</RowNote>}
           </Box>
           <Box component="span" />
         </Box>
@@ -266,6 +266,7 @@ export function PlacePickerList({
           value={search}
           aria-label="Search places, or type a new one"
           placeholder="Search places, or type a folder or name"
+          leftSection={<Search size={13} aria-hidden />}
           onChange={(event) => {
             const next = event.currentTarget.value;
             setSearch(next);
