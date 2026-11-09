@@ -11,6 +11,7 @@ import { Check, Inbox, Undo2, X } from "lucide-react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 
+import { acceptInLabel, acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
@@ -24,18 +25,16 @@ const ACCEPT_CONSEQUENCES: Partial<Record<DerivationView["status"], string>> = {
   retracted: "It becomes accepted again and applies where shown above.",
 };
 
-/** The scope row's label, read with the status: only an accepted one applies anywhere right now. */
-const SCOPE_ROW_LABELS: Record<DerivationView["status"], string> = {
-  pending: "Proposed for",
-  accepted: "Applies in",
-  rejected: "Accept for",
-  retracted: "Accept for",
-  superseded: "Applied in",
+/** The scope row's label: where an accepted one applies, or the action the accept button takes. */
+const scopeRowLabelOf = (status: DerivationView["status"], acceptLabel: string): string => {
+  if (status === "accepted") return "Applies in";
+  if (status === "superseded") return "Applied in";
+  return acceptInLabel(acceptLabel);
 };
 
-function RejectButton({ review }: { review: DerivationReview }) {
+function RejectButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   return (
-    <Tooltip label="Say why it’s wrong; you can still accept it later" withArrow>
+    <Tooltip label={`Say why it’s wrong; you can still ${acceptItPhrase(acceptLabel)} later`} withArrow>
       <Button
         variant="default"
         leftSection={<X size={14} />}
@@ -71,7 +70,6 @@ function ReopenButton({ review }: { review: DerivationReview }) {
 function AcceptButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   return (
     <Button
-      data-primary-action
       leftSection={<Check size={14} />}
       rightSection={<Kbd size="xs">A</Kbd>}
       loading={review.decision.pending}
@@ -83,9 +81,9 @@ function AcceptButton({ review, acceptLabel }: { review: DerivationReview; accep
   );
 }
 
-function RetractButton({ review }: { review: DerivationReview }) {
+function RetractButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
   return (
-    <Tooltip label="Stop applying it; you can accept it again later" withArrow>
+    <Tooltip label={`Stop applying it; you can ${acceptItPhrase(acceptLabel)} again later`} withArrow>
       <Button
         variant="default"
         leftSection={<Undo2 size={14} />}
@@ -107,7 +105,7 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
     case "pending":
       return (
         <Group gap="xxs" wrap="nowrap">
-          <RejectButton review={review} />
+          <RejectButton review={review} acceptLabel={acceptLabel} />
           {accept}
         </Group>
       );
@@ -115,8 +113,8 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
       return (
         <Group gap="xxs" wrap="nowrap">
           <ReopenButton review={review} />
-          <RejectButton review={review} />
-          <RetractButton review={review} />
+          <RejectButton review={review} acceptLabel={acceptLabel} />
+          <RetractButton review={review} acceptLabel={acceptLabel} />
           {draft !== undefined && accept}
         </Group>
       );
@@ -131,7 +129,7 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
       return (
         <Group gap="xxs" wrap="nowrap">
           <ReopenButton review={review} />
-          <RejectButton review={review} />
+          <RejectButton review={review} acceptLabel={acceptLabel} />
           {accept}
         </Group>
       );
@@ -144,14 +142,22 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
  * Where it applies, as the picker: one click opens it, and the accept button follows the draft. An
  * accepted one keeps applying where it does until the accept verb is pressed.
  */
-export function DerivationScopeRow({ review, known }: { review: DerivationReview; known: KnownPlaces }) {
+export function DerivationScopeRow({
+  review,
+  acceptLabel,
+  known,
+}: {
+  review: DerivationReview;
+  acceptLabel: string;
+  known: KnownPlaces;
+}) {
   const { view, draft, shownScope, baseScope } = review;
   const restoreWords = view.status === "pending" ? "Restore proposed scope" : "Restore previous scope";
   return (
     <Stack gap="3xs">
       <Group gap="xs" wrap="wrap">
         <Text size="xs" c="dimmed">
-          {SCOPE_ROW_LABELS[view.status]}
+          {scopeRowLabelOf(view.status, acceptLabel)}
         </Text>
         <ScopePicker
           opened={review.pickerOpen}
@@ -230,7 +236,7 @@ export function DerivationReviewPanels({
   acceptLabel: string;
   known: KnownPlaces;
 }) {
-  const { view, mode, setMode, decision, baseScope, shownScope, acknowledged } = review;
+  const { view, mode, setMode, decision, baseScope, shownScope } = review;
   return (
     <>
       {decision.failure !== undefined && decision.failure.tag !== "WideningNeedsAcknowledgement" && (
@@ -257,13 +263,6 @@ export function DerivationReviewPanels({
           verb={acceptLabel}
           consequence={ACCEPT_CONSEQUENCES[view.status]}
           active
-          acknowledged={acknowledged}
-          onAcknowledge={(matchId, checked) => {
-            const next = new Set(acknowledged);
-            if (checked) next.add(matchId);
-            else next.delete(matchId);
-            review.setAcknowledged(next);
-          }}
           conflict={review.conflict}
           pending={decision.pending}
           labels={known.labels}

@@ -86,7 +86,7 @@ function DerivationProperties({
 
 /** One decision in plain words, read against the decision before it. */
 const decisionHeadline = (entry: DecisionRecord, previous: DecisionRecord | undefined): string => {
-  if (entry.outcome === "reject") return "Rejected";
+  if (entry.outcome === "reject") return previous?.outcome === "reject" ? "Reason changed" : "Rejected";
   if (entry.outcome === "retract") return "Retracted";
   if (entry.outcome === "reopen") return "Put back in the inbox";
   switch (previous?.outcome) {
@@ -112,21 +112,9 @@ function EntryWhen({ by, at, owner }: { by: string; at: string; owner: string })
   );
 }
 
-/**
- * A decision's quieter second line, when it has one: the scope an accept set, the near repeats it
- * weighed, a reason. The current rejection's reason is left out: the status card already quotes it.
- */
-function DecisionEntryDetail({
-  entry,
-  reasonQuotedAbove,
-  known,
-}: {
-  entry: DecisionRecord;
-  reasonQuotedAbove: boolean;
-  known: KnownPlaces;
-}) {
-  const reason = reasonQuotedAbove ? undefined : entry.reason;
-  if (entry.scope === undefined && entry.acknowledges === undefined && reason === undefined) return null;
+/** A decision's quieter second line, when it has one: the scope an accept set and the near repeats it weighed. */
+function DecisionEntryDetail({ entry, known }: { entry: DecisionRecord; known: KnownPlaces }) {
+  if (entry.scope === undefined && entry.acknowledges === undefined) return null;
   return (
     <Group gap="2xs" mt="3xs">
       {entry.scope !== undefined && (
@@ -141,20 +129,62 @@ function DecisionEntryDetail({
           weighed {entry.acknowledges.length} similar
         </Text>
       )}
-      {reason !== undefined && (
-        <Text size="xs" c="dark.4">
-          “{reason}”
-        </Text>
-      )}
     </Group>
   );
 }
 
+/** One line of History: a decision, or a put-back and the decisions that undid it, read as one event. */
+interface HistoryLine {
+  readonly last: DecisionRecord;
+  readonly headline: string;
+  readonly color: string;
+  /** The single decision whose scope and weighing show under the headline; none for an undone put-back. */
+  readonly detail: DecisionRecord | undefined;
+}
+
+const sameScopeFields = (left: DecisionRecord, right: DecisionRecord): boolean =>
+  left.scope === right.scope && (left.places ?? []).join("\n") === (right.places ?? []).join("\n");
+
+/**
+ * How many decisions after a put-back restore exactly where it stood before it, the way Undo writes
+ * them: the same accept, the same reject, or an accept then a retract. Zero when they don't.
+ */
+const undoLengthAfterReopen = (decisions: ReadonlyArray<DecisionRecord>, reopenIndex: number): number => {
+  const before = decisions[reopenIndex - 1];
+  const [first, second] = decisions.slice(reopenIndex + 1);
+  if (before === undefined || first === undefined) return 0;
+  if (before.outcome === "accept") return first.outcome === "accept" && sameScopeFields(before, first) ? 1 : 0;
+  if (before.outcome === "reject") return first.outcome === "reject" && first.reason === before.reason ? 1 : 0;
+  if (before.outcome === "retract") return first.outcome === "accept" && second?.outcome === "retract" ? 2 : 0;
+  return 0;
+};
+
+/** The decisions as History lines, oldest first. Every record stays on file; only the reading groups them. */
+const historyLinesOf = (decisions: ReadonlyArray<DecisionRecord>): Array<HistoryLine> => {
+  const lines: Array<HistoryLine> = [];
+  for (let index = 0; index < decisions.length; index += 1) {
+    const entry = decisions[index];
+    if (entry === undefined) continue;
+    const undone = entry.outcome === "reopen" ? undoLengthAfterReopen(decisions, index) : 0;
+    const last = decisions[index + undone] ?? entry;
+    lines.push(
+      undone > 0
+        ? { last, headline: "Put back, then undone", color: DECISION_BULLET_COLORS.reopen, detail: undefined }
+        : {
+            last,
+            headline: decisionHeadline(entry, decisions[index - 1]),
+            color: DECISION_BULLET_COLORS[entry.outcome],
+            detail: entry,
+          },
+    );
+    index += undone;
+  }
+  return lines;
+};
+
+/** Newest first, one line per event. Reasons show on hover only: the card quotes the one that governs. */
 function DecisionHistory({ view, owner, known }: { view: DerivationView; owner: string; known: KnownPlaces }) {
-  const newestFirst = view.decisions
-    .map((entry, index) => ({ entry, previous: view.decisions[index - 1] }))
-    .toReversed();
-  const quotedByCard = view.status === "rejected" ? view.decisions.at(-1)?.id : undefined;
+  const newestFirst = historyLinesOf(view.decisions).toReversed();
   return (
     <Paper p="md">
       <Text size="sm" fw={600} mb="sm">
@@ -162,18 +192,18 @@ function DecisionHistory({ view, owner, known }: { view: DerivationView; owner: 
       </Text>
       {/* Timeline marks items active by cloning its direct children, so Timeline.Item stays at the call site. */}
       <Timeline bulletSize={10} lineWidth={2} active={0}>
-        {newestFirst.map(({ entry, previous }) => (
+        {newestFirst.map((line) => (
           <Timeline.Item
-            key={entry.id}
-            color={DECISION_BULLET_COLORS[entry.outcome]}
+            key={line.last.id}
+            color={line.color}
             title={
-              <Text size="sm" fw={600}>
-                {decisionHeadline(entry, previous)}
-                <EntryWhen by={entry.by} at={entry.at} owner={owner} />
+              <Text size="sm" fw={600} title={line.detail?.reason}>
+                {line.headline}
+                <EntryWhen by={line.last.by} at={line.last.at} owner={owner} />
               </Text>
             }
           >
-            <DecisionEntryDetail entry={entry} reasonQuotedAbove={entry.id === quotedByCard} known={known} />
+            {line.detail !== undefined && <DecisionEntryDetail entry={line.detail} known={known} />}
           </Timeline.Item>
         ))}
         <Timeline.Item

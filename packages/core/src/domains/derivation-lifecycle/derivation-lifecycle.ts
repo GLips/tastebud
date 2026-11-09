@@ -60,7 +60,8 @@ export const decisionInvalidReason = (
     return `this ${derivation.kind} is superseded by its accepted revision; decide on the revision instead`;
   if (outcome === "retract")
     return status === "accepted" ? undefined : `only an accepted ${derivation.kind} can be retracted (it is ${status})`;
-  if (outcome === "reject") return status === "rejected" ? `this ${derivation.kind} is already rejected` : undefined;
+  // Rejecting a rejected derivation again restates the reason: the latest reject's reason governs.
+  if (outcome === "reject") return undefined;
   if (outcome === "reopen") return status === "pending" ? `this ${derivation.kind} is already pending` : undefined;
   // Accepting an accepted derivation again is the owner moving it: the latest accept's scope governs.
   if (status === "accepted" || derivation.supersedes === undefined) return undefined;

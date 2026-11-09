@@ -185,10 +185,7 @@ export function InboxProposalCard({
   const [note, setNote] = useState<InboxNoteState>("closed");
   const proposed = view.proposedScope;
   const shownScope = draft ?? proposed;
-  const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(() => new Set());
-  // Acknowledgements belong to the scope they were given for: any change unchecks every box.
   const changeDraft = (next: ScopeDraft | undefined) => {
-    setAcknowledged(new Set());
     onDraftChange(next === undefined || isSameScope(proposed, next) ? undefined : next);
   };
   const override = scopeOverrideOf(proposed, draft);
@@ -415,13 +412,6 @@ export function InboxProposalCard({
               changes={changes}
               verb={kind.acceptLabel}
               active={selected}
-              acknowledged={acknowledged}
-              onAcknowledge={(id, checked) => {
-                const ids = new Set(acknowledged);
-                if (checked) ids.add(id);
-                else ids.delete(id);
-                setAcknowledged(ids);
-              }}
               conflict={conflict}
               pending={decision.pending}
               labels={known.labels}
