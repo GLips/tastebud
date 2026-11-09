@@ -1,20 +1,20 @@
+/** Recall's outcomes in plain words: why an item was left out, why nothing was sent, why it applies. */
 import { HOOK_OUTPUT_BUDGET_CHARS, HOOK_REPEAT_WINDOW_TURNS } from "@tastebud/core/hook-evidence";
 import type { CatalogView } from "@tastebud/core/kind-catalog";
 import type { TasteContext } from "@tastebud/core/places";
 import type { HookPayload, RecallExplainItem } from "@tastebud/core/recall";
-/** Recall's outcomes in plain words: why an item was left out, why the hook stayed silent, why it applies. */
 import type { ExcludedRecallHit, RecallExclusionReason, RecallResult } from "@tastebud/core/record-views";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { capitalize, findKindView } from "#review/shared/ui/kind-identity.tsx";
 
-/** Why an accepted recall hit is there on request rather than sent by the hook. */
+/** Why an accepted recall hit is there on request rather than sent with the prompt. */
 export const availableThroughRecallReason = (
   hit: Pick<RecallResult["accepted"][number], "kind" | "kindLabel" | "explanation">,
   catalog: CatalogView | undefined,
   hookLimit: number,
 ): string => {
-  if (hit.explanation.policy !== "pull") return `Not sent: the prompt hook sends at most ${hookLimit}`;
+  if (hit.explanation.policy !== "pull") return `Not sent: at most ${hookLimit} go with one prompt`;
   const kind = findKindView(catalog, hit.kind);
   return `${capitalize(kind?.plural ?? hit.kindLabel)} are only given when an agent asks`;
 };
@@ -51,17 +51,17 @@ export const matchedPlaceWording = (matched: string, known: KnownPlaces) =>
 export const hookSilenceWording = (hook: HookPayload, catalog: CatalogView | undefined): string | undefined => {
   switch (hook.silence) {
     case "unknown-context":
-      return "The context is unknown, so the hook stays silent rather than guess.";
+      return "Tastebud can't tell where the agent is, so it sends nothing rather than guess.";
     case "no-inject-kinds":
-      return "No kind in this store has the inject policy.";
+      return "No kind in this store is sent with prompts.";
     case "timed-out":
-      return `Timed out: building the payload took longer than ${catalog?.hook.budgetMs ?? 650} ms, so the hook stayed silent.`;
+      return `Finding matches took longer than ${catalog?.hook.budgetMs ?? 650} ms, so nothing was sent.`;
     case "no-matches":
-      return "None of what the hook may send here matches these words.";
+      return "Nothing that may be sent here matches these words.";
     case "recently-emitted":
       return `Everything it would send was already sent within the last ${HOOK_REPEAT_WINDOW_TURNS} turns.`;
     case "output-budget":
-      return `Nothing it would send fits the hook's ${HOOK_OUTPUT_BUDGET_CHARS}-character output budget.`;
+      return `Nothing it would send fits in ${HOOK_OUTPUT_BUDGET_CHARS} characters.`;
     case undefined:
       return "";
   }
@@ -71,26 +71,16 @@ type RecallReachedItem = Exclude<RecallExplainItem, { outcome: "excluded" }>;
 
 const RECALL_SECTION_WORDING: Record<RecallReachedItem["section"], (item: RecallReachedItem) => string> = {
   accepted: () => "Accepted.",
-  rejected: () => "You rejected this; recall tells agents so they don't propose it again.",
-  history: (item) => `${capitalize(item.status)}: recalled because history is on.`,
+  rejected: () => "You rejected this; agents are told so, so they don't propose it again.",
+  history: (item) => `${capitalize(item.status)}: shown because you included replaced and retracted.`,
 };
 
-function promptOutcomeReason(
-  id: string,
-  forThisPrompt: { readonly injected: ReadonlySet<string>; readonly recalled: ReadonlySet<string> },
-): string {
-  if (forThisPrompt.injected.has(id)) return "For this prompt: the hook injects it.";
-  if (forThisPrompt.recalled.has(id)) return "For this prompt: recall returns it.";
-  return "For this prompt: its words didn't match closely enough to be a candidate.";
-}
-
-/** Core's explanation in words, plus whether this prompt's recall and hook actually brought it up. */
+/** Core's explanation of one item, in words: whether it reaches agents where the inspector stands, and how. */
 export function recallExplanationLines(
   item: RecallExplainItem,
   catalog: CatalogView | undefined,
   context: TasteContext,
   known: KnownPlaces,
-  forThisPrompt: { readonly injected: ReadonlySet<string>; readonly recalled: ReadonlySet<string> },
 ): ReadonlyArray<string> {
   if (item.outcome === "excluded") return [`Excluded: ${exclusionReason(item, catalog, context, known)}.`];
   const matched = item.explanation.matchedPlace;
@@ -98,8 +88,7 @@ export function recallExplanationLines(
     RECALL_SECTION_WORDING[item.section](item),
     matched === "global" ? "It applies everywhere." : `It applies in ${known.labelOf(matched)}.`,
     item.outcome === "injected"
-      ? "The hook may inject it, and recall returns it, when a prompt's words match."
-      : "Recall returns it when a prompt's words match; the hook never sends it here.",
-    promptOutcomeReason(item.id, forThisPrompt),
+      ? "It is sent with a prompt whose words match, and agents can look it up."
+      : "Agents get it when they look up matching words; it is never sent with a prompt here.",
   ];
 }
