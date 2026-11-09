@@ -213,6 +213,8 @@ export function PlacePickerList({
   const [search, setSearch] = useState("");
   const [openingDraft] = useState(draft);
   const searchRef = useRef<HTMLInputElement>(null);
+  // When "+ Also" or ✕ last ran: a double click's second click lands on the row that moved under it.
+  const lastSideActionAt = useRef(0);
   const groups = placePickerGroupsOf({
     mode: scope === undefined ? "single" : "scope",
     draft,
@@ -225,27 +227,32 @@ export function PlacePickerList({
   // The store object is new on every render but its methods are stable. Depending on the object
   // re-ran the mount effect on any re-render, moving the selection to the chosen row (or none) after
   // a search had selected its first row, so Enter then did nothing.
-  const { updateSelectedOptionIndex, selectFirstOption } = combobox;
+  const { selectFirstOption } = combobox;
 
   // Once, on opening. Focus skips scrolling: a list mounting into a dropdown is unpositioned for a
   // frame, and a plain focus (autoFocus, focusSearchInput) jumps the page to where it briefly sits.
+  // Nothing is selected: Enter on an untouched list closes and keeps the scope, and never uses an
+  // unhighlighted row (which would collapse several chosen places to one).
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      searchRef.current?.focus({ preventScroll: true });
-      updateSelectedOptionIndex("active");
-    });
+    const frame = requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
-  }, [updateSelectedOptionIndex]);
+  }, []);
 
   // Enter takes the best match: the first row once anything is typed.
   useEffect(() => {
     if (search.trim() !== "") selectFirstOption();
   }, [search, selectFirstOption]);
 
-  // A place added from the search is listed among the known ones: show them again.
+  // The rows shift under a side action (a place added from the search is listed among the known
+  // ones), so the old selection would point at another row: Enter next would silently use it.
   const sideAction = (pick: ScopeSideAction) => {
+    // "+ Also" turns into ✕ where it stood: a double click must not add and then remove.
+    if (Date.now() - lastSideActionAt.current < 400) return;
+    lastSideActionAt.current = Date.now();
     scope?.onSideAction(pick);
     setSearch("");
+    combobox.resetSelectedOption();
+    searchRef.current?.focus({ preventScroll: true });
   };
 
   return (
@@ -260,8 +267,10 @@ export function PlacePickerList({
           aria-label="Search places, or type a new one"
           placeholder="Search places, or type a folder or name"
           onChange={(event) => {
-            setSearch(event.currentTarget.value);
-            combobox.updateSelectedOptionIndex();
+            const next = event.currentTarget.value;
+            setSearch(next);
+            // A cleared search selects nothing, as on opening; typed text selects its first row.
+            if (next.trim() === "") combobox.resetSelectedOption();
           }}
           // While open the menu owns Enter, ⌘↵ and Esc: none may reach the host's accept or back.
           // Esc in the capture phase: the popover closes on Esc while capturing, which unmounts this
@@ -302,6 +311,9 @@ export function PlacePickerList({
                 key={option.value}
                 value={option.value}
                 active={option.kind !== "typed" && option.chosen}
+                onClickCapture={(event) => {
+                  if (Date.now() - lastSideActionAt.current < 400) event.stopPropagation();
+                }}
               >
                 <PlacePickerRow option={option} known={known} scope={scope} onSideAction={sideAction} />
               </Combobox.Option>
