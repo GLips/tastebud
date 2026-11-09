@@ -1,28 +1,17 @@
-import {
-  Center,
-  Group,
-  Paper,
-  SegmentedControl,
-  Select,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-  UnstyledButton,
-} from "@mantine/core";
+import { Center, Group, Paper, SegmentedControl, Select, Stack, Table, Text, TextInput } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SourceRow } from "@tastebud/core/record-browsing";
 import { Schema } from "effect";
-import { ArrowDownUp, ChevronDown, ChevronRight, Search, UserRound } from "lucide-react";
+import { ArrowDownUp, Search, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { describeSpeaker, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
-import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
+import { ListSectionHeader } from "#review/shared/ui/list-section-header.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
@@ -44,8 +33,6 @@ const styles = stylex.create({
     },
   },
   // Cells with their own link sit above the row's cover.
-  groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
-  sectionToggle: { width: "100%" },
   aboveRowLink: { position: "relative", zIndex: 1 },
   rowLink: {
     "::after": { content: "''", position: "absolute", inset: 0 },
@@ -108,21 +95,13 @@ function SourceSectionHeader({
   open: boolean;
   onToggle: () => void;
 }) {
-  const Chevron = open ? ChevronDown : ChevronRight;
   return (
-    <Table.Tr {...stylex.props(styles.groupRow)}>
-      <Table.Td colSpan={4} py="xxs" pl="xs">
-        <UnstyledButton onClick={onToggle} aria-expanded={open} {...stylex.props(styles.sectionToggle)}>
-          <Group gap="xs" wrap="nowrap">
-            <Chevron size={14} color="var(--mantine-color-gray-6)" aria-hidden />
-            <Text size="sm" fw={600}>
-              {title}
-            </Text>
-            <CountBadge count={count} />
-          </Group>
-        </UnstyledButton>
-      </Table.Td>
-    </Table.Tr>
+    <ListSectionHeader
+      title={title}
+      count={count}
+      fold={{ open, onToggle }}
+      frame={{ kind: "table-row", columns: 4 }}
+    />
   );
 }
 

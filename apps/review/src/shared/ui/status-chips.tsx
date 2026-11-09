@@ -65,3 +65,30 @@ export function DerivationStatusBadge({ status }: { status: DerivationStatus }) 
     </Tooltip>
   );
 }
+
+/**
+ * A quiet fact about an item, gray with an optional icon: queued, its scope edited, a newer version, a
+ * note count, who it is about. Never a state (DerivationStatusBadge) or a warning (CautionChip).
+ */
+export function NeutralMarkChip({
+  label,
+  icon: Icon,
+  tooltip,
+}: {
+  label: string;
+  icon?: LucideIcon;
+  tooltip?: string;
+}) {
+  const chip = (
+    <Badge color="gray" {...(Icon !== undefined && { leftSection: <Icon size={11} strokeWidth={2} aria-hidden /> })}>
+      {label}
+    </Badge>
+  );
+  return tooltip === undefined ? (
+    chip
+  ) : (
+    <Tooltip label={tooltip} withArrow openDelay={250}>
+      {chip}
+    </Tooltip>
+  );
+}

@@ -3,7 +3,7 @@
  * checked), its statement, and chips only for what sets it apart: a scope other than its section's, who
  * it is about, cautions and notes. Selecting it opens it in the detail pane, where it is decided.
  */
-import { Badge, Box, Checkbox, Group, Text, Tooltip } from "@mantine/core";
+import { Box, Checkbox, Group, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationScope } from "@tastebud/core/places";
 import type { LucideIcon } from "lucide-react";
@@ -11,6 +11,7 @@ import type { MouseEvent, ReactNode, Ref } from "react";
 
 import { CautionChip, type DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
+import { NeutralMarkChip } from "#review/shared/ui/status-chips.tsx";
 
 import { inboxListStyles } from "./inbox-list-styles.ts";
 
@@ -72,10 +73,10 @@ const styles = stylex.create({
   details: { overflow: "hidden" },
 });
 
-/** A neutral chip on a row: a fact about it (queued, edited, notes), not a caution. */
+/** A neutral mark on a row: a fact about it (queued, edited, notes), not a caution. */
 export interface InboxRowNote {
   readonly icon: LucideIcon;
-  readonly text: string;
+  readonly label: string;
   readonly tooltip: string;
 }
 
@@ -87,17 +88,6 @@ export interface InboxRowChips {
   readonly subject: ReactNode;
   readonly cautions: ReadonlyArray<DerivationCaution>;
   readonly notes: ReadonlyArray<InboxRowNote>;
-}
-
-function InboxRowNoteChip({ note }: { note: InboxRowNote }) {
-  const Icon = note.icon;
-  return (
-    <Tooltip label={note.tooltip} withArrow openDelay={250}>
-      <Badge color="gray" leftSection={<Icon size={11} strokeWidth={2} aria-hidden />}>
-        {note.text}
-      </Badge>
-    </Tooltip>
-  );
 }
 
 /** A row's checkbox for bulk decisions. */
@@ -167,7 +157,7 @@ export function InboxProposalRow({
               <CautionChip key={caution} caution={caution} />
             ))}
             {chips.notes.map((note) => (
-              <InboxRowNoteChip key={note.tooltip} note={note} />
+              <NeutralMarkChip key={note.tooltip} {...note} />
             ))}
           </Group>
         )}

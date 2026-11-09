@@ -1,26 +1,13 @@
 /** Recall with no prompt: everything agents can be told where the inspector stands, by kind, and the no's they hear. */
-import { Box, Group, Stack, Text, Tooltip } from "@mantine/core";
-import type { ReactNode } from "react";
+import { Box, Stack, Text, Tooltip } from "@mantine/core";
 
-import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize, describeKindDelivery } from "#review/shared/ui/kind-identity.tsx";
+import { ListSectionHeader } from "#review/shared/ui/list-section-header.tsx";
 import { RecallPolicyChip } from "#review/shared/ui/policy-chip.tsx";
 
 import type { RecallAppliesHere } from "./recall-applies.ts";
 import { RecallItemRow } from "./recall-item-row.tsx";
 import { rejectionOutcome } from "./recall-reasons.ts";
-
-function SectionTitle({ title, count, children }: { title: string; count: number; children?: ReactNode }) {
-  return (
-    <Group gap="xs">
-      <Text size="sm" fw={600}>
-        {title}
-      </Text>
-      <CountBadge count={count} />
-      {children}
-    </Group>
-  );
-}
 
 export function RecallAppliesPanel({
   applies,
@@ -42,12 +29,17 @@ export function RecallAppliesPanel({
       )}
       {applies.byKind.map(({ kind, accepted }) => (
         <Stack key={kind.key} gap="2xs">
-          <SectionTitle title={capitalize(kind.plural)} count={accepted.length}>
-            <RecallPolicyChip
-              policy={kind.recall}
-              about={`${describeKindDelivery(kind)}${kind.recall === "inject" ? ` At most ${hookLimit} go with one prompt.` : ""}`}
-            />
-          </SectionTitle>
+          <ListSectionHeader
+            title={capitalize(kind.plural)}
+            count={accepted.length}
+            trailing={
+              <RecallPolicyChip
+                policy={kind.recall}
+                about={`${describeKindDelivery(kind)}${kind.recall === "inject" ? ` At most ${hookLimit} go with one prompt.` : ""}`}
+              />
+            }
+            frame={{ kind: "heading" }}
+          />
           <Box>
             {accepted.map((item) => (
               <RecallItemRow key={item.id} item={item} />
@@ -64,7 +56,7 @@ export function RecallAppliesPanel({
             maw={320}
           >
             <Box w="fit-content">
-              <SectionTitle title="Rejected here" count={applies.rejected.length} />
+              <ListSectionHeader title="Rejected here" count={applies.rejected.length} frame={{ kind: "heading" }} />
             </Box>
           </Tooltip>
           <Box>

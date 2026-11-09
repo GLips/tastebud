@@ -11,7 +11,6 @@ import {
   Table,
   Text,
   TextInput,
-  UnstyledButton,
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
@@ -23,12 +22,12 @@ import {
   DerivationStatusSchema,
 } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
-import { ArrowDownUp, ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
+import { ArrowDownUp, MapPin, Search } from "lucide-react";
 import { Fragment } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize, findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
+import { ListSectionHeader } from "#review/shared/ui/list-section-header.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
@@ -45,8 +44,6 @@ import { useKindLibraryFilters } from "./use-kind-library-filters.ts";
 import { useLibraryDecision } from "./use-library-decision.ts";
 
 const styles = stylex.create({
-  groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
-  sectionToggle: { width: "100%" },
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
@@ -194,22 +191,14 @@ function LibrarySectionHeader({
   open: boolean;
   onToggle: () => void;
 }) {
-  const Chevron = open ? ChevronDown : ChevronRight;
   return (
-    <Table.Tr {...stylex.props(styles.groupRow)}>
-      <Table.Td colSpan={4} py="xxs" pl="xs">
-        <UnstyledButton onClick={onToggle} aria-expanded={open} {...stylex.props(styles.sectionToggle)}>
-          <Group gap="xs" wrap="nowrap">
-            <Chevron size={14} color="var(--mantine-color-gray-6)" aria-hidden />
-            <DerivationStatusDot status={status} />
-            <Text size="sm" fw={600}>
-              {DERIVATION_STATUS_WORDS[status]}
-            </Text>
-            <CountBadge count={count} />
-          </Group>
-        </UnstyledButton>
-      </Table.Td>
-    </Table.Tr>
+    <ListSectionHeader
+      leading={<DerivationStatusDot status={status} />}
+      title={DERIVATION_STATUS_WORDS[status]}
+      count={count}
+      fold={{ open, onToggle }}
+      frame={{ kind: "table-row", columns: 4 }}
+    />
   );
 }
 
