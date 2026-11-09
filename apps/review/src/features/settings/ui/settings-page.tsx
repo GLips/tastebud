@@ -1,16 +1,14 @@
 import {
-  Anchor,
-  Box,
-  ActionIcon,
   Badge,
+  Box,
+  Button,
   Center,
   Code,
   Collapse,
-  CopyButton,
   Group,
   Loader,
   Paper,
-  SegmentedControl,
+  Popover,
   Stack,
   Text,
   Tooltip,
@@ -18,11 +16,10 @@ import {
 } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { type AgentHostConnectLines, agentHostConnectLinesFor } from "@tastebud/core/agent-hosts";
 import type { CatalogView, DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { RecallPolicy } from "@tastebud/core/taste-vocabulary";
-import { Check, ChevronRight, Copy } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { ChevronRight, MessageSquare } from "lucide-react";
+import { useState } from "react";
 
 import { reviewShellQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { FactRow } from "#review/shared/ui/fact-row.tsx";
@@ -31,6 +28,9 @@ import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+
+import { AgentHostConnections } from "./agent-host-connections.tsx";
+import { CopyableSnippet } from "./copyable-snippet.tsx";
 
 const styles = stylex.create({
   facts: {
@@ -42,50 +42,10 @@ const styles = stylex.create({
   },
   mono: { fontFamily: "var(--mantine-font-family-monospace)", wordBreak: "break-all" },
   prompt: { whiteSpace: "pre-wrap", lineHeight: 1.55, maxHeight: "360px", overflow: "auto" },
-  // Every command gets the same frame, as wide as its text (up to the column), with copy inside it.
-  snippet: { position: "relative", width: "fit-content", maxWidth: "100%" },
-  // Wraps long paths so nothing hides behind horizontal scroll; the copied text keeps its own lines.
-  snippetCode: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "normal",
-    overflowWrap: "anywhere",
-    paddingRight: "40px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--mantine-color-gray-3)",
-    borderRadius: "var(--mantine-radius-sm)",
-  },
-  copy: { position: "absolute", top: "6px", right: "6px" },
-  stepNumber: { flexShrink: 0 },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
   badge: { flexShrink: 0 },
 });
-
-function CopyableSnippet({ code, label }: { code: string; label: string }) {
-  return (
-    <Box {...stylex.props(styles.snippet)}>
-      <Code block fz="xs" {...stylex.props(styles.mono, styles.snippetCode)} aria-label={label}>
-        {code}
-      </Code>
-      <CopyButton value={code}>
-        {({ copied, copy }) => (
-          <Tooltip label={copied ? "Copied" : "Copy"} withArrow>
-            <ActionIcon
-              size="sm"
-              variant="default"
-              aria-label={`Copy ${label}`}
-              onClick={copy}
-              {...stylex.props(styles.copy)}
-            >
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </CopyButton>
-    </Box>
-  );
-}
 
 const RECALL_POLICY_BADGE_COLORS: Record<RecallPolicy, string> = { inject: "tastebud", pull: "cyan", never: "gray" };
 
@@ -141,133 +101,6 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
   );
 }
 
-/** The JSON lines from `agentHostConnectLinesFor`, laid out to read in a snippet. */
-const prettyJson = (json: string) => JSON.stringify(JSON.parse(json), null, 2);
-
-const AGENT_HOSTS = ["claude-code", "codex", "cursor", "vscode", "other"] as const;
-type AgentHost = (typeof AGENT_HOSTS)[number];
-const agentHostOf = (value: string): AgentHost => AGENT_HOSTS.find((host) => host === value) ?? "claude-code";
-
-interface ConnectStep {
-  readonly title: ReactNode;
-  readonly code: string;
-  readonly label: string;
-}
-
-/** What a host can do with Tastebud, and the steps that connect it, in order. */
-function agentHostConnectPlan(host: AgentHost, lines: AgentHostConnectLines): { note: string; steps: ConnectStep[] } {
-  // Hosts other than Claude Code run the npm package through npx; this downloads it once, where errors show.
-  const prefetch: ConnectStep = {
-    title: "Once, in a terminal, so the package downloads where a failure shows (needs Node):",
-    code: lines.npxPrefetch,
-    label: "npx prefetch command",
-  };
-  const noHook = "can save words and recall them; it has no prompt hook.";
-  switch (host) {
-    case "claude-code":
-      return {
-        note: "The plugin brings the prompt hook, saving words over MCP, and /tastebud:review.",
-        steps: [
-          { title: "Install the plugin:", code: lines.claudeCodePlugin, label: "Claude Code plugin install" },
-          ...(lines.claudeCodeStoreSettings === undefined
-            ? []
-            : [
-                {
-                  title: "Point it at this store, in ~/.claude/settings.json:",
-                  code: prettyJson(lines.claudeCodeStoreSettings),
-                  label: "Claude Code store setting",
-                },
-              ]),
-        ],
-      };
-    case "codex":
-      return {
-        note: `Codex ${noHook}`,
-        steps: [prefetch, { title: "Register the server:", code: lines.codex, label: "Codex command" }],
-      };
-    case "cursor":
-      return {
-        note: `Cursor ${noHook}`,
-        steps: [
-          prefetch,
-          {
-            title: (
-              <>
-                Add this to ~/.cursor/mcp.json, or{" "}
-                <Anchor href={lines.cursorInstallLink} target="_blank" rel="noreferrer" size="sm">
-                  Add to Cursor
-                </Anchor>
-                :
-              </>
-            ),
-            code: prettyJson(lines.mcpServersJson),
-            label: "Cursor MCP config",
-          },
-        ],
-      };
-    case "vscode":
-      return {
-        note: `VS Code ${noHook}`,
-        steps: [prefetch, { title: "Register the server:", code: lines.vscode, label: "VS Code command" }],
-      };
-    case "other":
-      return {
-        note: "Any MCP client (Claude Desktop, Windsurf, …) can save words and recall them; none has a prompt hook.",
-        steps: [
-          prefetch,
-          {
-            title: "Add this to the client's MCP config:",
-            code: prettyJson(lines.mcpServersJson),
-            label: "MCP config",
-          },
-        ],
-      };
-  }
-}
-
-/** `storeRoot` is undefined for the default store, whose lines carry no store at all. */
-function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined }) {
-  const lines = agentHostConnectLinesFor(storeRoot);
-  const [host, setHost] = useState<AgentHost>("claude-code");
-  const plan = agentHostConnectPlan(host, lines);
-  return (
-    <Stack gap="sm">
-      <Text fw={600}>Connect an agent</Text>
-      <Paper p="md">
-        <Stack gap="md">
-          <Stack gap="2xs">
-            <SegmentedControl
-              w="fit-content"
-              size="xs"
-              value={host}
-              onChange={(value) => setHost(agentHostOf(value))}
-              data={[
-                { value: "claude-code", label: "Claude Code" },
-                { value: "codex", label: "Codex" },
-                { value: "cursor", label: "Cursor" },
-                { value: "vscode", label: "VS Code" },
-                { value: "other", label: "Other MCP client" },
-              ]}
-            />
-            <SupportingText tier="secondary">{plan.note} Each line is already set for this store.</SupportingText>
-          </Stack>
-          {plan.steps.map((step, index) => (
-            <Group key={step.label} gap="sm" wrap="nowrap" align="flex-start">
-              <Badge variant="light" color="gray" circle {...stylex.props(styles.stepNumber)}>
-                {index + 1}
-              </Badge>
-              <Stack gap="2xs" miw={0}>
-                <Text size="sm">{step.title}</Text>
-                <CopyableSnippet code={step.code} label={step.label} />
-              </Stack>
-            </Group>
-          ))}
-        </Stack>
-      </Paper>
-    </Stack>
-  );
-}
-
 /** A text the owner pastes to their agent; the agent fills in the change from the guide. */
 const askAgentPromptOf = (configPath: string) =>
   `Change my Tastebud setup: <say what you want, e.g. "send insights with prompts too">.\n` +
@@ -293,53 +126,69 @@ const ownerDecisionsOf = (catalog: CatalogView): string => {
   return `${actions.slice(0, -1).join(", ")} or ${actions.at(-1)}`;
 };
 
+function AskAgentToChange({ configPath }: { configPath: string }) {
+  return (
+    <Popover withArrow position="bottom-end" shadow="md" width={560} trapFocus returnFocus>
+      <Popover.Target>
+        <Button variant="default" leftSection={<MessageSquare size={14} />}>
+          Ask your agent to change this
+        </Button>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Stack gap="xs">
+          <SupportingText tier="secondary">Paste this to your agent, with what you want changed.</SupportingText>
+          <CopyableSnippet code={askAgentPromptOf(configPath)} label="prompt to change the setup" />
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
 function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPath: string }) {
   return (
-    <Stack gap="sm">
-      <Text fw={600}>How it behaves</Text>
+    <Stack gap="sm" component="section" aria-label="How it behaves">
+      <Group justify="space-between" align="center">
+        <Text fw={600}>How it behaves</Text>
+        <AskAgentToChange configPath={configPath} />
+      </Group>
       <Paper p="md">
-        <Stack gap="md">
-          <Box {...stylex.props(styles.facts)}>
-            <FactRow label="Who decides">
-              <Text size="sm">
-                Agents only propose. Only {catalog.ownerName} {ownerDecisionsOf(catalog)}, here in the inbox.
+        <Box {...stylex.props(styles.facts)}>
+          <FactRow label="Decides">
+            <Text size="sm">{catalog.ownerName}</Text>
+          </FactRow>
+          <FactRow label="Agents">
+            <Tooltip label={`Only ${catalog.ownerName} ${ownerDecisionsOf(catalog)}`} withArrow openDelay={150}>
+              <Text size="sm" w="fit-content">
+                Propose only
               </Text>
-            </FactRow>
-            <FactRow label="Each prompt">
-              <Text size="sm">
-                Carries at most {catalog.hook.limit} items, only ones that apply where the agent works, and only if they
-                are found within {catalog.hook.budgetMs} ms.
-              </Text>
-            </FactRow>
-            {catalog.derivedKinds.map((kind) => (
-              <FactRow key={kind.key} label={capitalize(kind.plural)}>
-                <Group gap="xs" wrap="nowrap" align="baseline">
-                  <Badge
-                    color={RECALL_POLICY_BADGE_COLORS[kind.recall]}
-                    tt="none"
-                    fw={500}
-                    {...stylex.props(styles.badge)}
-                  >
-                    {RECALL_POLICY_LABELS[kind.recall]}
-                  </Badge>
-                  <Text size="sm">{describeKindDelivery(kind)}</Text>
-                </Group>
-              </FactRow>
-            ))}
-          </Box>
-          <Stack gap="2xs">
-            <Text size="sm" fw={500}>
-              Ask your agent to change this
+            </Tooltip>
+          </FactRow>
+          <FactRow label="Each prompt">
+            <Text size="sm">
+              Up to {catalog.hook.limit} items · within {catalog.hook.budgetMs} ms · only where the agent works
             </Text>
-            <CopyableSnippet code={askAgentPromptOf(configPath)} label="prompt to change the setup" />
-          </Stack>
-        </Stack>
+          </FactRow>
+          {catalog.derivedKinds.map((kind) => (
+            <FactRow key={kind.key} label={capitalize(kind.plural)}>
+              <Tooltip label={describeKindDelivery(kind)} withArrow openDelay={150}>
+                <Badge
+                  color={RECALL_POLICY_BADGE_COLORS[kind.recall]}
+                  tt="none"
+                  fw={500}
+                  {...stylex.props(styles.badge)}
+                >
+                  {RECALL_POLICY_LABELS[kind.recall]}
+                </Badge>
+              </Tooltip>
+            </FactRow>
+          ))}
+        </Box>
       </Paper>
     </Stack>
   );
 }
 
-function ConfigurationDetails({
+function StoreFacts({
   catalog,
   storeRoot,
   configPath,
@@ -348,9 +197,40 @@ function ConfigurationDetails({
   storeRoot: string;
   configPath: string;
 }) {
+  return (
+    <Stack gap="sm" component="section" aria-label="Store">
+      <Text fw={600}>Store</Text>
+      <Paper p="md">
+        <Box {...stylex.props(styles.facts)}>
+          <FactRow label="Folder">
+            <Text fz="xs" {...stylex.props(styles.mono)}>
+              {storeRoot}
+            </Text>
+          </FactRow>
+          <FactRow label="Config">
+            <Text fz="xs" {...stylex.props(styles.mono)}>
+              {configPath}
+            </Text>
+          </FactRow>
+          <FactRow label="Place resolver">
+            <Group gap="xs">
+              <Text size="sm">{capitalize(catalog.resolver)}</Text>
+              <AnchorLink to="/places" size="sm">
+                Places →
+              </AnchorLink>
+            </Group>
+          </FactRow>
+        </Box>
+      </Paper>
+    </Stack>
+  );
+}
+
+/** The kinds as configured: labels, button wording, sources and the prompts agents read. Rarely needed. */
+function KindDetails({ catalog }: { catalog: CatalogView }) {
   const [open, setOpen] = useState(false);
   return (
-    <Stack gap="sm">
+    <Stack gap="sm" component="section" aria-label="Kinds">
       <UnstyledButton onClick={() => setOpen(!open)} aria-expanded={open} w="fit-content">
         <Group gap="2xs">
           <ChevronRight
@@ -358,54 +238,26 @@ function ConfigurationDetails({
             color="var(--mantine-color-gray-6)"
             {...stylex.props(styles.chevron, open && styles.chevronOpen)}
           />
-          <Text fw={600}>Configuration details</Text>
-          <SupportingText tier="secondary">
-            Store, labels, button wording, sources and the prompts agents read
+          <Text fw={600}>Kinds</Text>
+          <SupportingText tier="faint">
+            {catalog.derivedKinds.length} derived · {catalog.sourceKinds.length} source
           </SupportingText>
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>
         <Stack gap="lg">
-          <Paper p="md">
-            <Box {...stylex.props(styles.facts)}>
-              <FactRow label="Store">
-                <Text fz="xs" {...stylex.props(styles.mono)}>
-                  {storeRoot}
-                </Text>
-              </FactRow>
-              <FactRow label="Config">
-                <Text fz="xs" {...stylex.props(styles.mono)}>
-                  {configPath}
-                </Text>
-              </FactRow>
-              <FactRow label="Resolver">
-                <Text size="sm">
-                  {catalog.resolver} ·{" "}
-                  <AnchorLink to="/places" size="sm">
-                    try it in Places →
-                  </AnchorLink>
-                </Text>
-              </FactRow>
-            </Box>
-          </Paper>
-
           <Stack gap="sm">
-            <Stack gap="3xs">
-              <Text fw={600}>Derived kinds</Text>
-              <SupportingText tier="secondary">What agents propose for you to accept.</SupportingText>
-            </Stack>
+            <Text size="sm" fw={600}>
+              Derived
+            </Text>
             {catalog.derivedKinds.map((kind) => (
               <DerivedKindCard key={kind.key} kind={kind} />
             ))}
           </Stack>
-
           <Stack gap="sm">
-            <Stack gap="3xs">
-              <Text fw={600}>Source kinds</Text>
-              <SupportingText tier="secondary">
-                Whose words the store keeps. Agents are told each description as when to save those words.
-              </SupportingText>
-            </Stack>
+            <Text size="sm" fw={600}>
+              Source
+            </Text>
             <Paper p="md">
               <Box {...stylex.props(styles.facts)}>
                 {catalog.sourceKinds.map((kind) => (
@@ -446,11 +298,11 @@ export function SettingsPage() {
       <ReviewPageHeader
         title="Settings"
         purpose="Connect your agents, and see how this store treats what they propose."
-        details="Read-only: your agent edits the config, and this page picks up the change on save."
       />
-      <AgentHostInstallLines storeRoot={storeIsDefault ? undefined : storeRoot} />
+      <AgentHostConnections storeRoot={storeIsDefault ? undefined : storeRoot} />
       <HowItBehaves catalog={catalog} configPath={configPath} />
-      <ConfigurationDetails catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
+      <StoreFacts catalog={catalog} storeRoot={storeRoot} configPath={configPath} />
+      <KindDetails catalog={catalog} />
     </Stack>
   );
 }
