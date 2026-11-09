@@ -1,4 +1,4 @@
-import { Box, ActionIcon, Badge, Container, Group, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Badge, Container, Group, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -65,7 +65,13 @@ function useNavSectionActive(section: string) {
 }
 
 /** One top-level entry. Active state is computed here, not with `activeProps`, so StyleX merges it with the base. */
-function ShellNavLink({ to, children }: { to: "/" | "/sources" | "/recall" | "/places"; children: ReactNode }) {
+function ShellNavLink({
+  to,
+  children,
+}: {
+  to: "/" | "/sources" | "/recall" | "/places" | "/settings";
+  children: ReactNode;
+}) {
   const active = useNavSectionActive(to);
   return (
     <Link
@@ -152,7 +158,6 @@ function ReviewerIdentity() {
 
 export function ReviewAppShell({ children }: { children: ReactNode }) {
   const shell = useQuery(reviewShellQuery);
-  const settingsActive = useNavSectionActive("/settings");
   const hasKinds = (shell.data?.catalog.derivedKinds.length ?? 0) > 0;
   const pendingTotal = Object.values(shell.data?.pendingByKind ?? {}).reduce((sum, count) => sum + count, 0);
   return (
@@ -185,20 +190,12 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
                 <ShellNavLink to="/places">Places</ShellNavLink>
               </Group>
             </Group>
-            <Group gap={10} wrap="nowrap">
+            <Group gap="sm" wrap="nowrap" fz="sm">
               <ReviewerIdentity />
-              <Tooltip label="Settings" withArrow>
-                <ActionIcon
-                  component={Link}
-                  to="/settings"
-                  variant={settingsActive ? "light" : "subtle"}
-                  color={settingsActive ? "tastebud" : "gray"}
-                  aria-label="Settings"
-                  aria-current={settingsActive ? "page" : undefined}
-                >
-                  <Settings size={16} />
-                </ActionIcon>
-              </Tooltip>
+              <ShellNavLink to="/settings">
+                <Settings size={15} aria-hidden />
+                Settings
+              </ShellNavLink>
             </Group>
           </Group>
         </Container>

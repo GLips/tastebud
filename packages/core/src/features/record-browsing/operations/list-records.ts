@@ -9,6 +9,7 @@ import {
   DerivationSummarySchema,
   SourceViewSchema,
   summarizeDerivation,
+  supportingSourcesOf,
   threadOf,
   viewSource,
   type ViewSource,
@@ -34,6 +35,10 @@ const DerivationRowSchema = Schema.Struct({
   /** The accepted revision that retired a superseded derivation. */
   replacedBy: Schema.optionalKey(DerivationSummarySchema),
   threadCount: Schema.Finite,
+  /** The agent's reasoning, so a list can say why each row is there. */
+  reasoning: Schema.String,
+  /** The first source it cites in `supports`, quoted; absent when it cites only derivations. */
+  leadQuote: Schema.optionalKey(Schema.String),
 });
 export type DerivationRow = typeof DerivationRowSchema.Type;
 
@@ -43,7 +48,7 @@ const SourceRowSchema = Schema.Struct({
   citedByCount: Schema.Finite,
 });
 
-type SourceRow = typeof SourceRowSchema.Type;
+export type SourceRow = typeof SourceRowSchema.Type;
 
 export const ListRecordsResultSchema = Schema.Struct({
   derivations: Schema.Array(DerivationRowSchema),
@@ -76,10 +81,13 @@ const rowOf = (view: ViewSource, snapshot: StoreSnapshot, id: string): Derivatio
   const derivation = derivationById(snapshot, id);
   if (derivation === undefined) return undefined;
   const replacement = derivationById(snapshot, derivationStateOf(snapshot, derivation).supersededBy[0]);
+  const leadQuote = supportingSourcesOf(view, derivation)[0]?.source.quote;
   return {
     ...summarizeDerivation(view, derivation),
     ...(replacement !== undefined && { replacedBy: summarizeDerivation(view, replacement) }),
     threadCount: threadOf(snapshot, derivation.id).length,
+    reasoning: derivation.reasoning,
+    ...(leadQuote !== undefined && { leadQuote }),
   };
 };
 
