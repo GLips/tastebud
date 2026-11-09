@@ -6,7 +6,6 @@
  */
 import { Box, Alert, Group, Loader, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -18,6 +17,7 @@ import { useEffect, useRef } from "react";
 import { recordDetailQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
@@ -65,7 +65,7 @@ function SelectedCardHotkeys(props: {
   onEditScope: () => void;
 }) {
   const options = { enabled: props.enabled };
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "A", callback: props.onAccept, options },
     { hotkey: "R", callback: props.onReject, options },
     { hotkey: "D", callback: props.onDiscuss, options },

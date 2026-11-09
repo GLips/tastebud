@@ -4,13 +4,13 @@
  * preview). State lives in `use-derivation-review.ts`. Hotkeys live in tooltips, never in the buttons.
  */
 import { ActionIcon, Alert, Button, Group, Menu, Stack, Tooltip } from "@mantine/core";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { Check, Ellipsis, Inbox, Undo2, X } from "lucide-react";
 import type { MouseEventHandler } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
@@ -218,14 +218,14 @@ export function DerivationScopeProperty({ review, known }: { review: DerivationR
 
 /**
  * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker, U undoes
- * the decision just made here, Esc drops a changed scope and otherwise goes back. Letters never fire from
- * a text field (the library's default), and none fire while a panel or list is open.
+ * the decision just made here, Esc drops a changed scope and otherwise goes back. No key fires from
+ * a text field, though a clicked checkbox or tab doesn't hold them, and none fire while a panel or list is open.
  */
 export function useDerivationPageHotkeys(review: DerivationReview, goBack: () => void) {
   const { view, mode, pickerOpen } = review;
   const idle = mode === "idle" && !pickerOpen;
   const decidable = idle && canDecideDerivation(view);
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "A", callback: review.startAccept, options: { enabled: decidable && view.status !== "accepted" } },
     {
       hotkey: "R",
@@ -234,11 +234,11 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
     },
     { hotkey: "S", callback: review.openPicker, options: { enabled: decidable } },
     { hotkey: "U", callback: review.undo, options: { enabled: idle && review.undoable !== undefined } },
-    // Escape fires in inputs by default; here it would go back the moment Esc closes the reject box.
+    // Skipped in text fields: here it would go back the moment Esc closes the reject box.
     {
       hotkey: "Escape",
       callback: () => (review.draft === undefined ? goBack() : review.changeDraft(undefined)),
-      options: { enabled: idle, ignoreInputs: true },
+      options: { enabled: idle },
     },
   ]);
 }
