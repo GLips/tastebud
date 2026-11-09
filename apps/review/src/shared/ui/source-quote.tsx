@@ -1,4 +1,4 @@
-import { Button, Popover, Stack, Text } from "@mantine/core";
+import { Badge, Button, Popover, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { SourceView } from "@tastebud/core/record-views";
 import type { SourceRecord } from "@tastebud/core/records";
@@ -60,7 +60,7 @@ function SurroundingContext({ source }: { source: SourceRecord }) {
  */
 export type SourceQuoteRole = "supports" | "contradicts" | "prompted" | "plain";
 
-/** The role in words, printed before the attribution where it changes how the quote reads. */
+/** The role as a small chip before the attribution, where it changes how the quote reads. */
 const ROLE_WORDS: Record<SourceQuoteRole, string | undefined> = {
   supports: undefined,
   contradicts: "Says the opposite",
@@ -98,9 +98,9 @@ export function SourceQuote({
         </Text>
         <span {...stylex.props(styles.meta)}>
           {roleWords !== undefined && (
-            <Text span size="sm" fw={600} c={role === "contradicts" ? "red.8" : "gray.7"}>
-              {roleWords} ·
-            </Text>
+            <Badge size="xs" tt="none" color={role === "contradicts" ? "red" : "gray"}>
+              {roleWords}
+            </Badge>
           )}
           <AnchorLink
             to="/sources/$id"

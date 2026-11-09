@@ -3,7 +3,7 @@
  * naming each close record it overlaps. One "anyway" records every acknowledgement: the sentence is the
  * look, and a box per match only made the owner tick through it.
  */
-import { Box, Alert, Button, Group, Kbd, Loader, Stack, Text } from "@mantine/core";
+import { Box, Alert, Button, Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
@@ -208,21 +208,19 @@ export function AcceptancePreview({
           verb={verb}
         />
 
-        <Group justify="flex-end" gap="xxs">
-          <Button size="xs" variant="default" onClick={back} disabled={pending}>
-            Back
-            <Kbd size="xs" ml="xxs">
-              Esc
-            </Kbd>
-          </Button>
-          <Button size="xs" onClick={confirm} disabled={!ready} loading={pending}>
-            {matches.length > 0
-              ? `${verb} anyway`
-              : `${verb} ${scopeButtonPhrase(finalScope, (place) => labels.get(place) ?? formatPlaceLabel(place))}`}
-            <Kbd size="xs" ml="xxs">
-              ⌘↵
-            </Kbd>
-          </Button>
+        <Group justify="flex-end" gap="xs">
+          <Tooltip label="Back · Esc" withArrow>
+            <Button variant="default" onClick={back} disabled={pending}>
+              Back
+            </Button>
+          </Tooltip>
+          <Tooltip label={`${verb} · ⌘↵`} withArrow>
+            <Button onClick={confirm} disabled={!ready} loading={pending}>
+              {matches.length > 0
+                ? `${verb} anyway`
+                : `${verb} ${scopeButtonPhrase(finalScope, (place) => labels.get(place) ?? formatPlaceLabel(place))}`}
+            </Button>
+          </Tooltip>
         </Group>
       </Stack>
     </Box>

@@ -7,6 +7,3 @@ const isVerbLabel = (acceptLabel: string): boolean => !acceptLabel.includes(" ")
 /** "believe it", or "mark it “Worth building”". */
 export const acceptItPhrase = (acceptLabel: string): string =>
   isVerbLabel(acceptLabel) ? `${acceptLabel.toLowerCase()} it` : `mark it “${acceptLabel}”`;
-
-/** The label before a scope the owner is about to accept in: "Believe in", or "For" when the label isn't a verb. */
-export const acceptInLabel = (acceptLabel: string): string => (isVerbLabel(acceptLabel) ? `${acceptLabel} in` : "For");
