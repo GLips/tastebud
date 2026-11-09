@@ -5,6 +5,7 @@ import {
   Center,
   Group,
   Paper,
+  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -23,6 +24,7 @@ import {
 } from "@tastebud/core/taste-vocabulary";
 import { Schema } from "effect";
 import { ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
+import { Fragment } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
@@ -41,6 +43,8 @@ import { useLibraryDecision } from "./use-library-decision.ts";
 const styles = stylex.create({
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
   sectionToggle: { width: "100%" },
+  tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
+  tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
   stickyNotice: { position: "sticky", top: "calc(var(--review-shell-header-height) + 8px)", zIndex: 5 },
   columnHead: { whiteSpace: "nowrap" },
@@ -54,17 +58,74 @@ const STATUS_AFTER_OUTCOME: Record<DecisionOutcome, DerivationStatus> = {
 };
 
 export const KindLibrarySearch = Schema.Struct({
+  /** One status tab; absent is All, where every status has its own foldable section. */
+  status: Schema.optionalKey(DerivationStatusSchema),
   /** Status sections folded shut; every section is open by default. */
   closed: Schema.optionalKey(Schema.Array(DerivationStatusSchema)),
   place: Schema.optionalKey(Schema.String),
   text: Schema.optionalKey(Schema.String),
 });
 
-/** Rows in status sections, in lifecycle order; a status with no rows has no section. */
-const groupDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
-  DERIVATION_STATUSES.map((status) => ({ status, rows: rows.filter((row) => row.status === status) })).filter(
-    (group) => group.rows.length > 0,
+/**
+ * Rows in status sections, in lifecycle order; a status with no rows has no section. Under All each section
+ * has a header that folds it; a picked status tab is one section with no header, always open.
+ */
+const librarySectionsOf = (
+  rows: ReadonlyArray<DerivationRow>,
+  picked: DerivationStatus | undefined,
+  isOpen: (status: DerivationStatus) => boolean,
+) =>
+  DERIVATION_STATUSES.filter((status) => picked === undefined || status === picked)
+    .map((status) => ({
+      status,
+      rows: rows.filter((row) => row.status === status),
+      withHeader: picked === undefined,
+      open: picked !== undefined || isOpen(status),
+    }))
+    .filter((section) => section.rows.length > 0);
+
+const libraryEmptyMessage = (plural: string, picked: DerivationStatus | undefined, filtered: boolean) => {
+  const which = picked === undefined ? plural : `${DERIVATION_STATUS_WORDS[picked].toLowerCase()} ${plural}`;
+  return filtered ? `No ${which} match these filters.` : `No ${which} yet.`;
+};
+
+/** How many rows stand in each status, for the tabs. */
+const countDerivationRowsByStatus = (rows: ReadonlyArray<DerivationRow>) =>
+  new Map(DERIVATION_STATUSES.map((status) => [status, rows.filter((row) => row.status === status).length]));
+
+/** All, then a tab per status with its count; an empty status shows no count. Picking one lists only it. */
+function LibraryStatusTabs({
+  status,
+  counts,
+  onPick,
+}: {
+  status: DerivationStatus | undefined;
+  counts: ReadonlyMap<DerivationStatus, number>;
+  onPick: (status: DerivationStatus | undefined) => void;
+}) {
+  return (
+    <SegmentedControl
+      value={status ?? "all"}
+      onChange={(value) => onPick(value === "all" ? undefined : Schema.decodeSync(DerivationStatusSchema)(value))}
+      data={[
+        { value: "all", label: "All" },
+        ...DERIVATION_STATUSES.map((each) => ({
+          value: each,
+          label: (
+            <Box component="span" {...stylex.props(styles.tabLabel)}>
+              {DERIVATION_STATUS_WORDS[each]}
+              {(counts.get(each) ?? 0) > 0 && (
+                <Box component="span" {...stylex.props(styles.tabCount)}>
+                  {counts.get(each)}
+                </Box>
+              )}
+            </Box>
+          ),
+        })),
+      ]}
+    />
   );
+}
 
 /** A column's name over the library table. */
 function LibraryColumnHead({ label, align = "left" }: { label: string; align?: "left" | "right" }) {
@@ -163,15 +224,20 @@ export function KindLibraryPage() {
 
       <Group gap="sm" wrap="wrap">
         <TextInput
-          w={320}
+          w={240}
           aria-label="Filter by words"
-          placeholder="Search the statement or reasoning"
+          placeholder="Search"
           leftSection={<Search size={14} />}
           value={text}
           onChange={(event) => typeText(event.currentTarget.value)}
         />
+        <LibraryStatusTabs
+          status={search.status}
+          counts={countDerivationRowsByStatus(list.data ?? [])}
+          onPick={(status) => setFilter({ status })}
+        />
         <Select
-          w={220}
+          w={200}
           leftSection={<MapPin size={14} />}
           placeholder="Any place"
           aria-label="Only what applies at this place"
@@ -194,10 +260,11 @@ export function KindLibraryPage() {
       </Box>
 
       <LoadedQueryContent query={list}>
-        {(rows) =>
-          rows.length === 0 ? (
+        {(allRows) => {
+          const sections = librarySectionsOf(allRows, search.status, isSectionOpen);
+          return sections.length === 0 ? (
             <Center py="xxl">
-              <Text c="dimmed">{filtered ? `No ${plural} match these filters.` : `No ${plural} yet.`}</Text>
+              <Text c="dimmed">{libraryEmptyMessage(plural, search.status, filtered)}</Text>
             </Center>
           ) : (
             <Paper p={0}>
@@ -212,39 +279,40 @@ export function KindLibraryPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {groupDerivationRowsByStatus(rows).flatMap(({ status, rows: group }) =>
-                    [
-                      <LibrarySectionHeader
-                        key={`section-${status}`}
-                        status={status}
-                        count={group.length}
-                        open={isSectionOpen(status)}
-                        onToggle={() => toggleSection(status)}
-                      />,
-                    ].concat(
-                      (isSectionOpen(status) ? group : []).map((row) => (
-                        <KindLibraryRow
-                          key={row.id}
-                          row={row}
-                          labels={known.labels}
-                          owner={catalog?.owner}
-                          acceptLabel={kind?.acceptLabel}
-                          decision={{
-                            deciding: decision.decidingId === row.id,
-                            overlapping: decision.overlappingId === row.id,
-                            onActivate: () => decision.activate(row),
-                            onDecide: (request) => decision.decide(row, request),
-                            onCancelAccept: decision.cancelAccept,
-                          }}
+                  {sections.map((section) => (
+                    <Fragment key={section.status}>
+                      {section.withHeader && (
+                        <LibrarySectionHeader
+                          status={section.status}
+                          count={section.rows.length}
+                          open={section.open}
+                          onToggle={() => toggleSection(section.status)}
                         />
-                      )),
-                    ),
-                  )}
+                      )}
+                      {section.open &&
+                        section.rows.map((row) => (
+                          <KindLibraryRow
+                            key={row.id}
+                            row={row}
+                            labels={known.labels}
+                            owner={catalog?.owner}
+                            acceptLabel={kind?.acceptLabel}
+                            decision={{
+                              deciding: decision.decidingId === row.id,
+                              overlapping: decision.overlappingId === row.id,
+                              onActivate: () => decision.activate(row),
+                              onDecide: (request) => decision.decide(row, request),
+                              onCancelAccept: decision.cancelAccept,
+                            }}
+                          />
+                        ))}
+                    </Fragment>
+                  ))}
                 </Table.Tbody>
               </Table>
             </Paper>
-          )
-        }
+          );
+        }}
       </LoadedQueryContent>
       {kind === undefined && catalog !== undefined && (
         <Alert color="gray" variant="light">
