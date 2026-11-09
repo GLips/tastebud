@@ -4,6 +4,7 @@ import { PartyPopper } from "lucide-react";
 
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import type { InboxKindsProps } from "./inbox-kind-tabs.tsx";
 
@@ -32,12 +33,12 @@ export function InboxEmptyKind({ catalog, kinds, kind, pendingByKind, onShowKind
             })}
           </Group>
         ) : (
-          <Text size="sm" c="dimmed">
+          <SupportingText tier="secondary">
             Agents propose with <code>tastebud propose</code>.{" "}
             <AnchorLink to="/kinds/$kind" params={{ kind: kind.key }}>
               Browse {kind.plural}
             </AnchorLink>
-          </Text>
+          </SupportingText>
         )}
       </Stack>
     </Center>
