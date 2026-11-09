@@ -1,8 +1,8 @@
 /** The Places page's left column: a searchable tree of every place a scope names, with counts. */
-import { Box, Paper, ScrollArea, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Button, Group, Paper, ScrollArea, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { AuditPlacesResult } from "@tastebud/core/places-audit";
-import { Globe, Search, TriangleAlert } from "lucide-react";
+import { Globe, Info, LocateFixed, Search, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
@@ -33,7 +33,11 @@ const styles = stylex.create({
   nodeLabel: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   count: { color: "var(--mantine-color-gray-6)", fontVariantNumeric: "tabular-nums" },
   unmatched: { color: "var(--mantine-color-orange-6)", flexShrink: 0 },
+  sectionInfo: { color: "var(--mantine-color-gray-5)", flexShrink: 0 },
   section: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
     fontWeight: 600,
     color: "var(--mantine-color-gray-6)",
     paddingTop: "8px",
@@ -107,6 +111,21 @@ function TreeNodes({
   ));
 }
 
+/**
+ * A named place is a scope that isn't a folder: an agent with no working folder, such as a chat app,
+ * names it instead. Shown as the section's tooltip, since the term is Tastebud's own.
+ */
+const NAMED_PLACE_MEANING =
+  "A name for work that isn't a folder, like a client (clients/acme). Agents with no folder, such as a chat app, name it.";
+
+interface NavSection {
+  readonly title: string;
+  readonly nodes: ReadonlyArray<PlaceTreeNode>;
+  readonly about?: string;
+  /** What an empty section says; a section without one hides when empty. */
+  readonly empty?: string | undefined;
+}
+
 /** The place the details pane shows: the one in the URL, else the tree's first row. */
 export const selectedPlaceOf = (
   requested: string | undefined,
@@ -127,6 +146,8 @@ export function PlaceTreeNav({
   selected,
   onSelect,
   known,
+  testing,
+  onTestPath,
 }: {
   audit: AuditPlacesResult;
   /** Whether any probes are set; without them nothing can be unmatched. */
@@ -134,6 +155,9 @@ export function PlaceTreeNav({
   selected: string | undefined;
   onSelect: (place: string) => void;
   known: KnownPlaces;
+  /** Whether Test a path is open in the details pane. */
+  testing: boolean;
+  onTestPath: () => void;
 }) {
   const [needle, setNeedle] = useState("");
   const places = audit.places.map((entry) => entry.place);
@@ -141,25 +165,45 @@ export function PlaceTreeNav({
   const countsByPlace = new Map(audit.places.map((entry) => [entry.place, totalPlaceCount(entry.counts)]));
   const unmatched = new Set(probed ? audit.audit.unmatched.map((entry) => entry.place) : []);
   const globalCount = totalPlaceCount(audit.globalCounts);
-  const sections: Array<[string, ReadonlyArray<PlaceTreeNode>]> = [
-    ["Repos", filterPlaceTree(tree.repos, needle)],
-    ["Directories", filterPlaceTree(tree.directories, needle)],
-    ["Named places", filterPlaceTree(tree.named, needle)],
+  const unreached = unmatched.size;
+  const sections: ReadonlyArray<NavSection> = [
+    { title: "Repos", nodes: filterPlaceTree(tree.repos, needle) },
+    { title: "Directories", nodes: filterPlaceTree(tree.directories, needle) },
+    {
+      title: "Named places",
+      nodes: filterPlaceTree(tree.named, needle),
+      about: NAMED_PLACE_MEANING,
+      empty: needle === "" ? "None yet" : undefined,
+    },
   ];
   return (
     <Paper p="xs" {...stylex.props(styles.tree)}>
-      <TextInput
-        size="xs"
-        aria-label="Search places"
-        placeholder="Search places"
-        leftSection={<Search size={13} />}
-        value={needle}
-        onChange={(event) => setNeedle(event.currentTarget.value)}
-        mb="2xs"
-      />
-      <Text size="2xs" c="dimmed" px="xs" mb="2xs">
-        Counts: items scoped to each place.
-      </Text>
+      <Group gap="xs" wrap="nowrap" mb="xs">
+        <TextInput
+          aria-label="Search places"
+          placeholder="Search places"
+          leftSection={<Search size={14} />}
+          value={needle}
+          onChange={(event) => setNeedle(event.currentTarget.value)}
+          flex={1}
+        />
+        <Tooltip
+          label={
+            unreached > 0 ? `${unreached} with accepted items none of your kept paths reach` : "Which place a folder is"
+          }
+          withArrow
+        >
+          <Button
+            variant={testing || unreached > 0 ? "light" : "default"}
+            color={unreached > 0 ? "orange" : "tastebud"}
+            leftSection={unreached > 0 ? <TriangleAlert size={14} /> : <LocateFixed size={14} />}
+            onClick={onTestPath}
+            aria-pressed={testing}
+          >
+            Test a path
+          </Button>
+        </Tooltip>
+      </Group>
       <ScrollArea.Autosize mah="calc(100vh - 220px)">
         {globalCount > 0 && (
           <UnstyledButton
@@ -181,20 +225,35 @@ export function PlaceTreeNav({
             </Box>
           </UnstyledButton>
         )}
-        {sections.map(([title, nodes]) =>
-          nodes.length === 0 ? null : (
+        {sections.map(({ title, nodes, about, empty }) =>
+          nodes.length === 0 && empty === undefined ? null : (
             <Box key={title}>
               <Box fz="xs" {...stylex.props(styles.section, styles.indent(0))}>
                 {title}
+                {about !== undefined && (
+                  <Tooltip label={about} withArrow multiline maw={260}>
+                    <Info
+                      size={12}
+                      aria-label={`What ${title.toLowerCase()} are`}
+                      {...stylex.props(styles.sectionInfo)}
+                    />
+                  </Tooltip>
+                )}
               </Box>
-              <TreeNodes
-                nodes={nodes}
-                depth={0}
-                selected={selected}
-                onSelect={onSelect}
-                countsByPlace={countsByPlace}
-                unmatched={unmatched}
-              />
+              {nodes.length === 0 ? (
+                <Text size="xs" c="dimmed" {...stylex.props(styles.indent(0))}>
+                  {empty}
+                </Text>
+              ) : (
+                <TreeNodes
+                  nodes={nodes}
+                  depth={0}
+                  selected={selected}
+                  onSelect={onSelect}
+                  countsByPlace={countsByPlace}
+                  unmatched={unmatched}
+                />
+              )}
             </Box>
           ),
         )}

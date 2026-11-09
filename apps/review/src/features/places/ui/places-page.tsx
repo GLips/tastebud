@@ -1,9 +1,8 @@
-import { Box, Button, Collapse, Paper, Stack, Text } from "@mantine/core";
+import { Box, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { ChevronRight, LocateFixed } from "lucide-react";
 import { useState } from "react";
 
 import { useKnownPlaces } from "#review/features/review-shell/index.ts";
@@ -12,7 +11,7 @@ import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 
 import { PlaceDetails } from "./place-details.tsx";
-import { PlaceTestBench, WhereAmIPanel } from "./place-test-bench.tsx";
+import { PlacePathTester } from "./place-test-bench.tsx";
 import { PlaceTreeNav, selectedPlaceOf } from "./place-tree-nav.tsx";
 import { placesAuditQuery } from "./places-queries.ts";
 
@@ -24,33 +23,19 @@ const Route = getRouteApi("/places");
 const PROBES_STORAGE_KEY = "tastebud.places.probes";
 
 const styles = stylex.create({
-  location: {
-    display: "grid",
-    gridTemplateColumns: { default: "minmax(0, 1fr) minmax(0, 1.2fr)", "@media (max-width: 860px)": "minmax(0, 1fr)" },
-    gap: "20px",
-    alignItems: "start",
-  },
   layout: {
     display: "grid",
     gridTemplateColumns: { default: "300px minmax(0, 1fr)", "@media (max-width: 860px)": "minmax(0, 1fr)" },
     gap: "20px",
     alignItems: "start",
   },
-  chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
-  chevronOpen: { transform: "rotate(90deg)" },
 });
-
-function checkButtonLabel(checked: number, unreached: number): string {
-  if (unreached > 0) return `Check a folder · ${unreached} unreached`;
-  if (checked > 0) return `Check a folder · ${checked} checked`;
-  return "Check a folder";
-}
 
 export function PlacesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [probes, setProbes] = useRememberedBrowserValue<ReadonlyArray<string>>(PROBES_STORAGE_KEY, []);
-  const [checking, setChecking] = useState(false);
+  const [testing, setTesting] = useState(false);
   const audit = useQuery(placesAuditQuery(probes));
   const known = useKnownPlaces();
   const data = audit.data;
@@ -60,32 +45,13 @@ export function PlacesPage() {
     const trimmed = probe.trim();
     if (trimmed !== "" && !probes.includes(trimmed)) setProbes([...probes, trimmed]);
   };
-  const unreached = probes.length === 0 ? 0 : (data?.audit.unmatched.length ?? 0);
 
   return (
     <Stack gap="md">
       <ReviewPageHeader
         title="Places"
         purpose="The repos, folders and names your items are scoped to. Pick one to see everything that applies there and where each item comes from."
-        actions={
-          <Button
-            variant={unreached > 0 ? "light" : "default"}
-            color="orange"
-            leftSection={<LocateFixed size={13} />}
-            rightSection={<ChevronRight size={13} {...stylex.props(styles.chevron, checking && styles.chevronOpen)} />}
-            onClick={() => setChecking(!checking)}
-            aria-expanded={checking}
-          >
-            {checkButtonLabel(probes.length, unreached)}
-          </Button>
-        }
       />
-      <Collapse expanded={checking}>
-        <Box {...stylex.props(styles.location)}>
-          <WhereAmIPanel onKeep={addProbe} />
-          <PlaceTestBench probes={probes} addProbe={addProbe} setProbes={setProbes} audit={data} known={known} />
-        </Box>
-      </Collapse>
       <LoadedQueryContent query={audit}>
         {(auditResult) => (
           <Box {...stylex.props(styles.layout)}>
@@ -95,8 +61,21 @@ export function PlacesPage() {
               selected={selected}
               onSelect={select}
               known={known}
+              testing={testing}
+              onTestPath={() => setTesting(!testing)}
             />
             <Paper p="md">
+              {testing && (
+                <PlacePathTester
+                  probes={probes}
+                  addProbe={addProbe}
+                  setProbes={setProbes}
+                  audit={auditResult}
+                  known={known}
+                  onOpenPlace={select}
+                  onClose={() => setTesting(false)}
+                />
+              )}
               {selected === undefined ? (
                 <Text c="dimmed">Pick a place.</Text>
               ) : (
