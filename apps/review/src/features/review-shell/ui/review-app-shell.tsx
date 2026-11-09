@@ -1,10 +1,11 @@
-import { Box, Badge, Container, Group, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Container, Group, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, Settings, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
@@ -171,11 +172,7 @@ export function ReviewAppShell({ children }: { children: ReactNode }) {
               <Group gap="3xs" wrap="nowrap" fz="sm">
                 <ShellNavLink to="/">
                   Inbox
-                  {pendingTotal > 0 && (
-                    <Badge size="sm" circle={pendingTotal < 10} variant="filled">
-                      {pendingTotal}
-                    </Badge>
-                  )}
+                  {pendingTotal > 0 && <CountBadge count={pendingTotal} tone="attention" />}
                 </ShellNavLink>
                 {hasKinds && (
                   <>

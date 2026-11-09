@@ -28,7 +28,7 @@ import { PlaceChip, ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceAddress } from "#review/shared/ui/source-address.tsx";
-import { DerivationStatusLabel } from "#review/shared/ui/status-chips.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
@@ -208,7 +208,7 @@ function SourceLedTo({ cited }: { cited: ReadonlyArray<Citation> }) {
                 <Table.Tr key={citation.id} {...stylex.props(styles.row)}>
                   <Table.Td {...stylex.props(styles.fitCell)}>
                     <Box {...stylex.props(styles.aboveRowLink)}>
-                      <DerivationStatusLabel status={citation.status} />
+                      <DerivationStatusBadge status={citation.status} />
                     </Box>
                   </Table.Td>
                   <Table.Td>
