@@ -377,9 +377,8 @@ export function InboxProposalCard({
           />
           {edited ? (
             <>
-              {/* The group header still names the proposed scope, so say the change is this card's alone. */}
               <Text size="xs" c="dark.4">
-                This one only: {changes.join(" · ") || "edited"}
+                {changes.join(" · ") || "Edited"}
               </Text>
               {mode === "idle" && !queued && (
                 <Anchor component="button" size="xs" c="dimmed" onClick={() => changeDraft(undefined)}>
@@ -397,7 +396,7 @@ export function InboxProposalCard({
                 w={260}
               >
                 <Text size="xs" c="dimmed" fs="italic">
-                  Suggested from proposal context
+                  Guessed from where the agent was working
                 </Text>
               </Tooltip>
             )

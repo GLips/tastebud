@@ -1,25 +1,26 @@
 /**
  * Where a derivation applies, as one control: a button showing the scope that opens a list inline,
  * in the host's flow, so it pushes the evidence down instead of covering the statement or the next
- * card. A row's label means "only this" (narrow, widen or move in one step), a checkbox adds or
- * removes a place, and Everywhere is its own row. It only edits a draft: the host decides when the
- * draft is used, and ⌘↵ inside it is left to the host to confirm with.
+ * card. A click anywhere on a row toggles it: ticking a folder inside a chosen repo narrows to it,
+ * ticking Everywhere replaces the rest, and swapping a repo is untick then tick. Done closes it, Esc
+ * puts back the scope it opened with. It only edits a draft: the host decides when the draft is
+ * used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { Box, Button, Combobox, Paper, Text, useCombobox } from "@mantine/core";
+import { Box, Button, Combobox, Group, Paper, Text, useCombobox } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import {
   applyScopePick,
   type DerivationScope,
   describeScopeResult,
+  isCompleteScope,
   type PlaceKey,
   type ScopeDraft,
-  type ScopePick,
+  scopePickOfPlacePickerValue,
 } from "@tastebud/core/places";
 import { ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { scopePickOfOptionValue } from "#review/shared/place-picker-options.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { PlacePickerList } from "#review/shared/ui/place-picker-list.tsx";
 
@@ -50,10 +51,8 @@ interface ScopePickerProps {
    * own Esc and ⌘↵ should wait). Leave it out and the picker owns its open state.
    */
   opened?: boolean;
-  /** Told whenever the list opens or closes: a click on the button, Esc, or a row picked. */
+  /** Told whenever the list opens or closes: a click on the button, Done, or Esc. */
   onOpenedChange?: (opened: boolean) => void;
-  /** Uncontrolled only: open the list on mount. */
-  defaultOpened?: boolean;
   disabled?: boolean;
 }
 
@@ -64,28 +63,22 @@ export function ScopePicker({
   onChange,
   opened,
   onOpenedChange,
-  defaultOpened = false,
   disabled = false,
 }: ScopePickerProps) {
   // The places Everywhere last replaced; the draft itself stays with the host.
   const [earlier, setEarlier] = useState<ReadonlyArray<PlaceKey>>(() => (value.scope === "places" ? value.places : []));
   const combobox = useCombobox({
-    defaultOpened,
     ...(opened !== undefined && { opened }),
     ...(onOpenedChange !== undefined && { onOpenedChange }),
   });
 
-  const pick = (choice: ScopePick) => {
+  // A click toggles a row and leaves the list open for the next one; only Done and Esc close it.
+  const submit = (picked: string) => {
+    const choice = scopePickOfPlacePickerValue(picked, value);
+    if (choice === undefined) return;
     const next = applyScopePick({ draft: value, earlier }, choice);
     setEarlier(next.earlier);
     onChange(next.draft);
-  };
-
-  const submit = (picked: string) => {
-    const choice = scopePickOfOptionValue(picked);
-    if (choice === undefined) return;
-    pick(choice);
-    combobox.closeDropdown();
   };
 
   const summary = scopeSummaryOf(value, known.labelOf);
@@ -116,15 +109,21 @@ export function ScopePicker({
               combobox={combobox}
               draft={value}
               known={known}
-              scope={{
-                proposed,
-                earlier,
-                onToggle: (place, checked) => pick({ pick: checked ? "add" : "remove", place }),
-              }}
+              scope={{ proposed, onRestore: onChange }}
               footer={
-                <Text size="xs" fw={500} {...(value.scope === "global" && { c: "orange.8" })}>
-                  {describeScopeResult(value, known.labelOf)}
-                </Text>
+                <Group justify="space-between" wrap="nowrap" gap="xs">
+                  <Text size="xs" fw={500}>
+                    {describeScopeResult(value, known.labelOf)}
+                  </Text>
+                  <Button
+                    size="compact-xs"
+                    variant="default"
+                    disabled={!isCompleteScope(value)}
+                    onClick={() => combobox.closeDropdown()}
+                  >
+                    Done
+                  </Button>
+                </Group>
               }
             />
           </Paper>
