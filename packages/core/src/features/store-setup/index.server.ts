@@ -21,3 +21,8 @@ export {
   writeOperationTastebudConfigText,
   writeTastebudConfigText,
 } from "./operations/write-tastebud-config.ts";
+export {
+  AgentHostConnectionsResultSchema,
+  readAgentHostConnections,
+  renderAgentHostConnectionsText,
+} from "./operations/agent-host-connections.ts";

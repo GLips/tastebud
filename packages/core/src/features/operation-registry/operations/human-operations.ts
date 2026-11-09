@@ -21,10 +21,26 @@ import {
   renderThreadEntryText,
   ThreadEntryInput,
 } from "#core/features/review-threads/index.server.ts";
+import {
+  AgentHostConnectionsResultSchema,
+  readAgentHostConnections,
+  renderAgentHostConnectionsText,
+} from "#core/features/store-setup/index.server.ts";
 
 import { declareTasteOperation, NoInput } from "./taste-operation-declaration.ts";
 
 export const HUMAN_TASTE_OPERATIONS = {
+  hosts: declareTasteOperation({
+    name: "hosts",
+    audience: "human",
+    kind: "query",
+    description:
+      "Whether each agent host (Claude Code, Codex, Cursor, VS Code, other MCP clients) has Tastebud wired to this store, read from the host's own config. Unknown when the file won't parse or the store comes from the host's environment.",
+    input: NoInput,
+    output: AgentHostConnectionsResultSchema,
+    run: () => readAgentHostConnections(),
+    renderText: renderAgentHostConnectionsText,
+  }),
   inbox: declareTasteOperation({
     name: "inbox",
     audience: "human",
