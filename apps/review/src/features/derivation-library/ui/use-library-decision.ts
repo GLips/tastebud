@@ -56,11 +56,13 @@ export function useLibraryDecision() {
     /** The row whose accept is waiting on its overlaps being looked over. */
     overlappingId: overlapping,
     cancelAccept: () => setOverlapping(undefined),
-    /** The row just decided and the decision that undoes it, while it can still be undone. */
+    /** The row just decided and where it now stands, until it is undone or another row is picked. */
     undoable:
       decided !== undefined && decision.undoable !== undefined
-        ? { row: decided, outcome: decision.undoable.outcome }
+        ? { row: decided, status: decision.undoable.status }
         : undefined,
+    /** Whether that decision is still the newest on record, which is when Undo shows. */
+    canUndo: decision.canUndo,
     undo: async () => {
       await decision.undo();
       setDecided(undefined);

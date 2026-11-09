@@ -26,11 +26,7 @@ export function useDerivationReview(view: DerivationView) {
   const [rejectDraft, setRejectDraft] = useState("");
   // The picker's list, held here so the S key can open it and the page's Esc can wait for it.
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Undo only while the decision made here is still the latest one on record.
-  const undoable =
-    decision.undoable !== undefined && view.decisions.at(-1)?.id === decision.undoable.decisionId
-      ? decision.undoable
-      : undefined;
+  const undoable = decision.canUndo ? decision.undoable : undefined;
   /*
    * A decision swaps the buttons under the cursor (Accept becomes Retract), so a double-click's second
    * click would make a different decision. Clicks and keys just after a decision settles are dropped;

@@ -18,6 +18,7 @@ import { recordDetailQuery, useReviewCatalog } from "#review/features/review-she
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
+import { ignoringRepeatClicks } from "#review/shared/ui/ignoring-repeat-clicks.ts";
 import { ActionIconLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
@@ -28,7 +29,6 @@ import { DerivationActivity } from "./derivation-activity.tsx";
 import { DerivationRestsOn, DerivationTitleRow } from "./derivation-header.tsx";
 import { DerivationRelated, versionsOf } from "./derivation-related.tsx";
 import { PendingDecisionButtons } from "./derivation-review.tsx";
-import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { ScopePropertyField } from "./scope-picker.tsx";
 import type { InboxCardTriage } from "./use-inbox-card-triage.ts";

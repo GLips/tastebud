@@ -4,13 +4,13 @@
  * to agents that propose the same again, so it edits in place: the rail's reason becomes the form,
  * and saving writes a new rejection. The reject form for a first rejection opens here too.
  */
-import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Anchor, Box, Divider, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { Undo2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { DecisionUndoButton } from "#review/shared/ui/decision-undo-button.tsx";
 import { DERIVATION_STATUS_TONES, DERIVATION_STATUS_WORDS } from "#review/shared/ui/status-chips.tsx";
 
 import { stateSettingDecisionOf } from "./derivation-history.ts";
@@ -124,17 +124,7 @@ export function DerivationRail({
             </Stack>
           </Group>
           {review.undoable !== undefined && review.mode === "idle" && (
-            <Tooltip label="Undo the decision just made · U" withArrow>
-              <Button
-                variant="subtle"
-                color="gray"
-                size="compact-sm"
-                leftSection={<Undo2 size={14} />}
-                onClick={review.undo}
-              >
-                Undo
-              </Button>
-            </Tooltip>
+            <DecisionUndoButton undoing={review.decision.pending} onUndo={review.undo} undoKey={review.undo} />
           )}
         </Group>
         <StateCardReason review={review} />
