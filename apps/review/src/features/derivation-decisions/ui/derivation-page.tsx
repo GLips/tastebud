@@ -7,15 +7,22 @@ import type { DerivationView, ShowResult } from "@tastebud/core/record-views";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 
 import { recordDetailQuery, useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { findKindView } from "#review/shared/ui/kind-identity.tsx";
+import { findKindView, KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 
-import { DerivationEvidence, DerivationHeader, useDerivationBack } from "./derivation-header.tsx";
-import { useDerivationPageHotkeys } from "./derivation-review.tsx";
-import { DerivationSidebar } from "./derivation-sidebar.tsx";
-import { DerivationStatusCard, newerPendingVersionOf } from "./derivation-status.tsx";
-import { DerivationThread } from "./derivation-thread.tsx";
+import { DerivationActivity } from "./derivation-activity.tsx";
+import { DerivationBackLink, DerivationRestsOn, DerivationTitleRow, useDerivationBack } from "./derivation-header.tsx";
+import { DerivationProperties } from "./derivation-properties.tsx";
+import { DerivationRelated } from "./derivation-related.tsx";
+import {
+  DerivationActions,
+  DerivationReviewPanels,
+  DerivationScopeProperty,
+  useDerivationPageHotkeys,
+} from "./derivation-review.tsx";
+import { DerivationReasonBlock } from "./derivation-status.tsx";
 import { useDerivationReview } from "./use-derivation-review.ts";
 
 const Route = getRouteApi("/derivations/$id");
@@ -30,9 +37,11 @@ const styles = stylex.create({
       default: "minmax(0, 1fr) 300px",
       "@media (max-width: 900px)": "minmax(0, 1fr)",
     },
-    gap: "20px",
+    columnGap: "32px",
+    rowGap: "20px",
     alignItems: "start",
   },
+  properties: { position: "sticky", top: "16px" },
 });
 
 export function DerivationPage() {
@@ -64,6 +73,7 @@ export function DerivationPage() {
   return <DerivationDetail key={view.id} view={view} detail={detail.data} />;
 }
 
+/** An issue-like page: the title row, reason, evidence, relations and activity in the main column; properties beside. */
 function DerivationDetail({
   view,
   detail,
@@ -78,28 +88,46 @@ function DerivationDetail({
   const kind = findKindView(catalog, view.kind);
   const acceptLabel = kind?.acceptLabel ?? "Accept";
   const back = useDerivationBack(view.kind);
-  const newer = newerPendingVersionOf(view, detail.despitedBy);
   // Discuss links (the inbox's D) arrive at #thread: the composer takes focus, not the primary action.
   const discussing = useLocation({ select: (location) => location.hash === DERIVATION_THREAD_HASH });
   useDerivationPageHotkeys(review, back.go);
 
   return (
-    <Box {...stylex.props(styles.layout)}>
-      <Stack gap="md">
-        <DerivationHeader view={view} kind={kind} catalog={catalog} owner={owner} back={back} />
-        <DerivationStatusCard review={review} kind={kind} acceptLabel={acceptLabel} known={known} newer={newer} />
-        <DerivationEvidence view={view} kind={kind} />
-        <Paper p="md" id={DERIVATION_THREAD_HASH}>
-          <DerivationThread
-            derivationId={view.id}
-            thread={view.thread}
+    <Stack gap="md">
+      <DerivationBackLink view={view} kind={kind} back={back} />
+      <Box {...stylex.props(styles.layout)}>
+        <Stack gap="xl">
+          <Stack gap="md">
+            <DerivationTitleRow
+              size="page"
+              glyph={<KindGlyph catalog={catalog} kind={view.kind} size={14} label={view.kindLabel} />}
+              statement={view.statement}
+              meta={<DerivationStatusBadge status={view.status} />}
+              actions={<DerivationActions review={review} acceptLabel={acceptLabel} />}
+            />
+            <DerivationReasonBlock review={review} />
+            <DerivationReviewPanels review={review} acceptLabel={acceptLabel} known={known} />
+          </Stack>
+          <DerivationRestsOn view={view} kind={kind} />
+          <DerivationRelated view={view} backlinks={detail} known={known} />
+          <DerivationActivity
+            id={DERIVATION_THREAD_HASH}
+            view={view}
             owner={owner}
+            known={known}
             listeners={detail.listeners}
             focusComposer={discussing}
           />
+        </Stack>
+        <Paper p="md" {...stylex.props(styles.properties)}>
+          <DerivationProperties
+            view={view}
+            kind={kind}
+            owner={owner}
+            scope={<DerivationScopeProperty review={review} known={known} />}
+          />
         </Paper>
-      </Stack>
-      <DerivationSidebar view={view} kind={kind} detail={detail} owner={owner} known={known} notedByCard={newer?.id} />
-    </Box>
+      </Box>
+    </Stack>
   );
 }

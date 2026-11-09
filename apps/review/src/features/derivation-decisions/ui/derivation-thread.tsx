@@ -1,26 +1,16 @@
-import {
-  Box,
-  ActionIcon,
-  Alert,
-  Anchor,
-  Badge,
-  Code,
-  Collapse,
-  CopyButton,
-  Group,
-  Paper,
-  Stack,
-  Text,
-  Tooltip,
-} from "@mantine/core";
+/**
+ * The note composer at the bottom of a derivation's activity feed: it always writes as the store owner,
+ * and one quiet line beside it says whether an agent is listening. The notes themselves are events in
+ * the feed (`derivation-activity.tsx`).
+ */
+import { Box, ActionIcon, Alert, Anchor, Code, CopyButton, Group, Paper, Popover, Stack, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ThreadEntryRecord } from "@tastebud/core/records";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
 import { Check, Copy, SendHorizontal } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-import { describeAuthor, formatReviewTime, formatTimeAgo } from "#review/shared/format.ts";
+import { formatTimeAgo } from "#review/shared/format.ts";
 import { THREAD_NOTE_STALES } from "#review/shared/query-keys.ts";
 import { refreshReviewQueriesAfterWrite } from "#review/shared/refresh-after-write.ts";
 import { unwrapReviewOutcome } from "#review/shared/review-outcome.ts";
@@ -32,18 +22,14 @@ import { setThreadNoteDraft, useThreadNoteDraft } from "./thread-note-drafts.ts"
 import { useReviewClockMs } from "./use-review-clock.ts";
 
 const styles = stylex.create({
-  entry: { display: "flex", flexDirection: "column", gap: "4px" },
-  owner: { backgroundColor: "var(--mantine-color-tastebud-0)", borderColor: "var(--mantine-color-tastebud-1)" },
-  text: { whiteSpace: "pre-wrap" },
   dot: { width: "8px", height: "8px", borderRadius: "50%", display: "inline-block" },
   dotLive: { backgroundColor: "var(--mantine-color-teal-5)" },
 });
 
-/**
- * Who would answer a note posted now: any listener with a fresh heartbeat. Nothing when nobody is;
- * the line under the title says what happens to a note then.
- */
-function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
+const LISTEN_COMMAND = "tastebud review listen --as <name>";
+
+/** Who would answer a note posted now; when nobody is, the command that starts a listener is one click away. */
+function AgentListeningLine({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
   const nowMs = useReviewClockMs();
   const live = listeners.filter((listener) => listener.listening);
   if (live.length > 0) {
@@ -56,72 +42,49 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
             shadow="listeningDot"
             {...stylex.props(styles.dot, styles.dotLive)}
           />
-          <Text size="xs" c="teal.8" fw={500}>
-            {live.map((listener) => listener.name).join(", ")} listening
-          </Text>
+          <SupportingText tier="faint">{live.map((listener) => listener.name).join(", ")} listening</SupportingText>
         </Group>
       </Tooltip>
     );
   }
-  return null;
-}
-
-const LISTEN_COMMAND = "tastebud review listen --as <name>";
-
-/**
- * When nobody is listening, the thread says what happens to a note in words; the command an agent
- * runs to pick notes up waits behind a disclosure, with a copy button.
- */
-function NotesWaitHint() {
-  const [open, setOpen] = useState(false);
   return (
-    <Stack gap="3xs">
-      <Group gap="xs">
-        <SupportingText tier="secondary">
-          No agent is listening; notes wait here until one picks them up.
-        </SupportingText>
-        <Anchor component="button" size="xs" onClick={() => setOpen(!open)} aria-expanded={open}>
-          How agents pick these up
+    <Popover withArrow shadow="md" position="bottom-start">
+      <Popover.Target>
+        <Anchor component="button" size="xs" c="dimmed" underline="hover">
+          No agent listening
         </Anchor>
-      </Group>
-      <Collapse expanded={open}>
-        <Group gap="2xs" wrap="nowrap">
-          <SupportingText tier="secondary">Ask an agent to run</SupportingText>
-          <Code fz="xs">{LISTEN_COMMAND}</Code>
-          <CopyButton value={LISTEN_COMMAND}>
-            {({ copied, copy }) => (
-              <Tooltip label={copied ? "Copied" : "Copy the command"} withArrow>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Stack gap="2xs">
+          <SupportingText tier="secondary">Notes wait here. An agent picks them up when it runs</SupportingText>
+          <Group gap="2xs" wrap="nowrap">
+            <Code fz="xs">{LISTEN_COMMAND}</Code>
+            <CopyButton value={LISTEN_COMMAND}>
+              {({ copied, copy }) => (
                 <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Copy the listen command" onClick={copy}>
                   {copied ? <Check size={13} /> : <Copy size={13} />}
                 </ActionIcon>
-              </Tooltip>
-            )}
-          </CopyButton>
-          <SupportingText tier="secondary">and it answers every unanswered note.</SupportingText>
-        </Group>
-      </Collapse>
-    </Stack>
+              )}
+            </CopyButton>
+          </Group>
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
   );
 }
 
-/**
- * One derivation's discussion, oldest first, with a composer that always writes as the store owner.
- * Arriving to discuss focuses the composer, so what the owner types is a note, never a page key.
- */
-export function DerivationThread({
+/** Arriving to discuss focuses the composer, so what the owner types is a note, never a page key. */
+export function DerivationNoteComposer({
   derivationId,
-  thread,
   owner,
   listeners,
   focusComposer,
 }: {
   derivationId: string;
-  thread: ReadonlyArray<ThreadEntryRecord>;
   owner: string;
   listeners: ReadonlyArray<ListenerHeartbeat>;
   focusComposer: boolean;
 }) {
-  const nowMs = useReviewClockMs();
   // A wrapper, because the shared textarea takes no ref.
   const composer = useRef<HTMLDivElement>(null);
   const composerField = () => composer.current?.querySelector("textarea");
@@ -147,38 +110,11 @@ export function DerivationThread({
     if (draft.trim() !== "" && !post.isPending) post.mutate({ ref: derivationId, text: draft });
   };
   return (
-    <Stack gap="sm">
-      <Group justify="space-between">
-        <Text size="sm" fw={600}>
-          Thread
-        </Text>
-        <AgentListeningIndicator listeners={listeners} />
-      </Group>
-      {!listeners.some((listener) => listener.listening) && <NotesWaitHint />}
-      {thread.map((entry) => {
-        const isOwner = entry.author === owner;
-        return (
-          <Paper key={entry.id} px="sm" py="xs" {...stylex.props(styles.entry, isOwner && styles.owner)}>
-            <Group gap="xs">
-              <Badge size="xs" variant={isOwner ? "filled" : "light"} color={isOwner ? "tastebud" : "gray"} tt="none">
-                {describeAuthor(entry.author, owner)}
-              </Badge>
-              <SupportingText tier="faint" title={formatReviewTime(entry.at)}>
-                {formatTimeAgo(entry.at, nowMs)}
-              </SupportingText>
-            </Group>
-            <Text {...stylex.props(styles.text)}>{entry.text}</Text>
-          </Paper>
-        );
-      })}
-      <Box ref={composer}>
+    <Stack gap="2xs" align="flex-start">
+      <Box ref={composer} w="100%">
         <ReviewTextarea
           aria-label="Note to the agent"
-          placeholder={
-            thread.length === 0
-              ? "Ask the agent something, or say what you'd change  ·  ⌘↵ to send"
-              : "Reply  ·  ⌘↵ to send"
-          }
+          placeholder="Leave a note for the agent…   ⌘↵"
           minRows={1}
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -200,6 +136,7 @@ export function DerivationThread({
           }
         />
       </Box>
+      <AgentListeningLine listeners={listeners} />
       {post.error && (
         <Alert color="red" variant="light" title="Note not saved">
           {post.error.message}

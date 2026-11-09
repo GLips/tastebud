@@ -1,22 +1,23 @@
 /**
- * The derivation page's decision controls: the actions that fit its status, the scope picker the
- * primary button follows, and whichever panel is open (reject reason or acceptance preview).
- * State lives in `use-derivation-review.ts`; `derivation-status.tsx` places these in the card.
+ * The derivation's decision controls: the actions that fit its status (top right of the title row),
+ * the Scope property the accept follows, and whichever panel is open (reject reason or acceptance
+ * preview). State lives in `use-derivation-review.ts`. Hotkeys live in tooltips, never in the buttons.
  */
-import { Alert, Anchor, Button, Group, Kbd, Stack, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Menu, Tooltip } from "@mantine/core";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { describeScopeChange, isCompleteScope, isSameScope } from "@tastebud/core/places";
+import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
-import { Check, Inbox, Undo2, X } from "lucide-react";
+import { Check, Ellipsis, Inbox, PencilLine, Undo2, X } from "lucide-react";
+import type { MouseEventHandler } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
-import { acceptInLabel, acceptItPhrase } from "./accept-wording.ts";
+import { acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
-import { ScopePicker } from "./scope-picker.tsx";
+import { ScopePropertyField } from "./scope-picker.tsx";
 import { canDecideDerivation, type DerivationReview } from "./use-derivation-review.ts";
 
 /** What an accept from each decided status changes, for the preview to say before it is sent. */
@@ -26,172 +27,177 @@ const ACCEPT_CONSEQUENCES: Partial<Record<DerivationView["status"], string>> = {
   retracted: "It becomes accepted again and applies where shown above.",
 };
 
-/** The scope row's label: where an accepted one applies, or the action the accept button takes. */
-const scopeRowLabelOf = (status: DerivationView["status"], acceptLabel: string): string => {
-  if (status === "accepted") return "Applies in";
-  if (status === "superseded") return "Applied in";
-  return acceptInLabel(acceptLabel);
-};
-
-function RejectButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
+/**
+ * Reject beside the filled accept verb: a waiting proposal's two answers. The page and the inbox pane
+ * both use it. The verb ends in "…" when the preview comes first (a widened scope or a near repeat).
+ */
+export function PendingDecisionButtons({
+  acceptLabel,
+  needsPreview,
+  pending,
+  acceptDisabled = false,
+  onAccept,
+  onReject,
+}: {
+  acceptLabel: string;
+  needsPreview: boolean;
+  pending: boolean;
+  acceptDisabled?: boolean;
+  onAccept: MouseEventHandler<HTMLButtonElement>;
+  onReject: MouseEventHandler<HTMLButtonElement>;
+}) {
   return (
-    <Tooltip label={`Say why it’s wrong; you can still ${acceptItPhrase(acceptLabel)} later`} withArrow>
-      <Button
-        variant="default"
-        leftSection={<X size={14} />}
-        rightSection={<Kbd size="xs">R</Kbd>}
-        onClick={review.startReject}
-      >
-        Reject
-      </Button>
-    </Tooltip>
+    <Group gap="xs" wrap="nowrap">
+      <Tooltip label="Reject with a reason · R" withArrow>
+        <Button variant="default" leftSection={<X size={14} />} onClick={onReject}>
+          Reject
+        </Button>
+      </Tooltip>
+      <Tooltip label={needsPreview ? `Review, then ${acceptLabel.toLowerCase()} · A` : `${acceptLabel} · A`} withArrow>
+        <Button leftSection={<Check size={14} />} loading={pending} disabled={acceptDisabled} onClick={onAccept}>
+          {`${acceptLabel}${needsPreview ? "…" : ""}`}
+        </Button>
+      </Tooltip>
+    </Group>
   );
 }
 
-function ReopenButton({ review }: { review: DerivationReview }) {
+function UndoButton({ review }: { review: DerivationReview }) {
   return (
-    <Tooltip label="Undecided again: it waits in the inbox with the other proposals" withArrow>
-      <Button
-        variant="subtle"
-        color="gray"
-        leftSection={<Inbox size={14} />}
-        loading={review.decision.pending}
-        onClick={review.reopen}
-      >
-        Put back in the inbox
+    <Tooltip label="Undo the decision just made · U" withArrow>
+      <Button variant="subtle" color="gray" leftSection={<Undo2 size={14} />} onClick={review.undo}>
+        Undo
       </Button>
     </Tooltip>
   );
 }
 
 /**
- * The kind's accept verb, kept short: the picker beside it says where. It ends in "…" when the
- * preview comes first (a widened scope).
+ * The accept verb on a decided one: quiet (default variant), because believing again is a change of
+ * mind, not the page's main act. Filled only for an accepted one whose scope the owner just edited.
  */
-function AcceptButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
-  return (
-    <Button
-      leftSection={<Check size={14} />}
-      rightSection={<Kbd size="xs">A</Kbd>}
-      loading={review.decision.pending}
-      disabled={!isCompleteScope(review.shownScope)}
-      onClick={review.startAccept}
-    >
-      {`${acceptLabel}${review.needsPreview ? "…" : ""}`}
-    </Button>
-  );
-}
-
-function RetractButton({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
-  return (
-    <Tooltip label={`Stop applying it; you can ${acceptItPhrase(acceptLabel)} again later`} withArrow>
-      <Button
-        variant="default"
-        leftSection={<Undo2 size={14} />}
-        loading={review.decision.pending}
-        onClick={review.retract}
-      >
-        Retract
-      </Button>
-    </Tooltip>
-  );
-}
-
-/** The verbs that fit its status, in the pending page's words. An accepted one shows the accept verb only for a new scope. */
-export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
-  const { view, mode, draft } = review;
-  if (mode !== "idle" || !canDecideDerivation(view)) return null;
-  const accept = <AcceptButton review={review} acceptLabel={acceptLabel} />;
-  switch (view.status) {
-    case "pending":
-      return (
-        <Group gap="xxs" wrap="nowrap">
-          <RejectButton review={review} acceptLabel={acceptLabel} />
-          {accept}
-        </Group>
-      );
-    case "accepted":
-      return (
-        <Group gap="xxs" wrap="nowrap">
-          <ReopenButton review={review} />
-          <RejectButton review={review} acceptLabel={acceptLabel} />
-          <RetractButton review={review} acceptLabel={acceptLabel} />
-          {draft !== undefined && accept}
-        </Group>
-      );
-    case "rejected":
-      return (
-        <Group gap="xxs" wrap="nowrap">
-          <ReopenButton review={review} />
-          {accept}
-        </Group>
-      );
-    case "retracted":
-      return (
-        <Group gap="xxs" wrap="nowrap">
-          <ReopenButton review={review} />
-          <RejectButton review={review} acceptLabel={acceptLabel} />
-          {accept}
-        </Group>
-      );
-    default:
-      return null;
-  }
-}
-
-/**
- * Where it applies, as the picker: one click opens it, and the accept button follows the draft. An
- * accepted one keeps applying where it does until the accept verb is pressed.
- */
-export function DerivationScopeRow({
+function DecidedAcceptButton({
   review,
   acceptLabel,
-  known,
+  label,
 }: {
   review: DerivationReview;
   acceptLabel: string;
-  known: KnownPlaces;
+  label: string;
 }) {
-  const { view, draft, shownScope, baseScope } = review;
-  const restoreWords = view.status === "pending" ? "Restore proposed scope" : "Restore previous scope";
+  const editingAccepted = review.view.status === "accepted";
   return (
-    <Stack gap="3xs">
-      <Group gap="xs" wrap="wrap">
-        <SupportingText tier="secondary">{scopeRowLabelOf(view.status, acceptLabel)}</SupportingText>
-        <ScopePicker
-          opened={review.pickerOpen}
-          value={shownScope}
-          proposed={view.proposedScope}
-          known={known}
-          onChange={review.changeDraft}
-          onOpenedChange={review.setPickerOpen}
-          disabled={review.mode !== "idle" || review.decision.pending}
-        />
-        {draft !== undefined && (
-          <>
-            <SupportingText tier="secondary">
-              {describeScopeChange(baseScope, shownScope, known.labelOf).join(" · ")}
-            </SupportingText>
-            <Anchor component="button" size="sm" c="gray.7" onClick={() => review.changeDraft(undefined)}>
-              {restoreWords}
-            </Anchor>
-          </>
-        )}
-      </Group>
-      {draft === undefined && <ScopeProvenance view={view} known={known} />}
-    </Stack>
+    <Tooltip label={`${acceptLabel} · A`} withArrow>
+      <Button
+        variant={editingAccepted ? "filled" : "default"}
+        leftSection={<Check size={14} />}
+        loading={review.decision.pending}
+        disabled={!isCompleteScope(review.shownScope)}
+        onClick={review.startAccept}
+      >
+        {`${label}${review.needsPreview ? "…" : ""}`}
+      </Button>
+    </Tooltip>
   );
 }
 
-/** Where the shown scope came from, when that isn't simply "the agent proposed it". */
-function ScopeProvenance({ view, known }: { view: DerivationView; known: KnownPlaces }) {
-  const note =
-    view.status === "pending"
-      ? view.scopeSource === "defaulted" && "Guessed from where the agent was working"
-      : !isSameScope(view.proposedScope, view.effectiveScope) &&
-        `You changed what the agent proposed: ${describeScopeChange(view.proposedScope, view.effectiveScope, known.labelOf).join(" · ")}`;
-  if (note === false) return null;
-  return <SupportingText tier="secondary">{note}</SupportingText>;
+/** The rarer moves on a decided one, behind ⋯: put it back in the inbox, and edit the reason or reject. */
+function DecidedMoreMenu({ review }: { review: DerivationReview }) {
+  const status = review.view.status;
+  return (
+    <Menu position="bottom-end" withArrow>
+      <Menu.Target>
+        <ActionIcon variant="default" size="input-sm" aria-label="More actions">
+          <Ellipsis size={16} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {status === "rejected" ? (
+          <Menu.Item leftSection={<PencilLine size={14} />} onClick={review.editReason}>
+            Edit reason
+          </Menu.Item>
+        ) : (
+          <Menu.Item leftSection={<X size={14} />} rightSection="R" onClick={review.startReject}>
+            Reject…
+          </Menu.Item>
+        )}
+        <Menu.Item leftSection={<Inbox size={14} />} onClick={review.reopen}>
+          Put back in the inbox
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
+/** The actions that fit its status. Nothing while a panel is open, or on one that can't be decided. */
+export function DerivationActions({ review, acceptLabel }: { review: DerivationReview; acceptLabel: string }) {
+  const { view, mode, draft } = review;
+  if (mode !== "idle" || !canDecideDerivation(view)) return null;
+  const undo = review.undoable !== undefined && <UndoButton review={review} />;
+  if (view.status === "pending")
+    return (
+      <Group gap="xs" wrap="nowrap">
+        {undo}
+        <PendingDecisionButtons
+          acceptLabel={acceptLabel}
+          needsPreview={review.needsPreview}
+          pending={review.decision.pending}
+          acceptDisabled={!isCompleteScope(review.shownScope)}
+          onAccept={review.startAccept}
+          onReject={review.startReject}
+        />
+      </Group>
+    );
+  return (
+    <Group gap="xs" wrap="nowrap">
+      {undo}
+      {view.status === "accepted" && (
+        <Tooltip label={`Stop applying it; you can ${acceptItPhrase(acceptLabel)} again later`} withArrow>
+          <Button
+            variant="default"
+            leftSection={<Undo2 size={14} />}
+            loading={review.decision.pending && draft === undefined}
+            onClick={review.retract}
+          >
+            Retract
+          </Button>
+        </Tooltip>
+      )}
+      {view.status === "accepted" && draft !== undefined && (
+        <DecidedAcceptButton review={review} acceptLabel={acceptLabel} label="Save scope" />
+      )}
+      {(view.status === "rejected" || view.status === "retracted") && (
+        <DecidedAcceptButton review={review} acceptLabel={acceptLabel} label={acceptLabel} />
+      )}
+      <DecidedMoreMenu review={review} />
+    </Group>
+  );
+}
+
+/**
+ * The Scope property: the picker while it can be decided, the accept following its draft. An accepted
+ * one keeps applying where it does until Save scope is pressed.
+ */
+export function DerivationScopeProperty({ review, known }: { review: DerivationReview; known: KnownPlaces }) {
+  const { view, draft, shownScope, baseScope } = review;
+  if (!canDecideDerivation(view)) return <ScopeChips scope={view.effectiveScope} labels={known.labels} wrap="wrap" />;
+  const locked = review.mode !== "idle" || review.decision.pending;
+  return (
+    <ScopePropertyField
+      picker={{
+        opened: review.pickerOpen,
+        value: shownScope,
+        proposed: view.proposedScope,
+        known,
+        onChange: review.changeDraft,
+        onOpenedChange: review.setPickerOpen,
+        disabled: locked,
+      }}
+      changes={draft === undefined ? [] : describeScopeChange(baseScope, shownScope, known.labelOf)}
+      guessed={view.status === "pending" && view.scopeSource === "defaulted"}
+      onRestore={locked ? undefined : () => review.changeDraft(undefined)}
+    />
+  );
 }
 
 /**
@@ -221,7 +227,10 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
   ]);
 }
 
-/** The outcome alert and whichever panel the mode opened: the reject reason or the acceptance preview. */
+/**
+ * The outcome alert and whichever panel the mode opened: the reject reason (except on a rejected one,
+ * whose Reason block edits in place) or the acceptance preview.
+ */
 export function DerivationReviewPanels({
   review,
   acceptLabel,
@@ -239,10 +248,9 @@ export function DerivationReviewPanels({
           {decision.failure.sentence}
         </Alert>
       )}
-      {mode === "rejecting" && (
+      {mode === "rejecting" && view.status !== "rejected" && (
         <RejectReasonForm
           initialReason={review.rejectDraft}
-          changingReason={view.status === "rejected"}
           onReasonChange={review.setRejectDraft}
           pending={decision.pending}
           onCancel={() => setMode("idle")}

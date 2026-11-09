@@ -123,7 +123,7 @@ export function useDerivationReview(view: DerivationView) {
     retract: steady(() => void decision.decide({ outcome: "retract" })),
     startReject: steady(() => setMode("rejecting")),
     /** A new reject on a rejected one, starting from the reason on record. */
-    changeReason: steady(() => {
+    editReason: steady(() => {
       setRejectDraft(view.reason ?? "");
       setMode("rejecting");
     }),

@@ -1,4 +1,4 @@
-import { Button, Group } from "@mantine/core";
+import { Button, Group, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
@@ -47,7 +47,7 @@ export function RejectReasonForm({
           data-autofocus
           autoFocus
           aria-label="Why reject it? Agents that propose this again are shown your reason."
-          placeholder={`Why not? Agents that propose this again will see your reason. ⌘↵ to ${changingReason ? "save" : "reject"}, Esc to ${onReasonChange === undefined ? "cancel" : "close (your text is kept)"}`}
+          placeholder="Why not? Agents that propose this again are shown your reason."
           minRows={1}
           {...stylex.props(styles.grow)}
           value={reason}
@@ -59,12 +59,16 @@ export function RejectReasonForm({
           onSubmitShortcut={submit}
           onCancelShortcut={cancel}
         />
-        <Button variant="subtle" color="gray" onClick={cancel} disabled={pending}>
-          Cancel
-        </Button>
-        <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>
-          {changingReason ? "Save reason" : "Reject"}
-        </Button>
+        <Tooltip label={onReasonChange === undefined ? "Esc" : "Esc · your text is kept"} withArrow>
+          <Button variant="subtle" color="gray" onClick={cancel} disabled={pending}>
+            Cancel
+          </Button>
+        </Tooltip>
+        <Tooltip label="⌘↵" withArrow>
+          <Button type="submit" color="red" disabled={trimmed === ""} loading={pending}>
+            {changingReason ? "Save reason" : "Reject"}
+          </Button>
+        </Tooltip>
       </Group>
     </form>
   );
