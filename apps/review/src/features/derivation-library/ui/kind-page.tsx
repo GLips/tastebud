@@ -33,7 +33,11 @@ import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
-import { DERIVATION_STATUS_WORDS, DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
+import {
+  DERIVATION_STATUS_WORDS,
+  DerivationStatusBadge,
+  DerivationStatusDot,
+} from "#review/shared/ui/status-chips.tsx";
 
 import { derivationListQuery } from "./derivation-list-queries.ts";
 import { KindLibraryRow } from "./kind-library-row.tsx";
@@ -46,7 +50,19 @@ const styles = stylex.create({
   tabLabel: { display: "inline-flex", alignItems: "center", gap: "6px" },
   tabCount: { fontVariantNumeric: "tabular-nums", color: "var(--mantine-color-gray-6)", fontWeight: 500 },
   // The decision notice and its Undo stay in view under the shell header while the list scrolls.
-  stickyNotice: { position: "sticky", top: "calc(var(--review-shell-header-height) + 8px)", zIndex: 5 },
+  // Floats over the page's foot so a decision's outcome never pushes the rows under the cursor.
+  decisionToast: {
+    position: "fixed",
+    insetInline: 0,
+    bottom: "24px",
+    zIndex: 200,
+    display: "flex",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  toastStatement: { flex: 1, minWidth: 0 },
+  toastUndo: { flexShrink: 0 },
+  decisionToastCard: { pointerEvents: "auto", width: "min(560px, calc(100vw - 32px))" },
   columnHead: { whiteSpace: "nowrap" },
 });
 
@@ -204,28 +220,37 @@ function LibrarySectionHeader({
 function LibraryDecisionNotice({ decision }: { decision: ReturnType<typeof useLibraryDecision> }) {
   if (decision.failure !== undefined)
     return (
-      <Alert color="red" variant="light" py="xs" role="alert">
-        <Text size="sm">
-          {decision.failure.sentence}{" "}
-          <AnchorLink to="/derivations/$id" params={{ id: decision.failure.row.id }} size="sm">
-            Decide on its page
-          </AnchorLink>
-        </Text>
-      </Alert>
+      <Paper shadow="md" p={0} {...stylex.props(styles.decisionToastCard)}>
+        <Alert color="red" variant="light" py="xs" role="alert">
+          <Text size="sm">
+            {decision.failure.sentence}{" "}
+            <AnchorLink to="/derivations/$id" params={{ id: decision.failure.row.id }} size="sm">
+              Decide on its page
+            </AnchorLink>
+          </Text>
+        </Alert>
+      </Paper>
     );
   if (decision.undoable === undefined) return null;
   return (
-    <Alert color="tastebud" variant="light" py="xs" aria-live="polite">
-      <Group gap="sm" wrap="nowrap" justify="space-between">
-        <Text size="sm" lineClamp={1}>
-          “{decision.undoable.row.statement}” moved to{" "}
-          {DERIVATION_STATUS_WORDS[STATUS_AFTER_OUTCOME[decision.undoable.outcome]]}.
-        </Text>
-        <Button variant="subtle" loading={decision.undoing} onClick={() => void decision.undo()}>
-          Undo
-        </Button>
-      </Group>
-    </Alert>
+    <Paper shadow="md" p={0} {...stylex.props(styles.decisionToastCard)}>
+      <Alert color="tastebud" variant="light" py="xs" aria-live="polite">
+        <Group gap="sm" wrap="nowrap">
+          <DerivationStatusBadge status={STATUS_AFTER_OUTCOME[decision.undoable.outcome]} />
+          <Text size="sm" lineClamp={1} {...stylex.props(styles.toastStatement)}>
+            “{decision.undoable.row.statement}”
+          </Text>
+          <Button
+            variant="subtle"
+            loading={decision.undoing}
+            onClick={() => void decision.undo()}
+            {...stylex.props(styles.toastUndo)}
+          >
+            Undo
+          </Button>
+        </Group>
+      </Alert>
+    </Paper>
   );
 }
 
@@ -293,7 +318,7 @@ export function KindLibraryPage() {
         />
       </Group>
 
-      <Box {...stylex.props(styles.stickyNotice)}>
+      <Box {...stylex.props(styles.decisionToast)}>
         <LibraryDecisionNotice decision={decision} />
       </Box>
 

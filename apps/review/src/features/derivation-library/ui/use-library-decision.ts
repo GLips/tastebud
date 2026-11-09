@@ -13,43 +13,41 @@ export interface LibraryDecisionRequest {
   readonly acknowledges?: ReadonlyArray<string>;
 }
 
+const standingOf = (row: DerivationRow) => ({
+  status: row.status,
+  proposedScope: row.proposedScope,
+  effectiveScope: row.effectiveScope,
+  reason: row.reason,
+});
+
 /**
- * The library's one decision, at page level so its outcome and Undo survive the row leaving the filter. A row
- * becomes the target when its menu opens or its reject reason takes focus: the hook binds its target at render.
- * An accept checks the preview first, so an overlap is shown in the row instead of refused by the server.
+ * The library's one decision, at page level so its outcome and Undo survive the row leaving the filter. Each
+ * decision carries its own row, so a click that picks a row and decides it at once still lands. An accept checks
+ * the preview first, so an overlap is shown in the row instead of refused by the server.
  */
 export function useLibraryDecision() {
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<DerivationRow | undefined>(undefined);
   const [decided, setDecided] = useState<DerivationRow | undefined>(undefined);
   const [overlapping, setOverlapping] = useState<string | undefined>(undefined);
-  const decision = useReviewDecision(
-    target?.id ?? "",
-    target === undefined
-      ? undefined
-      : {
-          status: target.status,
-          proposedScope: target.proposedScope,
-          effectiveScope: target.effectiveScope,
-          reason: target.reason,
-        },
-  );
+  const decision = useReviewDecision(target?.id ?? "", target === undefined ? undefined : standingOf(target));
+  /** Makes `row` the target. Another row's Undo goes with it: the hook can only undo its own target. */
+  const activate = (row: DerivationRow) => {
+    if (row.id === target?.id) return;
+    setTarget(row);
+    setDecided(undefined);
+    setOverlapping(undefined);
+    decision.clearFailure();
+  };
   return {
-    /** Makes `row` the target. Another row's Undo goes with it: the hook can only undo its own target. */
-    activate: (row: DerivationRow) => {
-      if (row.id === target?.id) return;
-      setTarget(row);
-      setDecided(undefined);
-      setOverlapping(undefined);
-      decision.clearFailure();
-    },
+    activate,
     decide: async (row: DerivationRow, request: LibraryDecisionRequest) => {
-      if (row.id !== target?.id) return;
+      activate(row);
       if (request.outcome === "accept" && request.acknowledges === undefined) {
         const preview = await queryClient.fetchQuery(acceptPreviewQuery(row.id, undefined));
         if (preview.needsAcknowledgement.length > 0) return setOverlapping(row.id);
       }
-      const outcome = await decision.decide(request);
+      const outcome = await decision.decide(request, { target: row.id, standing: standingOf(row) });
       if (!outcome.ok) return;
       setDecided(row);
       setOverlapping(undefined);
