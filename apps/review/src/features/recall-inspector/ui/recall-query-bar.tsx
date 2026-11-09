@@ -3,9 +3,9 @@
  * kinds. Typed words run on Enter; picking a place, a kind or history runs at once. The place select
  * also offers Nowhere in particular, and a folder typed into it is resolved the way an agent's is.
  */
-import { Box, Button, Checkbox, Group, Menu, Paper, TextInput } from "@mantine/core";
+import { Box, Button, Group, Menu, Paper, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { Check, ChevronDown, Layers, MapPinOff, Search } from "lucide-react";
+import { Check, ChevronDown, History, Layers, MapPinOff, Search } from "lucide-react";
 import { useState } from "react";
 
 import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/index.ts";
@@ -129,13 +129,17 @@ export function RecallQueryBar({ check, onRun }: { check: RecallCheck; onRun: (n
               ))}
             </Menu.Dropdown>
           </Menu>
-          <Checkbox
-            label="With history"
-            title="Include replaced and retracted items"
-            checked={check.history === true}
-            onChange={() => run({ history: check.history !== true })}
+          {/* A toggle button rather than a checkbox, so it stands the same height as the controls beside it. */}
+          <Button
+            variant={check.history === true ? "light" : "default"}
+            fw={400}
+            leftSection={check.history === true ? <Check size={13} /> : <History size={13} />}
+            aria-pressed={check.history === true}
+            onClick={() => run({ history: check.history !== true })}
             {...stylex.props(styles.fixed)}
-          />
+          >
+            Include replaced and retracted
+          </Button>
           <Button type="submit">Check</Button>
         </Group>
       </form>

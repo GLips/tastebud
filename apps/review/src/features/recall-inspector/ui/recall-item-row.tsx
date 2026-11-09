@@ -22,7 +22,7 @@ import type { RecallOutcome } from "./recall-reasons.ts";
 const styles = stylex.create({
   row: {
     display: "grid",
-    gridTemplateColumns: "12px minmax(0, 1.5fr) 160px 108px 108px minmax(0, 1fr)",
+    gridTemplateColumns: "12px minmax(0, 1.5fr) 160px 108px 132px minmax(0, 1fr)",
     columnGap: "12px",
     alignItems: "baseline",
     paddingBlock: "8px",
