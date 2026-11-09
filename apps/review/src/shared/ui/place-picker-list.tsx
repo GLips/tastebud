@@ -1,17 +1,22 @@
 /**
- * The open list of a place picker: a search, then the rows from `placePickerGroupsOf`. The scope
- * picker shows it inline with a checkbox per place (add or remove) and the row's label meaning
- * "only this"; a single-place select shows it in a dropdown with no checkboxes. It mounts with each
- * opening, so the search starts empty however the list was opened.
+ * The open list of a place picker: a search, then the rows from `placePickerGroupsOf`. In the scope
+ * picker every row shows a checkbox and a click anywhere on it toggles it; a single-place select
+ * shows a check on its place and a click picks it. It mounts with each opening, so the search starts
+ * empty however the list was opened, and it remembers the draft it opened with for Esc.
  */
 import { Box, Checkbox, Combobox, type ComboboxStore, ScrollArea, Text, TextInput } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import type { DerivationScope, PlaceKey, ScopeDraft } from "@tastebud/core/places";
-import { Check, CornerDownRight, Globe, Plus, Undo2 } from "lucide-react";
+import {
+  type DerivationScope,
+  type PlaceKey,
+  type PlacePickerOption,
+  placePickerGroupsOf,
+  type ScopeDraft,
+} from "@tastebud/core/places";
+import { Check, CornerDownRight, Globe, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { type PlacePickerOption, placePickerGroupsOf } from "#review/shared/place-picker-options.ts";
 
 import { PlaceFormIcon } from "./place-chips.tsx";
 
@@ -25,14 +30,16 @@ const styles = stylex.create({
   },
   nested: { paddingLeft: "20px" },
   label: { display: "flex", alignItems: "center", gap: "6px", minWidth: 0 },
+  // Fades the row's own colour rather than taking a dimmed one, so it stays readable on the
+  // highlighted row's filled background as well as on the plain one.
+  note: { opacity: 0.75 },
 });
 
-/** What only the scope picker has: its proposal, the way back from Everywhere, and the checkboxes. */
+/** What only the scope picker has: its proposal, and the way Esc puts back the opening draft. */
 export interface PlacePickerScopeRows {
   proposed: DerivationScope;
-  earlier: ReadonlyArray<PlaceKey>;
-  /** A checkbox changed: add the place beside the others, or remove it. */
-  onToggle: (place: PlaceKey, checked: boolean) => void;
+  /** Esc: the draft the list opened with, to restore before it closes. */
+  onRestore: (draft: ScopeDraft) => void;
 }
 
 function LeadingIcon({ children, c = "dimmed" }: { children: ReactNode; c?: string }) {
@@ -43,52 +50,38 @@ function LeadingIcon({ children, c = "dimmed" }: { children: ReactNode; c?: stri
   );
 }
 
-function PlaceRowCheckbox({
-  option,
-  draft,
-  scope,
-  labelOf,
-}: {
-  option: Extract<PlacePickerOption, { kind: "place" }>;
-  draft: ScopeDraft;
-  scope: PlacePickerScopeRows;
-  labelOf: (place: PlaceKey) => string;
-}) {
-  const chosen = option.row.state === "chosen";
-  // The last chosen place stays: unticking it would leave a scope that applies nowhere.
-  const onlyChoice = chosen && draft.scope === "places" && draft.places.length === 1;
+function RowNote({ children }: { children: ReactNode }) {
   return (
-    <Checkbox
-      size="xs"
-      checked={chosen}
-      disabled={onlyChoice || option.row.state === "covered"}
-      aria-label={chosen ? `Remove ${labelOf(option.place)}` : `Also apply in ${labelOf(option.place)}`}
-      // The row behind it means "only this"; the checkbox only adds or removes.
-      onClick={(event) => event.stopPropagation()}
-      onChange={(event) => scope.onToggle(option.place, event.currentTarget.checked)}
-    />
+    <Text size="xs" truncate {...stylex.props(styles.note)}>
+      {children}
+    </Text>
   );
 }
 
 function PlaceOptionRow({
   option,
-  draft,
   known,
-  scope,
+  scoped,
 }: {
   option: Extract<PlacePickerOption, { kind: "place" }>;
-  draft: ScopeDraft;
   known: KnownPlaces;
-  scope: PlacePickerScopeRows | undefined;
+  /** The scope picker's row, with a checkbox and what a covered place's tick does. */
+  scoped: boolean;
 }) {
-  const covered = option.row.state === "covered" ? `covered by ${known.labelOf(option.row.coveredBy)}` : undefined;
-  const note = [covered, option.proposed ? "proposed" : undefined].filter((part) => part !== undefined).join(" · ");
+  const chosen = option.row.state === "chosen";
+  const covered = scoped && option.row.state === "covered" ? option.row.coveredBy : undefined;
+  const note = [
+    covered === undefined ? undefined : `in ${known.labelOf(covered)} · tick to narrow`,
+    option.proposed ? "proposed" : undefined,
+  ]
+    .filter((part) => part !== undefined)
+    .join(" · ");
   return (
     <Box {...stylex.props(styles.row, option.nested && styles.nested)}>
-      {scope === undefined ? (
-        <LeadingIcon c="tastebud.6">{option.row.state === "chosen" && <Check size={14} aria-hidden />}</LeadingIcon>
+      {scoped ? (
+        <Checkbox.Indicator size="xs" checked={chosen} indeterminate={covered !== undefined} />
       ) : (
-        <PlaceRowCheckbox option={option} draft={draft} scope={scope} labelOf={known.labelOf} />
+        <LeadingIcon c="tastebud.6">{chosen && <Check size={14} aria-hidden />}</LeadingIcon>
       )}
       <Box {...stylex.props(styles.label)}>
         {option.nested ? <CornerDownRight size={12} aria-hidden /> : <PlaceFormIcon place={option.place} size={13} />}
@@ -96,14 +89,12 @@ function PlaceOptionRow({
           {option.label}
         </Text>
       </Box>
-      <Text size="xs" c="dimmed" truncate>
-        {note}
-      </Text>
+      <RowNote>{note}</RowNote>
     </Box>
   );
 }
 
-/** "beside acme/web", "beside acme/web and 2 more". */
+/** "acme/web", "acme/web and 2 more". */
 const placesPhrase = (places: ReadonlyArray<PlaceKey>, labelOf: (place: PlaceKey) => string): string => {
   const [first, ...rest] = places;
   if (first === undefined) return "";
@@ -132,67 +123,44 @@ function TypedOptionRow({
       <LeadingIcon>
         {effect.effect === "add" ? <Plus size={13} aria-hidden /> : <PlaceFormIcon place={option.place} size={13} />}
       </LeadingIcon>
-      <Text size="sm" truncate>
-        {effect.effect === "add" ? "Add" : "Use"}{" "}
-        <Text span size="sm" fw={600}>
-          {option.label}
-        </Text>{" "}
-        {option.meaning}
-      </Text>
-      <Text size="xs" c="dimmed" truncate>
-        {note}
-      </Text>
+      {/* The effect goes under the place rather than beside it: both are long enough to crowd one line. */}
+      <Box miw={0}>
+        <Text size="sm" truncate>
+          {effect.effect === "add" ? "Add" : "Use"}{" "}
+          <Text span size="sm" fw={600}>
+            {option.label}
+          </Text>{" "}
+          {option.meaning}
+        </Text>
+        {note !== "" && <RowNote>{note}</RowNote>}
+      </Box>
+      <Box component="span" />
     </Box>
   );
 }
 
-function PlacePickerRow({
-  option,
-  draft,
-  known,
-  scope,
-}: {
-  option: PlacePickerOption;
-  draft: ScopeDraft;
-  known: KnownPlaces;
-  scope: PlacePickerScopeRows | undefined;
-}) {
+function PlacePickerRow({ option, known, scoped }: { option: PlacePickerOption; known: KnownPlaces; scoped: boolean }) {
   switch (option.kind) {
     case "everywhere":
       return (
         <Box {...stylex.props(styles.row)}>
-          <LeadingIcon c="orange.6">
-            {option.chosen ? <Check size={14} aria-hidden /> : <Globe size={13} aria-hidden />}
-          </LeadingIcon>
+          <Checkbox.Indicator size="xs" checked={option.chosen} />
           <Box {...stylex.props(styles.label)}>
+            <Globe size={13} aria-hidden />
             <Text size="sm" fw={500}>
               Everywhere
             </Text>
-            <Text size="xs" c="dimmed" truncate>
+            <Text size="xs" truncate {...stylex.props(styles.note)}>
               every place, including future ones
             </Text>
           </Box>
-          <Text size="xs" c="dimmed">
-            {option.proposed ? "proposed" : ""}
-          </Text>
+          <RowNote>{option.proposed ? "proposed" : ""}</RowNote>
         </Box>
       );
     case "place":
-      return <PlaceOptionRow option={option} draft={draft} known={known} scope={scope} />;
+      return <PlaceOptionRow option={option} known={known} scoped={scoped} />;
     case "typed":
       return <TypedOptionRow option={option} labelOf={known.labelOf} />;
-    case "earlier":
-      return (
-        <Box {...stylex.props(styles.row)}>
-          <LeadingIcon>
-            <Undo2 size={13} aria-hidden />
-          </LeadingIcon>
-          <Text size="sm" truncate>
-            Back to {option.places.map(known.labelOf).join(", ")}
-          </Text>
-          <Box component="span" />
-        </Box>
-      );
   }
 }
 
@@ -212,11 +180,12 @@ export function PlacePickerList({
   footer?: ReactNode;
 }) {
   const [search, setSearch] = useState("");
+  const [openingDraft] = useState(draft);
   const searchRef = useRef<HTMLInputElement>(null);
   const groups = placePickerGroupsOf({
     mode: scope === undefined ? "single" : "scope",
     draft,
-    ...(scope !== undefined && { proposed: scope.proposed, earlier: scope.earlier }),
+    ...(scope !== undefined && { proposed: scope.proposed }),
     places: known.places,
     labelOf: known.labelOf,
     search,
@@ -260,11 +229,14 @@ export function PlacePickerList({
           onKeyDown={(event) => {
             // ⌘↵ belongs to the host's confirm; without this the list would also take the active row.
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) combobox.resetSelectedOption();
+            // Runs before the combobox's own Esc, which then closes the list.
+            if (event.key === "Escape") scope?.onRestore(openingDraft);
           }}
         />
       </Combobox.EventsTarget>
       <Combobox.Options>
-        <ScrollArea.Autosize mah={320} type="scroll">
+        {/* Scrolls inside, so the footer and its Done stay in view however many places there are. */}
+        <ScrollArea.Autosize mah={280} type="auto">
           {groups.map((group) => {
             const rows = group.options.map((option) => (
               <Combobox.Option
@@ -274,8 +246,10 @@ export function PlacePickerList({
                   (option.kind === "place" && option.row.state === "chosen") ||
                   (option.kind === "everywhere" && option.chosen)
                 }
+                // A typed place, once picked, is listed among the known ones: show them again.
+                {...(option.kind === "typed" && { onClick: () => setSearch("") })}
               >
-                <PlacePickerRow option={option} draft={draft} known={known} scope={scope} />
+                <PlacePickerRow option={option} known={known} scoped={scope !== undefined} />
               </Combobox.Option>
             ));
             return group.heading === undefined ? (

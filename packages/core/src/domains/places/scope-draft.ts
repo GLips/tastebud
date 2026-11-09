@@ -49,13 +49,14 @@ const withPlace = (draft: ScopeDraft, place: PlaceKey): ScopeDraft => {
 };
 
 /**
- * One edit in the scope picker. `only` makes a place the whole scope (narrow, widen or move in one
- * step); `add` puts one beside the others; `earlier` returns to the places Everywhere replaced.
+ * One edit in the scope picker. `add` puts a place beside the others, or in place of one it is
+ * inside or around (narrow or widen in one step); `earlier` returns to the places Everywhere
+ * replaced, which may be none.
  */
 export type ScopePick =
   | { readonly pick: "everywhere" }
   | { readonly pick: "earlier" }
-  | { readonly pick: "only" | "add" | "remove"; readonly place: PlaceKey };
+  | { readonly pick: "add" | "remove"; readonly place: PlaceKey };
 
 /** The draft plus the places Everywhere last replaced, so Everywhere and back loses nothing. */
 export interface ScopePickState {
@@ -72,9 +73,7 @@ export const applyScopePick = (state: ScopePickState, pick: ScopePick): ScopePic
         earlier: draft.scope === "places" && draft.places.length > 0 ? draft.places : earlier,
       };
     case "earlier":
-      return { draft: earlier.length > 0 ? { scope: "places", places: earlier } : draft, earlier };
-    case "only":
-      return { draft: { scope: "places", places: [pick.place] }, earlier };
+      return { draft: { scope: "places", places: earlier }, earlier };
     case "add":
       return { draft: withPlace(draft, pick.place), earlier };
     case "remove":

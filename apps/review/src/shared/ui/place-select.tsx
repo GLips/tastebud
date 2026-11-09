@@ -5,11 +5,10 @@
  * Recall stands; it never offers Everywhere.
  */
 import { Button, Combobox, useCombobox } from "@mantine/core";
-import type { PlaceKey } from "@tastebud/core/places";
+import { type PlaceKey, placeOfPlacePickerValue } from "@tastebud/core/places";
 import { ChevronDown, MapPin } from "lucide-react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import { placeOfOptionValue } from "#review/shared/place-picker-options.ts";
 
 import { PlaceFormIcon } from "./place-chips.tsx";
 import { PlacePickerList } from "./place-picker-list.tsx";
@@ -31,7 +30,7 @@ export function PlaceSelect({
 }) {
   const combobox = useCombobox();
   const submit = (picked: string) => {
-    const place = placeOfOptionValue(picked);
+    const place = placeOfPlacePickerValue(picked);
     if (place === undefined) return;
     onChange(place);
     combobox.closeDropdown();

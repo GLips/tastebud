@@ -39,3 +39,12 @@ export {
   type ScopePickState,
   typedPlaceChoicesOf,
 } from "./scope-draft.ts";
+export {
+  type PlacePickerGroup,
+  placePickerGroupsOf,
+  type PlacePickerOption,
+  type PlacePickerRowState,
+  placeOfPlacePickerValue,
+  scopePickOfPlacePickerValue,
+  type TypedPlaceEffect,
+} from "./place-picker-rows.ts";
