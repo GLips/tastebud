@@ -1,5 +1,6 @@
 import { SegmentedControl } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 
@@ -10,6 +11,8 @@ const styles = stylex.create({
 export interface CountedTabOption<Value extends string> {
   readonly value: Value;
   readonly label: string;
+  /** A mark before the label, such as a kind's glyph. */
+  readonly icon?: ReactNode;
   /** Rows behind this option; absent for a choice that isn't a filter, such as a view or an order. */
   readonly count?: number;
 }
@@ -43,12 +46,13 @@ export function CountedTabs<Value extends string>({
       data={options.map((option) => ({
         value: option.value,
         label:
-          option.count === undefined ? (
+          option.count === undefined && option.icon === undefined ? (
             option.label
           ) : (
             <span {...stylex.props(styles.label)}>
+              {option.icon}
               {option.label}
-              <CountBadge count={option.count} />
+              {option.count !== undefined && <CountBadge count={option.count} />}
             </span>
           ),
       }))}
