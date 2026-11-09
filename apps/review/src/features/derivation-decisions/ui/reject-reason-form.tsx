@@ -52,6 +52,8 @@ export function RejectReasonForm({
           {...stylex.props(styles.grow)}
           value={reason}
           readOnly={pending}
+          // Editing a reason starts from the one on record: the caret goes after it, not before.
+          onFocus={(event) => event.currentTarget.setSelectionRange(reason.length, reason.length)}
           onChange={(event) => {
             setReason(event.currentTarget.value);
             onReasonChange?.(event.currentTarget.value);

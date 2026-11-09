@@ -26,15 +26,15 @@ export function DerivationProperties({
   kind,
   owner,
   scope,
-  extra,
+  host,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   owner: string;
   /** The Scope value: the picker while it can be decided, chips otherwise. */
   scope: ReactNode;
-  /** Rows a host adds at the end, such as the pane's link to the full page. */
-  extra?: ReactNode;
+  /** The inbox pane leaves out Kind (its tab says it) and ID (the full page has it). */
+  host: "page" | "pane";
 }) {
   const lastDecision = view.decisions.at(-1);
   const decided = view.status !== "pending" && view.decidedAt !== undefined;
@@ -57,26 +57,26 @@ export function DerivationProperties({
           </Text>
         </FactRow>
       )}
-      <FactRow label="Proposed by">
-        <Text size="sm">{describeAuthor(view.derivation.proposed_by, owner)}</Text>
-      </FactRow>
       <FactRow label="Proposed">
         <Text size="sm" title={formatReviewTime(view.proposedAt)}>
-          {formatReviewDate(view.proposedAt)}
+          {formatReviewDate(view.proposedAt)} · {describeAuthor(view.derivation.proposed_by, owner)}
         </Text>
       </FactRow>
-      <FactRow label="Kind">
-        <Tooltip label={kind === undefined ? "This kind is retired" : RECALL_WORDS[kind.recall]} withArrow>
-          <Text size="sm" span>
-            {capitalize(view.kindLabel)}
-            {view.retired && " (retired)"}
-          </Text>
-        </Tooltip>
-      </FactRow>
-      <FactRow label="ID">
-        <DerivationIdCopy id={view.id} />
-      </FactRow>
-      {extra}
+      {host === "page" && (
+        <>
+          <FactRow label="Kind">
+            <Tooltip label={kind === undefined ? "This kind is retired" : RECALL_WORDS[kind.recall]} withArrow>
+              <Text size="sm" span>
+                {capitalize(view.kindLabel)}
+                {view.retired && " (retired)"}
+              </Text>
+            </Tooltip>
+          </FactRow>
+          <FactRow label="ID">
+            <DerivationIdCopy id={view.id} />
+          </FactRow>
+        </>
+      )}
     </FactList>
   );
 }

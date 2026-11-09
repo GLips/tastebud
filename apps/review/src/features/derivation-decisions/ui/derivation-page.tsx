@@ -124,6 +124,7 @@ function DerivationDetail({
             view={view}
             kind={kind}
             owner={owner}
+            host="page"
             scope={<DerivationScopeProperty review={review} known={known} />}
           />
         </Paper>

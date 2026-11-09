@@ -1,7 +1,8 @@
 /**
  * The selected proposal, built from the same parts as its page: the title row with Reject and the accept
- * verb (held at the pane's top while the evidence scrolls), its properties with the Scope picker, what it
- * rests on, how it relates to other records, and the activity feed with the note composer.
+ * verb over its properties, Scope picker included (held at the pane's top while the evidence scrolls, as
+ * the accept follows the scope), then what it rests on, how it relates to other records, and the
+ * activity feed with the note composer.
  */
 import { Box, Alert, Group, Loader, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -184,31 +185,30 @@ export function InboxProposalPane({
             actions={<InboxDecisionButtons kind={kind} triage={triage} queued={queued} />}
           />
           <InboxDecisionForms view={view} kind={kind} known={known} triage={triage} />
+          <DerivationProperties
+            view={view}
+            kind={kind}
+            owner={owner}
+            host="pane"
+            scope={
+              // No ⌘↵ here: while the picker is open it owns the keys, and believing waits until it is closed.
+              <ScopePropertyField
+                picker={{
+                  value: triage.shownScope,
+                  proposed: triage.proposed,
+                  known,
+                  onChange: triage.changeDraft,
+                  opened: triage.pickerOpen,
+                  onOpenedChange: triage.setPickerOpen,
+                  disabled: locked,
+                }}
+                changes={triage.edited ? triage.changes : []}
+                guessed={view.scopeSource === "defaulted"}
+                onRestore={locked ? undefined : () => triage.changeDraft(undefined)}
+              />
+            }
+          />
         </Stack>
-      </Paper>
-      <Paper p="md">
-        <DerivationProperties
-          view={view}
-          kind={kind}
-          owner={owner}
-          scope={
-            // No ⌘↵ here: while the picker is open it owns the keys, and believing waits until it is closed.
-            <ScopePropertyField
-              picker={{
-                value: triage.shownScope,
-                proposed: triage.proposed,
-                known,
-                onChange: triage.changeDraft,
-                opened: triage.pickerOpen,
-                onOpenedChange: triage.setPickerOpen,
-                disabled: locked,
-              }}
-              changes={triage.edited ? triage.changes : []}
-              guessed={view.scopeSource === "defaulted"}
-              onRestore={locked ? undefined : () => triage.changeDraft(undefined)}
-            />
-          }
-        />
       </Paper>
       <DerivationRestsOn view={view} kind={kind} />
       <DerivationRelated
