@@ -20,7 +20,7 @@ import { DerivationStatusBadge } from "./status-chips.tsx";
 const styles = stylex.create({
   row: {
     display: "grid",
-    gridTemplateColumns: "128px minmax(0, 1fr)",
+    gridTemplateColumns: "152px minmax(0, 1fr)",
     columnGap: "12px",
     alignItems: "baseline",
     paddingBlock: "8px",
@@ -48,14 +48,17 @@ export type DerivationRelationPlace = "flat" | "current" | "child";
 
 export function DerivationRelationRow({
   relation,
+  relationChip,
   summary,
   catalog,
   labels,
   place = "flat",
   children,
 }: {
-  /** What the other one is to this one: "Newer version", "Says the opposite". */
+  /** What the other one is to this one: "Newer version", "Near". */
   relation: string;
+  /** A chip that says the relation instead of the word, such as a conflict's caution. */
+  relationChip?: ReactNode;
   summary: DerivationSummary;
   /** Picks the kind's glyph; passed in so shared/ui never reads a feature's query. */
   catalog: CatalogView | undefined;
@@ -67,9 +70,11 @@ export function DerivationRelationRow({
   const current = place === "current";
   return (
     <Box {...stylex.props(styles.row, current && styles.current)}>
-      <Text size="xs" c="dimmed" fw={500}>
-        {relation}
-      </Text>
+      {relationChip ?? (
+        <Text size="xs" c="dimmed" fw={500}>
+          {relation}
+        </Text>
+      )}
       <Stack gap="3xs" {...stylex.props(place === "child" && styles.child)}>
         <Group gap="xs" wrap="nowrap" align="baseline">
           {place === "child" && (

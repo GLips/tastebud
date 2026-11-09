@@ -10,6 +10,7 @@ import type { DerivationSummary, DerivationView, ShowResult } from "@tastebud/co
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { CautionChip, type DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { DerivationRelationRow, type DerivationRelationPlace } from "#review/shared/ui/derivation-relation-row.tsx";
 
 import { DerivationSection } from "./derivation-header.tsx";
@@ -20,6 +21,8 @@ const styles = stylex.create({
 
 interface DerivationRelation {
   readonly relation: string;
+  /** A conflict shows as its caution chip in place of the relation word. */
+  readonly caution?: DerivationCaution;
   readonly summary: DerivationSummary;
   readonly place?: DerivationRelationPlace | undefined;
   /** The agent's case for proposing again, under the earlier record it answers. */
@@ -53,12 +56,21 @@ const relationGroupsOf = (view: DerivationView, backlinks: DerivationBacklinks) 
   const despiteCase = view.derivation.despite_case;
   const conflicts = firstSeen([
     ...view.despite.map((summary, index) => ({
-      relation: summary.status === "rejected" ? "Near a rejection" : "Near",
+      relation: "Near",
+      ...(summary.status === "rejected" && { caution: "near-a-rejection" as const }),
       summary,
       ...(index === view.despite.length - 1 && despiteCase !== undefined && { agentCase: despiteCase }),
     })),
-    ...view.contradictingDerivations.map((summary) => ({ relation: "Says the opposite", summary })),
-    ...(backlinks.nearRepeats ?? []).map((summary) => ({ relation: "Near repeat", summary })),
+    ...view.contradictingDerivations.map((summary) => ({
+      relation: "Says the opposite",
+      summary,
+      caution: "says-the-opposite" as const,
+    })),
+    ...(backlinks.nearRepeats ?? []).map((summary) => ({
+      relation: "Near repeat",
+      summary,
+      caution: "near-a-repeat" as const,
+    })),
   ]);
   const linked = firstSeen([
     ...view.supportingDerivations.map((summary) => ({ relation: "Builds on", summary })),
@@ -91,6 +103,7 @@ function RelationGroup({
           <DerivationRelationRow
             key={entry.summary.id}
             relation={entry.relation}
+            relationChip={entry.caution === undefined ? undefined : <CautionChip caution={entry.caution} />}
             summary={entry.summary}
             catalog={catalog}
             labels={known.labels}
