@@ -1,15 +1,26 @@
-import { Center, Group, Paper, SegmentedControl, Select, Stack, Table, Text, TextInput } from "@mantine/core";
+import {
+  Center,
+  Group,
+  Paper,
+  SegmentedControl,
+  Select,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SourceRow } from "@tastebud/core/record-browsing";
 import { Schema } from "effect";
-import { Search, UserRound } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
-import { formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
+import { describeSpeaker, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import { CountBadge } from "#review/shared/ui/count-badge.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
@@ -33,6 +44,7 @@ const styles = stylex.create({
   },
   // Cells with their own link sit above the row's cover.
   groupRow: { backgroundColor: "var(--mantine-color-gray-0)" },
+  sectionToggle: { width: "100%" },
   aboveRowLink: { position: "relative", zIndex: 1 },
   rowLink: {
     "::after": { content: "''", position: "absolute", inset: 0 },
@@ -40,8 +52,13 @@ const styles = stylex.create({
   },
 });
 
+const SOURCE_SECTION_KEYS = ["led-to", "unused"] as const;
+type SourceSectionKey = (typeof SOURCE_SECTION_KEYS)[number];
+
 export const SourceListSearch = Schema.Struct({
   kind: Schema.optionalKey(Schema.String),
+  /** Sections folded shut; both are open by default. */
+  closed: Schema.optionalKey(Schema.Array(Schema.Literals(SOURCE_SECTION_KEYS))),
   speaker: Schema.optionalKey(Schema.String),
   text: Schema.optionalKey(Schema.String),
 });
@@ -49,42 +66,56 @@ export const SourceListSearch = Schema.Struct({
 const Route = getRouteApi("/sources/");
 
 /** The list's two sections, in this order: words a conclusion cites, then words nothing cites yet. */
-const SOURCE_SECTIONS = [
+const SOURCE_SECTIONS: ReadonlyArray<{ key: SourceSectionKey; title: string; cited: boolean }> = [
   { key: "led-to", title: "Led to something", cited: true },
   { key: "unused", title: "Not used yet", cited: false },
-] as const;
+];
 
-/** Rows in their sections, newest first inside each; a section with no rows has no header. */
+/** Most cited first, then newest: the words that led to the most come up top. */
+const bySourceUse = (left: SourceRow, right: SourceRow) =>
+  right.citedByCount - left.citedByCount || right.source.said_at.localeCompare(left.source.said_at);
+
+/** Rows in their sections; a section with no rows has no header. */
 const groupSourceRowsByUse = (rows: ReadonlyArray<SourceRow>) =>
   SOURCE_SECTIONS.map((section) =>
     Object.assign(
-      {
-        rows: rows
-          .filter((row) => row.citedByCount > 0 === section.cited)
-          .toSorted((left, right) => right.source.said_at.localeCompare(left.source.said_at)),
-      },
+      { rows: rows.filter((row) => row.citedByCount > 0 === section.cited).toSorted(bySourceUse) },
       section,
     ),
   ).filter((section) => section.rows.length > 0);
 
-/** A section's header row: its title and count. */
-function SourceSectionHeader({ title, count }: { title: string; count: number }) {
+/** A section's header row, which folds the section: its chevron, title and count. */
+function SourceSectionHeader({
+  title,
+  count,
+  open,
+  onToggle,
+}: {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const Chevron = open ? ChevronDown : ChevronRight;
   return (
     <Table.Tr {...stylex.props(styles.groupRow)}>
-      <Table.Td colSpan={4} py="xxs">
-        <Group gap="xs" wrap="nowrap">
-          <Text size="sm" fw={600}>
-            {title}
-          </Text>
-          <CountBadge count={count} />
-        </Group>
+      <Table.Td colSpan={4} py="xxs" pl="xs">
+        <UnstyledButton onClick={onToggle} aria-expanded={open} {...stylex.props(styles.sectionToggle)}>
+          <Group gap="xs" wrap="nowrap">
+            <Chevron size={14} color="var(--mantine-color-gray-6)" aria-hidden />
+            <Text size="sm" fw={600}>
+              {title}
+            </Text>
+            <CountBadge count={count} />
+          </Group>
+        </UnstyledButton>
       </Table.Td>
     </Table.Tr>
   );
 }
 
 /** One saved quote: the words (the row opens them), who said them, what they led to and when. */
-function SourceListRow({ view }: { view: SourceRow }) {
+function SourceListRow({ view, owner }: { view: SourceRow; owner: string | undefined }) {
   return (
     <Table.Tr {...stylex.props(styles.row)}>
       <Table.Td>
@@ -101,7 +132,7 @@ function SourceListRow({ view }: { view: SourceRow }) {
         </AnchorLink>
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)}>
-        <SupportingText tier="secondary">{view.source.said_by_label}</SupportingText>
+        <SupportingText tier="secondary">{describeSpeaker(view.source, owner)}</SupportingText>
       </Table.Td>
       <Table.Td {...stylex.props(styles.fitCell)} ta="right">
         {view.citedByCount > 0 && (
@@ -140,17 +171,26 @@ export function SourceListPage() {
   const list = useQuery(sourceListQuery(search.kind, search.text));
   const sourceKinds = catalog?.sourceKinds ?? [];
   const speakers = [
-    ...new Map((list.data ?? []).map((view) => [view.source.said_by, view.source.said_by_label])).entries(),
+    ...new Map(
+      (list.data ?? []).map((view) => [view.source.said_by, describeSpeaker(view.source, catalog?.owner)]),
+    ).entries(),
   ].sort(([, left], [, right]) => left.localeCompare(right));
   const rows = (list.data ?? []).filter(
     (view) => search.speaker === undefined || view.source.said_by === search.speaker,
   );
-  const setFilter = (next: { kind?: string | undefined; speaker?: string | undefined; text?: string | undefined }) =>
+  const closed = search.closed ?? [];
+  const setFilter = (next: {
+    kind?: string | undefined;
+    speaker?: string | undefined;
+    text?: string | undefined;
+    closed?: ReadonlyArray<SourceSectionKey>;
+  }) =>
     void navigate({
       search: (previous) => {
         const merged = { ...previous, ...next };
         return {
           ...(merged.kind !== undefined && { kind: merged.kind }),
+          ...(merged.closed !== undefined && merged.closed.length > 0 && { closed: merged.closed }),
           ...(merged.speaker !== undefined && { speaker: merged.speaker }),
           ...(merged.text !== undefined && merged.text !== "" && { text: merged.text }),
         };
@@ -241,8 +281,24 @@ export function SourceListPage() {
                 <Table.Tbody>
                   {groupSourceRowsByUse(rows).flatMap((section) =>
                     [
-                      <SourceSectionHeader key={section.key} title={section.title} count={section.rows.length} />,
-                    ].concat(section.rows.map((view) => <SourceListRow key={view.source.id} view={view} />)),
+                      <SourceSectionHeader
+                        key={section.key}
+                        title={section.title}
+                        count={section.rows.length}
+                        open={!closed.includes(section.key)}
+                        onToggle={() =>
+                          setFilter({
+                            closed: closed.includes(section.key)
+                              ? closed.filter((key) => key !== section.key)
+                              : [...closed, section.key],
+                          })
+                        }
+                      />,
+                    ].concat(
+                      (closed.includes(section.key) ? [] : section.rows).map((view) => (
+                        <SourceListRow key={view.source.id} view={view} owner={catalog?.owner} />
+                      )),
+                    ),
                   )}
                 </Table.Tbody>
               </Table>
