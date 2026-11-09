@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import type { DerivationRow } from "@tastebud/core/record-browsing";
 import type { DecisionOutcome, DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { CornerDownRight, MessageSquare, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { formatReviewDate } from "#review/shared/format.ts";
@@ -12,6 +12,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DERIVATION_STATUS_WORDS, DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
+import { WordBoundaryText } from "#review/shared/ui/word-boundary-text.tsx";
 
 import { LibraryAcceptOverlaps } from "./library-accept-overlaps.tsx";
 import type { LibraryDecisionRequest } from "./use-library-decision.ts";
@@ -21,6 +22,7 @@ const styles = stylex.create({
   // their own controls sit above that cover.
   row: {
     position: "relative",
+    // A row marks itself so its quick action can show on hover or focus anywhere in the row.
     backgroundColor: {
       default: null,
       ":hover": "var(--mantine-color-gray-0)",
@@ -33,12 +35,30 @@ const styles = stylex.create({
   },
   aboveRowLink: { position: "relative", zIndex: 1 },
   lineToggle: { position: "relative", zIndex: 1, display: "block", textAlign: "start" },
+  lineChevron: { verticalAlign: "-1px", marginInlineEnd: "2px", color: "var(--mantine-color-gray-5)" },
+  noteCount: { position: "relative", zIndex: 1, marginInlineStart: "8px", verticalAlign: "-1px" },
+  quickAction: {
+    opacity: {
+      default: 0,
+      [stylex.when.ancestor(":hover")]: 1,
+      [stylex.when.ancestor(":focus-within")]: 1,
+    },
+  },
   // The replacement's row hangs under the row it replaced, past the statement's indent.
   replacementCell: { paddingInlineStart: "44px" },
   noWrap: { whiteSpace: "nowrap" },
   fitCell: { width: "1%", whiteSpace: "nowrap" },
   numericNoWrap: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
 });
+
+/** The decision a row offers on hover, before its ⋯: the likeliest next step from where it stands. */
+const LIBRARY_QUICK_ACTION: Record<DerivationStatus, DecisionOutcome | undefined> = {
+  pending: "accept",
+  accepted: "retract",
+  rejected: "accept",
+  retracted: "accept",
+  superseded: undefined,
+};
 
 /** The decisions core accepts from each status; a superseded row is decided through its revision. */
 const LIBRARY_ACTIONS: Record<DerivationStatus, ReadonlyArray<DecisionOutcome>> = {
@@ -72,7 +92,12 @@ function LibraryRowLine({ label, text, decided }: { label: string; text: string;
       {...stylex.props(styles.lineToggle)}
     >
       <SupportingText tier="secondary" {...(!open && { lineClamp: 1 })}>
-        <RowLineLabel>{label}</RowLineLabel> {text}
+        {open ? (
+          <ChevronDown size={12} aria-hidden {...stylex.props(styles.lineChevron)} />
+        ) : (
+          <ChevronRight size={12} aria-hidden {...stylex.props(styles.lineChevron)} />
+        )}
+        <RowLineLabel>{label}</RowLineLabel> <WordBoundaryText text={text} />
       </SupportingText>
       {open && decided !== undefined && (
         <SupportingText tier="faint" mt="3xs">
@@ -112,7 +137,7 @@ function ReplacedByRow({
 }) {
   return (
     <Table.Tr {...stylex.props(styles.row)}>
-      <Table.Td colSpan={2} {...stylex.props(styles.replacementCell)}>
+      <Table.Td {...stylex.props(styles.replacementCell)}>
         <Group gap="xs" wrap="nowrap">
           <CornerDownRight size={13} color="var(--mantine-color-gray-6)" aria-hidden />
           <SupportingText tier="secondary" span {...stylex.props(styles.noWrap)}>
@@ -129,7 +154,7 @@ function ReplacedByRow({
               lineClamp={2}
               {...stylex.props(styles.rowLink)}
             >
-              {replacement.statement}
+              <WordBoundaryText text={replacement.statement} />
             </AnchorLink>
           </Tooltip>
         </Group>
@@ -202,9 +227,9 @@ interface LibraryRowDecision {
 }
 
 /**
- * One library row: the statement (the whole row opens it), why it stands where it does, its notes, places and
- * date, and a quiet ⋯ menu of the decisions valid from its status. Opening the menu makes this the row the page
- * decides on, so the page's decision (and its Undo) is bound to it before an action is picked.
+ * One library row: the statement (the whole row opens it), why it stands where it does, its places and date, and
+ * its decisions, the likeliest one on hover before a ⋯ of all. Either makes this the row the page decides on, so
+ * the page's Undo is bound to it before an action is picked.
  */
 export function KindLibraryRow({
   row,
@@ -236,10 +261,11 @@ export function KindLibraryRow({
     if (outcome === "reject") return setRejecting(true);
     void onDecide({ outcome });
   };
+  const quickAction = acceptLabel === undefined ? undefined : LIBRARY_QUICK_ACTION[row.status];
 
   return (
     <>
-      <Table.Tr {...stylex.props(styles.row)}>
+      <Table.Tr {...stylex.props(styles.row, stylex.defaultMarker())}>
         <Table.Td pl="xl">
           <AnchorLink
             to="/derivations/$id"
@@ -252,6 +278,13 @@ export function KindLibraryRow({
           >
             {row.statement}
           </AnchorLink>
+          {row.threadCount > 0 && (
+            <Tooltip label={row.threadCount === 1 ? "1 note" : `${row.threadCount} notes`} withArrow openDelay={250}>
+              <Text span size="xs" c="gray.6" {...stylex.props(styles.noteCount)}>
+                <MessageSquare size={12} aria-hidden /> {row.threadCount}
+              </Text>
+            </Tooltip>
+          )}
           <DerivationRowWhy row={row} />
           {rejecting && (
             <InlineRejectReason
@@ -273,16 +306,6 @@ export function KindLibraryRow({
           )}
         </Table.Td>
         <Table.Td>
-          {row.threadCount > 0 && (
-            <Group gap="3xs" wrap="nowrap" c="gray.7">
-              <MessageSquare size={13} aria-hidden />
-              <SupportingText tier="secondary">
-                {row.threadCount} {row.threadCount === 1 ? "note" : "notes"}
-              </SupportingText>
-            </Group>
-          )}
-        </Table.Td>
-        <Table.Td>
           <Group gap="2xs" wrap="wrap" {...stylex.props(styles.aboveRowLink)}>
             <SubjectChip summary={row} owner={owner} />
             <ScopeChips scope={row.effectiveScope} labels={labels} wrap="wrap" />
@@ -294,38 +317,58 @@ export function KindLibraryRow({
           </SupportingText>
         </Table.Td>
         <Table.Td px="xxs">
-          {(actions.length > 0 || row.replacedBy !== undefined) && (
-            <Menu
-              position="bottom-end"
-              withArrow
-              shadow="md"
-              onOpen={onActivate}
-              // Reject moves focus into its reason box, so the menu must not pull it back to the button.
-              returnFocus={!rejecting}
-            >
-              <Menu.Target>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  aria-label={`Change “${row.statement}”`}
-                  loading={deciding}
-                  {...stylex.props(styles.aboveRowLink)}
-                >
-                  <MoreHorizontal size={16} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {row.status === "superseded" && row.replacedBy !== undefined && (
-                  <Menu.Item onClick={() => openReplacement(row)}>Open its replacement</Menu.Item>
-                )}
-                {actions.map((action) => (
-                  <Menu.Item key={action} {...(action === "reject" && { color: "red" })} onClick={() => choose(action)}>
-                    {actionLabels[action]}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
-          )}
+          <Group gap="2xs" wrap="nowrap" justify="flex-end" {...stylex.props(styles.aboveRowLink)}>
+            {quickAction !== undefined && (
+              <Button
+                size="xs"
+                variant="default"
+                disabled={deciding}
+                onClick={() => {
+                  onActivate();
+                  choose(quickAction);
+                }}
+                {...stylex.props(styles.quickAction)}
+              >
+                {actionLabels[quickAction]}
+              </Button>
+            )}
+            {(actions.length > 0 || row.replacedBy !== undefined) && (
+              <Menu
+                position="bottom-end"
+                withArrow
+                shadow="md"
+                onOpen={onActivate}
+                // Reject moves focus into its reason box, so the menu must not pull it back to the button.
+                returnFocus={!rejecting}
+              >
+                <Menu.Target>
+                  <ActionIcon
+                    size="input-xs"
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`Change “${row.statement}”`}
+                    loading={deciding}
+                  >
+                    <MoreHorizontal size={16} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {row.status === "superseded" && row.replacedBy !== undefined && (
+                    <Menu.Item onClick={() => openReplacement(row)}>Open its replacement</Menu.Item>
+                  )}
+                  {actions.map((action) => (
+                    <Menu.Item
+                      key={action}
+                      {...(action === "reject" && { color: "red" })}
+                      onClick={() => choose(action)}
+                    >
+                      {actionLabels[action]}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            )}
+          </Group>
         </Table.Td>
       </Table.Tr>
       {row.status === "superseded" && row.replacedBy !== undefined && (
