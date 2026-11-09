@@ -167,7 +167,7 @@ export function PlaceTreeNav({
             fz="treeLabel"
             {...stylex.props(styles.node, selected === GLOBAL_PLACE_NODE && styles.nodeSelected, styles.indent(0))}
           >
-            <Globe size={12} color="var(--mantine-color-orange-6)" />
+            <Globe size={12} color="var(--mantine-color-gray-6)" />
             <Box component="span" {...stylex.props(styles.nodeLabel)}>
               Everywhere
             </Box>

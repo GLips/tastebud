@@ -31,25 +31,20 @@ import { derivationListQuery } from "#review/features/derivation-library/index.t
 import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import { GLOBAL_PLACE_NODE } from "#review/shared/known-place-labels.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
-import {
-  capitalize,
-  describeKindDelivery,
-  findKindView,
-  KindGlyph,
-  RECALL_POLICY_LABELS,
-} from "#review/shared/ui/kind-identity.tsx";
+import { capitalize, findKindView, KindGlyph, RECALL_POLICY_LABELS } from "#review/shared/ui/kind-identity.tsx";
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 
 import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
+import { totalPlaceCount } from "./place-tree.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
   row: {
     display: "grid",
-    gridTemplateColumns: "12px minmax(0, 1fr) auto",
+    gridTemplateColumns: "12px minmax(0, 1fr) 150px 150px",
     columnGap: "8px",
     alignItems: "baseline",
     paddingBlock: "6px",
@@ -57,7 +52,8 @@ const styles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: { default: "var(--mantine-color-gray-1)", ":first-child": "transparent" },
   },
-  origin: { whiteSpace: "nowrap" },
+  origin: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start" },
+  columnHead: { paddingBlock: "2px" },
   chevron: { transitionProperty: "transform", transitionDuration: "120ms" },
   chevronOpen: { transform: "rotate(90deg)" },
 });
@@ -83,7 +79,7 @@ function PlaceKeyCopyButton({ place }: { place: string }) {
   );
 }
 
-/** Where a row reaches this place from, in words; a parent is a link that opens it. */
+/** Where a row reaches this place from; a parent is a link that opens it. Everywhere stays neutral. */
 function ReachOrigin({
   row,
   known,
@@ -97,14 +93,14 @@ function ReachOrigin({
   if (origin.from === "here")
     return (
       <Text size="xs" c="dimmed" {...stylex.props(styles.origin)}>
-        Scoped here
+        Here
       </Text>
     );
   if (origin.from === "everywhere")
     return (
       <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.origin)}>
-        <Globe size={11} color="var(--mantine-color-orange-6)" />
-        <Text size="xs" c="orange.8">
+        <Globe size={11} color="var(--mantine-color-gray-6)" />
+        <Text size="xs" c="dimmed">
           Everywhere
         </Text>
       </Group>
@@ -118,8 +114,40 @@ function ReachOrigin({
       onClick={() => onSelect(origin.place)}
       {...stylex.props(styles.origin)}
     >
-      From {known.labelOf(origin.place)}
+      {known.labelOf(origin.place)}
     </Anchor>
+  );
+}
+
+/** The table's third column: how a row reaches agents, given which list it is in. */
+type ReachColumn = "delivery" | "waiting" | "settled";
+
+const REACH_COLUMN_TITLES: Record<ReachColumn, string> = {
+  delivery: "Reaches agents",
+  waiting: "Reaches agents",
+  settled: "Status",
+};
+
+function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn }) {
+  const catalog = useReviewCatalog();
+  if (column === "waiting")
+    return (
+      <Text size="xs" c="dimmed">
+        Not until accepted
+      </Text>
+    );
+  if (column === "settled")
+    return (
+      <Text size="xs" c="dimmed">
+        {SETTLED_STATUS_WORDS[row.summary.status]}
+      </Text>
+    );
+  const kind = findKindView(catalog, row.summary.kind);
+  if (kind === undefined) return null;
+  return (
+    <Text size="xs" c={kind.recall === "inject" ? "tastebud.8" : "dimmed"}>
+      {RECALL_POLICY_LABELS[kind.recall]}
+    </Text>
   );
 }
 
@@ -127,58 +155,53 @@ function ReachRows({
   rows,
   known,
   onSelect,
-  showStatus = false,
-  showDelivery = false,
+  column,
 }: {
   rows: ReadonlyArray<PlaceReachRow>;
   known: KnownPlaces;
   onSelect: (place: string) => void;
-  showStatus?: boolean;
-  /** Say how each item reaches agents, so a backlog idea isn't read as a rule. */
-  showDelivery?: boolean;
+  column: ReachColumn;
 }) {
   const catalog = useReviewCatalog();
   return (
     <Box>
-      {rows.map((row) => {
-        const kind = findKindView(catalog, row.summary.kind);
-        return (
-          <Box key={row.summary.id} {...stylex.props(styles.row)}>
-            <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
-            <Text size="sm">
-              <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
-                {row.summary.statement}
-              </AnchorLink>
-              {showDelivery && kind !== undefined && (
-                <Text span size="xs" c={kind.recall === "inject" ? "tastebud.8" : "dimmed"}>
-                  {" "}
-                  · {RECALL_POLICY_LABELS[kind.recall]}
-                </Text>
-              )}
-              {showStatus && (
-                <Text span size="xs" c="dimmed">
-                  {" "}
-                  · {SETTLED_STATUS_WORDS[row.summary.status]}
-                  {row.summary.reason !== undefined && `: “${row.summary.reason}”`}
-                </Text>
-              )}
-            </Text>
-            <ReachOrigin row={row} known={known} onSelect={onSelect} />
-          </Box>
-        );
-      })}
+      <Box {...stylex.props(styles.row, styles.columnHead)} aria-hidden>
+        <Box />
+        <Box />
+        <Text size="xs" c="dimmed" fw={500}>
+          From
+        </Text>
+        <Text size="xs" c="dimmed" fw={500}>
+          {REACH_COLUMN_TITLES[column]}
+        </Text>
+      </Box>
+      {rows.map((row) => (
+        <Box key={row.summary.id} {...stylex.props(styles.row)}>
+          <KindGlyph catalog={catalog} kind={row.summary.kind} label={row.summary.kindLabel} size={10} />
+          <Text size="sm">
+            <AnchorLink to="/derivations/$id" params={{ id: row.summary.id }} size="sm" c="inherit" underline="hover">
+              {row.summary.statement}
+            </AnchorLink>
+            {column === "settled" && row.summary.reason !== undefined && (
+              <Text span size="xs" c="dimmed">
+                {" "}
+                · “{row.summary.reason}”
+              </Text>
+            )}
+          </Text>
+          <ReachOrigin row={row} known={known} onSelect={onSelect} />
+          <ReachCell row={row} column={column} />
+        </Box>
+      ))}
     </Box>
   );
 }
 
-function ReachSection({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+function ReachSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Stack gap="3xs">
       <Text size="sm" fw={600}>
         {title}
-      </Text>
-      <Text size="xs" c="dimmed">
-        {hint}
       </Text>
       {children}
     </Stack>
@@ -188,42 +211,21 @@ function ReachSection({ title, hint, children }: { title: string; hint: string; 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /**
- * One sentence that answers "what applies here?" before the lists. It counts what reaches agents apart
- * from backlog kinds, so its first number is the one Recall shows standing at the same place.
+ * The count line above the table. Its first number is the sidebar's (everything scoped to this place,
+ * any status); the next is what reaches agents here, the number Recall shows standing at the same place.
  */
-function reachSummary(
+function reachCountLine(
+  scopedCount: number,
   rows: ReadonlyArray<PlaceReachRow>,
-  known: KnownPlaces,
   catalog: CatalogView | undefined,
+  isGlobal: boolean,
 ): string {
-  if (rows.length === 0) return "Nothing you've accepted applies here yet.";
-  const isBacklog = (row: PlaceReachRow) => findKindView(catalog, row.summary.kind)?.recall === "never";
-  const reaching = rows.filter((row) => !isBacklog(row));
-  const backlog = rows.length - reaching.length;
-  const here = reaching.filter((row) => row.origin.from === "here").length;
-  const everywhere = reaching.filter((row) => row.origin.from === "everywhere").length;
-  const parents = [...new Set(reaching.flatMap((row) => (row.origin.from === "parent" ? [row.origin.place] : [])))];
-  const parts = [
-    ...(here > 0 ? [`${here} scoped here`] : []),
-    ...parents.map(
-      (parent) =>
-        `${reaching.filter((row) => row.origin.from === "parent" && row.origin.place === parent).length} from ${known.labelOf(parent)}`,
-    ),
-    ...(everywhere > 0 ? [`${everywhere} everywhere`] : []),
-  ];
-  const reachWording =
-    reaching.length === 0
-      ? "Nothing you've accepted reaches agents here."
-      : `${plural(reaching.length, "accepted item reaches", "accepted items reach")} agents here: ${parts.join(", ")}.`;
-  return backlog === 0
-    ? reachWording
-    : `${reachWording} ${plural(backlog, "more applies", "more apply")} but ${backlog === 1 ? "is" : "are"} backlog, never sent.`;
-}
-
-/** What agents actually get of the accepted rows, kind by kind, from each kind's recall policy. */
-function appliesHint(rows: ReadonlyArray<PlaceReachRow>, catalog: CatalogView | undefined): string {
-  const kinds = (catalog?.derivedKinds ?? []).filter((kind) => rows.some((row) => row.summary.kind === kind.key));
-  return kinds.map((kind) => describeKindDelivery(kind)).join(" ");
+  const backlog = rows.filter((row) => findKindView(catalog, row.summary.kind)?.recall === "never").length;
+  return [
+    `${plural(scopedCount, "item", "items")} scoped ${isGlobal ? "everywhere" : "here"}`,
+    `${rows.length - backlog} accepted reach agents ${isGlobal ? "in every place" : "here"}`,
+    ...(backlog > 0 ? [`${backlog} in your backlog`] : []),
+  ].join(" · ");
 }
 
 /** Each kind's library filtered to this place, and the recall inspector standing here. */
@@ -239,7 +241,7 @@ function PlaceOnwardLinks({ place }: { place: string }) {
           </Group>
         </AnchorLink>
       ))}
-      <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? {} : { at: place }} size="xs">
+      <AnchorLink to="/recall" search={place === GLOBAL_PLACE_NODE ? { nowhere: true } : { at: place }} size="xs">
         Try recall here →
       </AnchorLink>
     </Group>
@@ -311,7 +313,7 @@ function SettledAgainst({
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>
-        <ReachRows rows={rows} known={known} onSelect={onSelect} showStatus />
+        <ReachRows rows={rows} known={known} onSelect={onSelect} column="settled" />
       </Collapse>
     </Stack>
   );
@@ -335,6 +337,9 @@ export function PlaceDetails({
   const all = useQuery(derivationListQuery({}));
   const isGlobal = place === GLOBAL_PLACE_NODE;
   const reach = placeReachOf(place, all.data ?? []);
+  const scopedCount = totalPlaceCount(
+    isGlobal ? audit.globalCounts : (audit.places.find((entry) => entry.place === place)?.counts ?? []),
+  );
   const acceptedScopedHere = reach.applies.filter((row) => row.origin.from === "here");
   const unmatched = audit.audit.unmatched.find((candidate) => candidate.place === place);
   const matchingProbes = audit.audit.probes.filter((probe) =>
@@ -345,7 +350,7 @@ export function PlaceDetails({
       <Stack gap="2xs" {...stylex.props(styles.shrinkable)}>
         {isGlobal ? (
           <Group gap="xs">
-            <Globe size={16} color="var(--mantine-color-orange-6)" />
+            <Globe size={16} color="var(--mantine-color-gray-6)" />
             <Title order={4}>Everywhere</Title>
           </Group>
         ) : (
@@ -389,9 +394,9 @@ export function PlaceDetails({
       ) : (
         <>
           <Text size="sm">
-            {isGlobal
-              ? `Global items apply in every place, including ones that don't exist yet. ${plural(reach.applies.length, "accepted item is", "accepted items are")} global.`
-              : reachSummary(reach.applies, known, catalog)}
+            {reach.applies.length === 0 && reach.waiting.length === 0
+              ? "Nothing you've accepted applies here yet."
+              : reachCountLine(scopedCount, reach.applies, catalog, isGlobal)}
           </Text>
 
           {probes.length > 0 && !isGlobal && (
@@ -404,17 +409,14 @@ export function PlaceDetails({
           )}
 
           {reach.applies.length > 0 && (
-            <ReachSection title="Applies here" hint={appliesHint(reach.applies, catalog)}>
-              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} showDelivery />
+            <ReachSection title="Applies here">
+              <ReachRows rows={reach.applies} known={known} onSelect={onSelect} column="delivery" />
             </ReachSection>
           )}
 
           {reach.waiting.length > 0 && (
-            <ReachSection
-              title="Waiting for you"
-              hint="Proposed to apply here. Nothing reaches agents until you accept it in the inbox."
-            >
-              <ReachRows rows={reach.waiting} known={known} onSelect={onSelect} />
+            <ReachSection title="Waiting for you">
+              <ReachRows rows={reach.waiting} known={known} onSelect={onSelect} column="waiting" />
             </ReachSection>
           )}
 

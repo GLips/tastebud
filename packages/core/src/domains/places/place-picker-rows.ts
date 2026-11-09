@@ -1,28 +1,34 @@
 /**
- * The rows of every place picker as pure logic: each repo with its known folders nested under it,
- * directory and named places, then what the searched text could mean as a new place. The scope
- * picker adds Everywhere on top; a single-place select doesn't. A repo appears whenever one of its
- * folders does, so widening a folder to its repo is always one row away.
+ * The rows of every place picker and what a click on each does. Each repo lists its known folders
+ * indented under it, so narrowing is a click; then directory and named places; then what searched
+ * text could mean as a new place. The scope picker adds Everywhere on top, and a click on any row
+ * toggles it, like its checkbox. A single-place select has no Everywhere and a click picks the place.
  */
+import { Result } from "effect";
+
+import { parsePlaceKey, type PlaceKey, placeCovers, repoRootPlace } from "./place-keys.ts";
 import {
-  type DerivationScope,
-  parsePlaceKey,
-  type PlaceKey,
-  placeCovers,
   relativePlacePath,
-  repoRootPlace,
   type ScopeDraft,
   type ScopePick,
-  scopePlacesOf,
   scopePlacesReplacedBy,
   typedPlaceChoicesOf,
-} from "@tastebud/core/places";
-import { Result } from "effect";
+} from "./scope-draft.ts";
+import { type DerivationScope, scopePlacesOf } from "./scope-match.ts";
 
 /** Chosen: in the draft. Covered: a chosen place already includes it. Open: neither. */
 export type PlacePickerRowState =
   | { readonly state: "chosen" | "open" }
   | { readonly state: "covered"; readonly coveredBy: PlaceKey };
+
+/**
+ * What picking a typed place does to the chosen ones, so its row can say so: it goes beside them, or
+ * takes the place of those it is inside or around (or of Everywhere). A single-place select always
+ * uses it, instead of nothing.
+ */
+export type TypedPlaceEffect =
+  | { readonly effect: "add"; readonly beside: ReadonlyArray<PlaceKey> }
+  | { readonly effect: "use"; readonly instead: ReadonlyArray<PlaceKey> | "everywhere" };
 
 export type PlacePickerOption =
   | { readonly kind: "everywhere"; readonly value: string; readonly chosen: boolean; readonly proposed: boolean }
@@ -44,20 +50,17 @@ export type PlacePickerOption =
       /** The place's form: "as a folder", "as a named place". */
       readonly meaning: string;
       readonly effect: TypedPlaceEffect;
-    }
-  /** While Everywhere is chosen: go back to the places chosen before it. */
-  | { readonly kind: "earlier"; readonly value: string; readonly places: ReadonlyArray<PlaceKey> };
+    };
 
-/**
- * What picking a typed place does to the chosen ones, so its row can say so: it goes beside them, or
- * takes the place of those it is inside or around (or of Everywhere). A single-place select always
- * uses it, instead of nothing.
- */
-export type TypedPlaceEffect =
-  | { readonly effect: "add"; readonly beside: ReadonlyArray<PlaceKey> }
-  | { readonly effect: "use"; readonly instead: ReadonlyArray<PlaceKey> | "everywhere" };
+export interface PlacePickerGroup {
+  /** No heading for the Everywhere row. */
+  readonly heading: string | undefined;
+  readonly options: ReadonlyArray<PlacePickerOption>;
+}
 
-const typedPlaceEffectOf = (mode: "scope" | "single", draft: ScopeDraft, place: PlaceKey): TypedPlaceEffect => {
+type PlacePickerMode = "scope" | "single";
+
+const typedPlaceEffectOf = (mode: PlacePickerMode, draft: ScopeDraft, place: PlaceKey): TypedPlaceEffect => {
   if (mode === "single") return { effect: "use", instead: [] };
   if (draft.scope === "global") return { effect: "use", instead: "everywhere" };
   const replaced = scopePlacesReplacedBy(draft, place);
@@ -65,12 +68,6 @@ const typedPlaceEffectOf = (mode: "scope" | "single", draft: ScopeDraft, place: 
     ? { effect: "use", instead: replaced }
     : { effect: "add", beside: draft.places };
 };
-
-interface PlacePickerGroup {
-  /** No heading for the Everywhere row. */
-  readonly heading: string | undefined;
-  readonly options: ReadonlyArray<PlacePickerOption>;
-}
 
 const formOf = (place: PlaceKey) => {
   const parsed = parsePlaceKey(place);
@@ -97,18 +94,15 @@ export const placePickerGroupsOf = ({
   places,
   labelOf,
   search,
-  earlier = [],
 }: {
-  /** `scope` offers Everywhere and the way back from it; `single` picks one place. */
-  mode: "scope" | "single";
+  /** `scope` offers Everywhere; `single` picks one place. */
+  mode: PlacePickerMode;
   draft: ScopeDraft;
   proposed?: DerivationScope;
   /** Places the store knows; the draft's and the proposed ones are added. */
   places: ReadonlyArray<PlaceKey>;
   labelOf: (place: PlaceKey) => string;
   search: string;
-  /** The places chosen before switching to Everywhere, offered back while it stays chosen. */
-  earlier?: ReadonlyArray<PlaceKey>;
 }): Array<PlacePickerGroup> => {
   const needle = search.trim().toLowerCase();
   const matches = (place: PlaceKey) =>
@@ -127,6 +121,7 @@ export const placePickerGroupsOf = ({
     proposed: proposedPlaces.has(place),
   });
 
+  // A repo shows whenever one of its folders matches, so widening a folder is one row away.
   const repoOptions: Array<PlacePickerOption> = [];
   for (const root of roots) {
     const folders = repoPlaces.filter((place) => place !== root && repoRootPlace(place) === root).sort();
@@ -171,12 +166,8 @@ export const placePickerGroupsOf = ({
     chosen: draft.scope === "global",
     proposed: proposed.scope === "global",
   };
-  const backToEarlier: Array<PlacePickerOption> =
-    mode === "scope" && draft.scope === "global" && earlier.length > 0 && needle === ""
-      ? [{ kind: "earlier", value: "earlier", places: earlier }]
-      : [];
   return [
-    { heading: undefined, options: [...(everywhereMatches ? [everywhere] : []), ...backToEarlier] },
+    { heading: undefined, options: everywhereMatches ? [everywhere] : [] },
     { heading: "Repos", options: repoOptions },
     { heading: "Folders", options: flatOptions("directory") },
     { heading: "Named places", options: flatOptions("named") },
@@ -185,18 +176,20 @@ export const placePickerGroupsOf = ({
 };
 
 /**
- * The scope pick a row's value stands for, read from the value alone so the list can unmount (and
- * forget its search) without the submit handler needing its rows.
+ * What a click on a scope picker row does, from its value and the draft alone, so the handler needs
+ * no rows. Rows toggle: ticking a covered place narrows the one covering it, unticking Everywhere
+ * goes back to what it replaced. A typed row adds its place, replacing any it overlaps.
  */
-export const scopePickOfOptionValue = (value: string): ScopePick | undefined => {
-  if (value === "everywhere" || value === "earlier") return { pick: value };
-  if (value.startsWith("place:")) return { pick: "only", place: value.slice("place:".length) };
-  if (value.startsWith("typed:")) return { pick: "add", place: value.slice("typed:".length) };
-  return undefined;
+export const scopePickOfPlacePickerValue = (value: string, draft: ScopeDraft): ScopePick | undefined => {
+  if (value === "everywhere") return draft.scope === "global" ? { pick: "earlier" } : { pick: "everywhere" };
+  const place = placeOfPlacePickerValue(value);
+  if (place === undefined) return undefined;
+  const chosen = draft.scope === "places" && draft.places.includes(place);
+  return { pick: chosen && value.startsWith("place:") ? "remove" : "add", place };
 };
 
-/** The place a single-place select's row stands for. */
-export const placeOfOptionValue = (value: string): PlaceKey | undefined => {
-  const pick = scopePickOfOptionValue(value);
-  return pick !== undefined && "place" in pick ? pick.place : undefined;
+/** The place a row stands for; what a single-place select picks. Everywhere stands for none. */
+export const placeOfPlacePickerValue = (value: string): PlaceKey | undefined => {
+  for (const prefix of ["place:", "typed:"]) if (value.startsWith(prefix)) return value.slice(prefix.length);
+  return undefined;
 };
