@@ -1,7 +1,7 @@
-import { Badge, Group, Text, Tooltip } from "@mantine/core";
+import { Badge, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import type { DerivationStatus } from "@tastebud/core/taste-vocabulary";
-import { CornerDownRight } from "lucide-react";
+import { CircleCheck, CircleDot, CircleMinus, CircleX, CornerDownRight, type LucideIcon } from "lucide-react";
 
 /** A derivation's status as one word: list sections, row marks and citations all read this. */
 export const DERIVATION_STATUS_WORDS: Record<DerivationStatus, string> = {
@@ -32,7 +32,7 @@ const styles = stylex.create({
   superseded: { borderWidth: "1.5px", borderStyle: "dashed", borderColor: "var(--mantine-color-gray-5)" },
 });
 
-/** Status as a bare colour mark, for places that print the word beside it (section headers, the label below). */
+/** Status as a bare colour mark, only beside a header that prints the status word (a list's section rows). */
 export function DerivationStatusDot({ status }: { status: DerivationStatus }) {
   return (
     <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
@@ -41,41 +41,25 @@ export function DerivationStatusDot({ status }: { status: DerivationStatus }) {
   );
 }
 
-/** Status as its mark and its word: the form a row or a citation uses, so no state is tooltip-only. */
-export function DerivationStatusLabel({ status }: { status: DerivationStatus }) {
-  return (
-    <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
-      <Group gap="xxs" wrap="nowrap" component="span">
-        <span {...stylex.props(styles.dot, styles[status])} />
-        <Text span size="xs" c="gray.7" fw={500}>
-          {DERIVATION_STATUS_WORDS[status]}
-        </Text>
-      </Group>
-    </Tooltip>
-  );
-}
-
 // Waiting blue, in force green, refused red, out of force gray: colour is reserved for state.
-const STATUS_BADGE_COLORS: Record<DerivationStatus, string> = {
-  pending: "blue",
-  accepted: "teal",
-  rejected: "red",
-  retracted: "gray",
-  superseded: "gray",
+const STATUS_BADGE_TONES: Record<DerivationStatus, { color: string; icon: LucideIcon }> = {
+  pending: { color: "blue", icon: CircleDot },
+  accepted: { color: "teal", icon: CircleCheck },
+  rejected: { color: "red", icon: CircleX },
+  retracted: { color: "gray", icon: CircleMinus },
+  superseded: { color: "gray", icon: CornerDownRight },
 };
 
 /**
- * Status as a coloured badge, where the state has to read at a glance: a detail's title row and its
- * related rows. Superseded carries an arrow, since it points at whatever replaced it.
+ * A derivation's state, the one shape it takes wherever a state is shown on its own: its icon and word on its
+ * colour (Pending blue, Accepted green, Rejected red, Retracted and Superseded gray). Superseded's arrow points
+ * at whatever replaced it.
  */
 export function DerivationStatusBadge({ status }: { status: DerivationStatus }) {
+  const { color, icon: Icon } = STATUS_BADGE_TONES[status];
   return (
     <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
-      <Badge
-        color={STATUS_BADGE_COLORS[status]}
-        tt="none"
-        leftSection={status === "superseded" ? <CornerDownRight size={11} aria-hidden /> : undefined}
-      >
+      <Badge color={color} leftSection={<Icon size={12} strokeWidth={2.25} aria-hidden />}>
         {DERIVATION_STATUS_WORDS[status]}
       </Badge>
     </Tooltip>
