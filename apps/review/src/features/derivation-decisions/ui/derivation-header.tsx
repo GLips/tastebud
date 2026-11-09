@@ -13,7 +13,6 @@ import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
-import { SubjectLabel } from "#review/shared/ui/subject-label.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
@@ -41,18 +40,13 @@ export function DerivationHeader({
   view,
   kind,
   catalog,
-  owner,
   back,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   catalog: CatalogView | undefined;
-  owner: string;
   back: DerivationBack;
 }) {
-  // SubjectLabel renders nothing for the owner; the space before it has to follow the same test.
-  const aboutSomeoneElse = view.subject !== undefined && view.subject !== "owner" && view.subject !== owner;
-  const retired = view.retired ? " (its kind is retired)" : "";
   return (
     <ReviewPageHeader
       crumb={
@@ -63,14 +57,6 @@ export function DerivationHeader({
       }
       icon={<KindGlyph catalog={catalog} kind={view.kind} />}
       title={view.statement}
-      purpose={
-        <>
-          One {view.kindLabel}
-          {aboutSomeoneElse && " "}
-          <SubjectLabel summary={view} owner={owner} />
-          {retired}, what it rests on, and every decision you&apos;ve made on it.
-        </>
-      }
     />
   );
 }

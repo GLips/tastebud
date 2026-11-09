@@ -166,10 +166,7 @@ export function SourceListPage() {
 
   return (
     <Stack gap="md">
-      <ReviewPageHeader
-        title="Sources"
-        purpose="People's exact words, as your agents saved them. Every conclusion cites at least one; open one to see what it led to."
-      />
+      <ReviewPageHeader title="Sources" />
       <Group gap="sm">
         <TextInput
           w={320}

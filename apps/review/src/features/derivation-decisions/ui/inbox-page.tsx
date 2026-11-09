@@ -2,7 +2,6 @@ import { Box, Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import { Schema } from "effect";
 import { ArrowDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -47,16 +46,6 @@ const styles = stylex.create({
     overscrollBehavior: "contain",
   },
 });
-
-/** What accepting does for the selected kind, finishing the page's one-line job. */
-const describeAcceptedOutcome = (kind: Pick<DerivedKindView, "plural" | "recall">): string => {
-  const outcomes: Record<DerivedKindView["recall"], string> = {
-    inject: `Accepted ${kind.plural} are told to agents wherever they apply.`,
-    pull: `Agents can look up accepted ${kind.plural} wherever they apply.`,
-    never: `Accepted ${kind.plural} go to your backlog; agents aren't told them.`,
-  };
-  return outcomes[kind.recall];
-};
 
 export function InboxPage() {
   const search = Route.useSearch();
@@ -156,11 +145,7 @@ export function InboxPage() {
 
   return (
     <Stack gap="lg">
-      <ReviewPageHeader
-        title="Inbox"
-        purpose={`Proposals waiting on you. ${describeAcceptedOutcome(kind)}`}
-        actions={<InboxHeaderActions />}
-      />
+      <ReviewPageHeader title="Inbox" actions={<InboxHeaderActions />} />
       <Stack gap="md">
         <InboxKindTabs {...kindsProps} />
         {queue.incomingCount > 0 && (

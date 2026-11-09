@@ -175,15 +175,7 @@ export function KindLibraryPage() {
 
   return (
     <Stack gap="md">
-      <ReviewPageHeader
-        icon={<KindGlyph catalog={catalog} kind={kindKey} size={14} />}
-        title={capitalize(plural)}
-        purpose={
-          kind === undefined
-            ? "This kind is no longer in tastebud.config.ts; its records can be read but not decided."
-            : `Every ${kind.singular} your agents have proposed, grouped by where it stands, with why it is there.`
-        }
-      />
+      <ReviewPageHeader icon={<KindGlyph catalog={catalog} kind={kindKey} size={14} />} title={capitalize(plural)} />
 
       <Group gap="sm" wrap="wrap">
         <TextInput

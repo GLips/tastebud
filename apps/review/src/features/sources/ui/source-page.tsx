@@ -332,7 +332,6 @@ export function SourcePage() {
           </AnchorLink>
         }
         title={`${source.said_by_label} · ${formatReviewDate(source.said_at)}`}
-        purpose="Their exact words, as saved, and the conclusions your agents drew from them."
       />
 
       <Stack gap="sm" {...stylex.props(styles.body)}>
