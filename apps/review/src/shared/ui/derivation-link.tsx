@@ -6,7 +6,7 @@ import { formatReviewDate } from "#review/shared/format.ts";
 
 import { KindGlyph } from "./kind-identity.tsx";
 import { AnchorLink } from "./router-links.tsx";
-import { DerivationStatusLabel } from "./status-chips.tsx";
+import { DerivationStatusBadge } from "./status-chips.tsx";
 import { SupportingText } from "./supporting-text.tsx";
 
 /** Another derivation in one line: status in words, kind, its exact wording (linked), and the decision's reason. */
@@ -24,7 +24,7 @@ export function DerivationSummaryLine({
     summary.decidedAt !== undefined ? `${summary.status} ${formatReviewDate(summary.decidedAt)}` : undefined;
   return (
     <Group gap="xs" wrap="nowrap" align="baseline">
-      <DerivationStatusLabel status={summary.status} />
+      <DerivationStatusBadge status={summary.status} />
       <KindGlyph catalog={catalog} kind={summary.kind} label={summary.kindLabel} size={10} />
       <Text size="sm" lineClamp={2}>
         <AnchorLink to="/derivations/$id" params={{ id: summary.id }} size="sm" c="inherit" underline="hover">
