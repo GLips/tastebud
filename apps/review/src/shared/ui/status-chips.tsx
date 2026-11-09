@@ -42,7 +42,7 @@ export function DerivationStatusDot({ status }: { status: DerivationStatus }) {
 }
 
 // Waiting blue, in force green, refused red, out of force gray: colour is reserved for state.
-const STATUS_BADGE_TONES: Record<DerivationStatus, { color: string; icon: LucideIcon }> = {
+export const DERIVATION_STATUS_TONES: Record<DerivationStatus, { color: string; icon: LucideIcon }> = {
   pending: { color: "blue", icon: CircleDot },
   accepted: { color: "teal", icon: CircleCheck },
   rejected: { color: "red", icon: CircleX },
@@ -56,7 +56,7 @@ const STATUS_BADGE_TONES: Record<DerivationStatus, { color: string; icon: Lucide
  * at whatever replaced it.
  */
 export function DerivationStatusBadge({ status }: { status: DerivationStatus }) {
-  const { color, icon: Icon } = STATUS_BADGE_TONES[status];
+  const { color, icon: Icon } = DERIVATION_STATUS_TONES[status];
   return (
     <Tooltip label={DERIVATION_STATUS_MEANINGS[status]} withArrow openDelay={150}>
       <Badge color={color} leftSection={<Icon size={12} strokeWidth={2.25} aria-hidden />}>

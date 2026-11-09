@@ -1,7 +1,7 @@
 /**
  * A derivation's properties as labelled rows, Linear-style: where it applies (editable while it can be
- * decided), who decided it and when, who it is about, who proposed it and when, its kind and its id.
- * The status itself is the title row's badge, so it isn't repeated here.
+ * decided), who it is about, when it was proposed and by whom, its kind and its id. The state, and
+ * who decided it when, are the title row's badge and the page's state card, so they aren't repeated here.
  */
 import { Text, Tooltip } from "@mantine/core";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -38,19 +38,9 @@ export function DerivationProperties({
   /** The inbox pane leaves out Kind (its tab says it) and ID (the full page has it). */
   host: "page" | "pane";
 }) {
-  const lastDecision = view.decisions.at(-1);
-  const decided = view.status !== "pending" && view.decidedAt !== undefined;
   return (
     <FactList>
       <FactRow label="Scope">{scope}</FactRow>
-      {decided && (
-        <FactRow label="Decided">
-          <Text size="sm" title={formatReviewTime(view.decidedAt)}>
-            {formatReviewDate(view.decidedAt)}
-            {lastDecision !== undefined && ` · ${describeAuthor(lastDecision.by, owner)}`}
-          </Text>
-        </FactRow>
-      )}
       {otherSubjectOf(view, owner) !== undefined && (
         <FactRow label="About">
           <SubjectChip summary={view} owner={owner} />
@@ -58,8 +48,11 @@ export function DerivationProperties({
       )}
       <FactRow label="Proposed">
         <Text size="sm" title={formatReviewTime(view.proposedAt)}>
-          {formatReviewDate(view.proposedAt)} · {describeAuthor(view.derivation.proposed_by, owner)}
+          {formatReviewDate(view.proposedAt)}
         </Text>
+      </FactRow>
+      <FactRow label="By">
+        <Text size="sm">{describeAuthor(view.derivation.proposed_by, owner)}</Text>
       </FactRow>
       {host === "page" && (
         <>
