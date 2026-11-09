@@ -169,6 +169,20 @@ function connectStepsOf(host: AgentHost, lines: AgentHostConnectLines): Readonly
   }
 }
 
+/**
+ * The steps still to do: none once connected, and without the first (installing the plugin, or downloading
+ * the package) when the host's config already has a Tastebud entry, since that step made it.
+ */
+const remainingConnectStepsOf = (
+  host: AgentHost,
+  lines: AgentHostConnectLines,
+  connection: AgentHostConnection | undefined,
+): ReadonlyArray<ConnectStep> => {
+  if (connection?.state === "connected") return [];
+  const steps = connectStepsOf(host, lines);
+  return hasTastebudEntry(connection) ? steps.slice(1) : steps;
+};
+
 function ConnectSteps({ steps }: { steps: ReadonlyArray<ConnectStep> }) {
   return (
     <Stack gap="sm" component="ol" {...stylex.props(styles.steps)}>
@@ -202,10 +216,12 @@ function AgentHostRow({
   home: string | undefined;
   lines: AgentHostConnectLines;
   divided: boolean;
-  onRecheck: () => void;
+  /** Settles once the readout has been read again. */
+  onRecheck: () => Promise<void>;
   rechecking: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [rechecked, setRechecked] = useState(false);
   const badge = connection === undefined ? undefined : STATE_BADGES[connection.state];
   const Icon = HOST_ICONS[host];
   return (
@@ -233,11 +249,12 @@ function AgentHostRow({
                 variant="subtle"
                 leftSection={<RefreshCw size={12} />}
                 loading={rechecking}
-                onClick={onRecheck}
+                onClick={() => void onRecheck().then(() => setRechecked(true))}
               >
                 Recheck
               </Button>
             )}
+            {rechecked && !rechecking && <SupportingText tier="faint">Checked just now</SupportingText>}
           </Group>
         )}
         {/* Set up only shows the steps, so it says so; a host with any Tastebud entry has details to read. */}
@@ -250,7 +267,7 @@ function AgentHostRow({
           {connection !== undefined && (
             <SupportingText tier="secondary">{connectionWhy(connection, home)}</SupportingText>
           )}
-          <ConnectSteps steps={connectStepsOf(host, lines)} />
+          <ConnectSteps steps={remainingConnectStepsOf(host, lines, connection)} />
         </Stack>
       </Collapse>
     </Box>
@@ -275,7 +292,7 @@ export function AgentHostConnections({ storeRoot }: { storeRoot: string | undefi
             home={home}
             lines={lines}
             divided={index > 0}
-            onRecheck={() => void readout.refetch()}
+            onRecheck={async () => void (await readout.refetch())}
             rechecking={readout.isFetching}
           />
         ))}

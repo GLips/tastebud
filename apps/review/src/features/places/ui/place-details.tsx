@@ -39,7 +39,7 @@ import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
-import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
+import { type PlaceReachRow, type PlaceReachTab, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
 
 const styles = stylex.create({
@@ -179,22 +179,25 @@ function ReachRows({
   );
 }
 
-type ReachTab = "applies" | "waiting" | "settled";
-
 /** The detail's tab strip: what applies, what waits for you, what doesn't apply, each with its count. */
 function ReachTabs({
   reach,
   place,
   known,
   onSelect,
+  tab,
+  onTabChange,
 }: {
   reach: ReturnType<typeof placeReachOf>;
   place: string;
   known: KnownPlaces;
   onSelect: (place: string) => void;
+  /** The tab in the URL; without one, the first tab with rows. */
+  tab: PlaceReachTab | undefined;
+  onTabChange: (tab: PlaceReachTab) => void;
 }) {
   const tabs: ReadonlyArray<{
-    value: ReachTab;
+    value: PlaceReachTab;
     label: string;
     rows: ReadonlyArray<PlaceReachRow>;
     column: ReachColumn;
@@ -203,11 +206,11 @@ function ReachTabs({
     { value: "waiting", label: "Waiting", rows: reach.waiting, column: "waiting" },
     { value: "settled", label: "Doesn't apply", rows: reach.settledAgainst, column: "settled" },
   ];
-  const [tab, setTab] = useState<ReachTab>(tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies");
+  const shown = tab ?? tabs.find((candidate) => candidate.rows.length > 0)?.value ?? "applies";
   return (
     <Tabs
-      value={tab}
-      onChange={(value) => setTab(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
+      value={shown}
+      onChange={(value) => onTabChange(tabs.find((candidate) => candidate.value === value)?.value ?? "applies")}
     >
       <Tabs.List>
         {tabs.map((candidate) => (
@@ -281,12 +284,16 @@ export function PlaceDetails({
   probes,
   known,
   onSelect,
+  tab,
+  onTabChange,
 }: {
   place: string;
   audit: AuditPlacesResult;
   probes: ReadonlyArray<string>;
   known: KnownPlaces;
   onSelect: (place: string) => void;
+  tab: PlaceReachTab | undefined;
+  onTabChange: (tab: PlaceReachTab) => void;
 }) {
   const [repointing, setRepointing] = useState(false);
   const all = useQuery(derivationListQuery({}));
@@ -363,7 +370,14 @@ export function PlaceDetails({
             />
           )}
 
-          <ReachTabs reach={reach} place={place} known={known} onSelect={onSelect} />
+          <ReachTabs
+            reach={reach}
+            place={place}
+            known={known}
+            onSelect={onSelect}
+            tab={tab}
+            onTabChange={onTabChange}
+          />
         </>
       )}
     </Stack>
