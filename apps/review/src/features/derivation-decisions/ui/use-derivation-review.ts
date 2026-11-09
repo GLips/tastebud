@@ -1,6 +1,6 @@
 /**
- * The derivation page's decision state: the scope draft, which panel is open, the acknowledgements
- * an accept carries, and the decisions themselves. The owner can change their mind from any status
+ * The derivation page's decision state: the scope draft, which panel is open, and the decisions
+ * themselves. The owner can change their mind from any status
  * but superseded; `decisionInvalidReason` in core is the rule.
  */
 import { isCompleteScope, isSameScope, isScopeNarrowing, type ScopeDraft } from "@tastebud/core/places";
@@ -22,7 +22,6 @@ export function useDerivationReview(view: DerivationView) {
   const decision = useReviewDecision(view.id, { ...view, acknowledges: lastAccept?.acknowledges });
   const [mode, setModeState] = useState<DerivationReviewMode>("idle");
   const [draft, setDraft] = useState<ScopeDraft | undefined>(undefined);
-  const [acknowledgedChoice, setAcknowledged] = useState<ReadonlySet<string> | undefined>(undefined);
   const [conflict, setConflict] = useState(false);
   // Kept here, not in the form, so closing the reject box keeps what was typed.
   const [rejectDraft, setRejectDraft] = useState("");
@@ -52,17 +51,11 @@ export function useDerivationReview(view: DerivationView) {
   // Pending: the draft amends the proposed scope. Decided: it starts from where it applies, or applied.
   const baseScope = view.status === "pending" ? view.proposedScope : view.effectiveScope;
   const shownScope = draft ?? baseScope;
-  // Re-accepting where it already applied starts with the near repeats its last accept weighed ticked.
-  const acknowledged =
-    acknowledgedChoice ??
-    new Set(draft === undefined && view.status !== "pending" ? (lastAccept?.acknowledges ?? []) : []);
   const setMode = (next: DerivationReviewMode) => {
     setConflict(false);
     setModeState(next);
   };
-  // Acknowledgements belong to the scope they were given for: any change resets every box.
   const changeDraft = (next: ScopeDraft | undefined) => {
-    setAcknowledged(undefined);
     setDraft(next === undefined || isSameScope(baseScope, next) ? undefined : next);
   };
   const openConflict = () => {
@@ -129,10 +122,13 @@ export function useDerivationReview(view: DerivationView) {
     reopen: steady(reopen),
     retract: steady(() => void decision.decide({ outcome: "retract" })),
     startReject: steady(() => setMode("rejecting")),
+    /** A new reject on a rejected one, starting from the reason on record. */
+    changeReason: steady(() => {
+      setRejectDraft(view.reason ?? "");
+      setMode("rejecting");
+    }),
     rejectDraft,
     setRejectDraft,
-    acknowledged,
-    setAcknowledged,
     conflict,
     openPicker: () => setPickerOpen(true),
     pickerOpen,

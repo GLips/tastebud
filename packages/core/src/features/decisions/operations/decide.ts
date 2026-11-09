@@ -91,6 +91,17 @@ export const decideDerivation = Effect.fn("decisions.decideDerivation")(function
       const acknowledges = yield* Effect.forEach(input.acknowledges ?? [], (ref) =>
         resolveDerivationRef(snapshot, ref),
       );
+      if (input.outcome === "reject") {
+        const state = derivationStateOf(snapshot, derivation);
+        if (state.status === "rejected" && state.decidingDecision?.reason === input.reason)
+          return yield* new DecisionNotAllowed({
+            target: derivation.id,
+            statement: derivation.statement,
+            outcome: input.outcome,
+            status: state.status,
+            problem: "it is already rejected for that reason",
+          });
+      }
       if (input.outcome === "accept") {
         const settled = override ?? proposedScopeOf(derivation);
         const state = derivationStateOf(snapshot, derivation);

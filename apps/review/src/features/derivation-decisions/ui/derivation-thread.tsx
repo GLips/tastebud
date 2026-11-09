@@ -35,12 +35,11 @@ const styles = stylex.create({
   text: { whiteSpace: "pre-wrap" },
   dot: { width: "8px", height: "8px", borderRadius: "50%", display: "inline-block" },
   dotLive: { backgroundColor: "var(--mantine-color-teal-5)" },
-  dotIdle: { backgroundColor: "var(--mantine-color-gray-4)" },
 });
 
 /**
- * Whether a note posted now would wake an agent: any listener with a fresh heartbeat. Notes are saved
- * either way; an unanswered one reaches the next agent that starts listening.
+ * Who would answer a note posted now: any listener with a fresh heartbeat. Nothing when nobody is;
+ * the line under the title says what happens to a note then.
  */
 function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
   const nowMs = useReviewClockMs();
@@ -62,14 +61,7 @@ function AgentListeningIndicator({ listeners }: { listeners: ReadonlyArray<Liste
       </Tooltip>
     );
   }
-  return (
-    <Group gap="xs">
-      <Box component="span" {...stylex.props(styles.dot, styles.dotIdle)} />
-      <Text size="xs" c="dimmed">
-        No agent listening now
-      </Text>
-    </Group>
-  );
+  return null;
 }
 
 const LISTEN_COMMAND = "tastebud review listen --as <name>";
@@ -84,7 +76,7 @@ function NotesWaitHint() {
     <Stack gap="3xs">
       <Group gap="xs">
         <Text size="xs" c="dimmed">
-          Notes wait here until an agent picks them up.
+          No agent is listening; notes wait here until one picks them up.
         </Text>
         <Anchor component="button" size="xs" onClick={() => setOpen(!open)} aria-expanded={open}>
           How agents pick these up
