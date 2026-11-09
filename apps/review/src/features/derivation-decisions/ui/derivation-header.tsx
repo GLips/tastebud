@@ -7,13 +7,12 @@ import * as stylex from "@stylexjs/stylex";
 import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
 import type { DerivationView } from "@tastebud/core/record-views";
-import { type DerivationStatus, shortIdOf } from "@tastebud/core/taste-vocabulary";
+import { shortIdOf } from "@tastebud/core/taste-vocabulary";
 import { ArrowLeft, Copy } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { SourceQuote } from "#review/shared/ui/source-quote.tsx";
-import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
 
 const styles = stylex.create({
   prose: { whiteSpace: "pre-wrap" },
@@ -73,23 +72,17 @@ export function DerivationBackLink({
 }
 
 /**
- * The statement across the full width, never squeezed by buttons, with a line under it: the kind's
- * glyph and the status badge, then any `meta`, and any `actions` at its right (the pane's decision
- * buttons; the page keeps its actions in the state card). `size` is the page's large title or the
- * pane's card-sized one.
+ * The statement across the full width, never squeezed by buttons, and an optional line under it:
+ * `meta` (the pane's state and provenance) with any `actions` at its right. The page has neither: its
+ * rail holds the state and the actions. `size` is the page's large title or the pane's card-sized one.
  */
 export function DerivationTitleRow({
-  glyph,
   statement,
-  status,
   meta,
   actions,
   size,
 }: {
-  glyph?: ReactNode;
   statement: string;
-  status: DerivationStatus;
-  /** After the badge, such as the pane's link to the full page. */
   meta?: ReactNode;
   actions?: ReactNode;
   size: "page" | "pane";
@@ -103,14 +96,14 @@ export function DerivationTitleRow({
           {statement}
         </Text>
       )}
-      <Group justify="space-between" wrap="nowrap" gap="md">
-        <Group gap="xs" wrap="nowrap">
-          {glyph}
-          <DerivationStatusBadge status={status} />
-          {meta}
+      {(meta !== undefined || actions !== undefined) && (
+        <Group justify="space-between" wrap="nowrap" gap="md">
+          <Group gap="xs" wrap="wrap">
+            {meta}
+          </Group>
+          {actions}
         </Group>
-        {actions}
-      </Group>
+      )}
     </Stack>
   );
 }
@@ -165,8 +158,10 @@ export function DerivationRestsOn({
 }) {
   const backlogKind = kind?.recall === "never";
   const reasoning = view.derivation.reasoning.trim();
+  // Why the agent asks again after an earlier version; that version shows under Earlier versions.
+  const askingAgain = view.derivation.despite_case?.trim() ?? "";
   const quotes = view.supportingSources.length + view.contradictingSources.length;
-  if (quotes === 0 && reasoning === "") return null;
+  if (quotes === 0 && reasoning === "" && askingAgain === "") return null;
   return (
     <DerivationSection title={backlogKind ? "What prompted this" : "What it rests on"}>
       <Paper>
@@ -177,6 +172,16 @@ export function DerivationRestsOn({
             </Text>
             <Text size="sm" {...stylex.props(styles.prose)}>
               {reasoning}
+            </Text>
+          </Stack>
+        )}
+        {askingAgain !== "" && (
+          <Stack gap="3xs" {...stylex.props(styles.quoteRow)}>
+            <Text size="xs" c="dimmed" fw={500}>
+              Why it asks again
+            </Text>
+            <Text size="sm" {...stylex.props(styles.prose)}>
+              {askingAgain}
             </Text>
           </Stack>
         )}

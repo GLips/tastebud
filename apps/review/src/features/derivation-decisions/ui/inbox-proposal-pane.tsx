@@ -1,27 +1,32 @@
 /**
- * The selected proposal, built from the same parts as its page: the title row with Reject and the accept
- * verb over its properties, Scope picker included (held at the pane's top while the evidence scrolls, as
+ * The selected proposal, built from the same parts as its page: the title with one meta line, then the
+ * Scope picker beside Reject and the accept verb (held at the pane's top while the evidence scrolls, as
  * the accept follows the scope), then what it rests on, how it relates to other records, and the
  * activity feed with the note composer.
  */
 import { Box, Alert, Group, Loader, Paper, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import type { InboxCard } from "@tastebud/core/inbox";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
+import { isCompleteScope } from "@tastebud/core/places";
+import type { DerivationSummary } from "@tastebud/core/record-views";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { recordDetailQuery, useReviewCatalog } from "#review/features/review-shell/index.ts";
+import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shared/format.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
+import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
+import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
 
 import { AcceptancePreview } from "./acceptance-preview.tsx";
 import { DerivationActivity } from "./derivation-activity.tsx";
 import { DerivationRestsOn, DerivationTitleRow } from "./derivation-header.tsx";
-import { DerivationProperties } from "./derivation-properties.tsx";
-import { DerivationRelated } from "./derivation-related.tsx";
+import { DerivationRelated, versionsOf } from "./derivation-related.tsx";
 import { PendingDecisionButtons } from "./derivation-review.tsx";
 import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { RejectReasonForm } from "./reject-reason-form.tsx";
@@ -32,6 +37,25 @@ const styles = stylex.create({
   head: { position: "sticky", top: 0, zIndex: 1 },
 });
 
+/** The pane's properties as one line under the title, so the evidence starts close to it. */
+function PaneMetaLine({ view, owner }: { view: InboxCard["derivation"]; owner: string }) {
+  return (
+    <>
+      <DerivationStatusBadge status={view.status} />
+      <Text size="xs" c="dimmed" title={formatReviewTime(view.proposedAt)}>
+        Proposed {formatReviewDate(view.proposedAt)} by {describeAuthor(view.derivation.proposed_by, owner)}
+      </Text>
+      {otherSubjectOf(view, owner) !== undefined && <SubjectChip summary={view} owner={owner} />}
+      <AnchorLink to="/derivations/$id" params={{ id: view.id }} size="xs" c="dimmed">
+        <Group gap="3xs" wrap="nowrap" component="span">
+          Open full page
+          <ExternalLink size={11} aria-hidden />
+        </Group>
+      </AnchorLink>
+    </>
+  );
+}
+
 /** Mounted with the pane, which only the selected card has, so a/r/d/s act on exactly one proposal. */
 function SelectedCardHotkeys(props: {
   enabled: boolean;
@@ -41,7 +65,7 @@ function SelectedCardHotkeys(props: {
   onEditScope: () => void;
 }) {
   const options = { enabled: props.enabled };
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "A", callback: props.onAccept, options },
     { hotkey: "R", callback: props.onReject, options },
     { hotkey: "D", callback: props.onDiscuss, options },
@@ -75,6 +99,7 @@ function InboxDecisionButtons({
       acceptLabel={kind.acceptLabel}
       needsPreview={triage.needsPreview}
       pending={triage.decision.pending}
+      acceptDisabled={!isCompleteScope(triage.shownScope)}
       onAccept={ignoringRepeatClicks(triage.accept)}
       onReject={ignoringRepeatClicks(triage.startReject)}
       oneOfSelection={triage.selectionHoldsKeys}
@@ -85,11 +110,14 @@ function InboxDecisionButtons({
 /** The reject reason, the accept preview or a refusal, under the title row whose buttons opened them. */
 function InboxDecisionForms({
   view,
+  despitedBy,
   kind,
   known,
   triage,
 }: {
   view: InboxCard["derivation"];
+  /** The newer proposals made despite this one, from its detail once loaded. */
+  despitedBy: ReadonlyArray<DerivationSummary> | undefined;
   kind: DerivedKindView;
   known: KnownPlaces;
   triage: InboxCardTriage;
@@ -112,10 +140,9 @@ function InboxDecisionForms({
           statement={view.statement}
           override={triage.override}
           proposedScope={triage.proposed}
-          changes={triage.changes}
+          versions={versionsOf(view, despitedBy)}
           verb={kind.acceptLabel}
           active
-          conflict={triage.conflict}
           pending={decision.pending}
           labels={known.labels}
           onConfirm={(acknowledges) => void triage.submitAccept(acknowledges)}
@@ -175,41 +202,27 @@ export function InboxProposalPane({
           <DerivationTitleRow
             size="pane"
             statement={view.statement}
-            status={view.status}
-            meta={
-              <AnchorLink to="/derivations/$id" params={{ id: view.id }} size="xs" c="dimmed">
-                <Group gap="3xs" wrap="nowrap" component="span">
-                  Open full page
-                  <ExternalLink size={11} aria-hidden />
-                </Group>
-              </AnchorLink>
-            }
-            actions={<InboxDecisionButtons kind={kind} triage={triage} queued={queued} />}
+            meta={<PaneMetaLine view={view} owner={owner} />}
           />
-          <InboxDecisionForms view={view} kind={kind} known={known} triage={triage} />
-          <DerivationProperties
-            view={view}
-            kind={kind}
-            owner={owner}
-            host="pane"
-            scope={
-              // No ⌘↵ here: while the picker is open it owns the keys, and believing waits until it is closed.
-              <ScopePropertyField
-                picker={{
-                  value: triage.shownScope,
-                  proposed: triage.proposed,
-                  known,
-                  onChange: triage.changeDraft,
-                  opened: triage.pickerOpen,
-                  onOpenedChange: triage.setPickerOpen,
-                  disabled: locked,
-                }}
-                changes={triage.edited ? triage.changes : []}
-                guessed={view.scopeSource === "defaulted"}
-                onRestore={locked ? undefined : () => triage.changeDraft(undefined)}
-              />
-            }
-          />
+          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+            {/* No ⌘↵ here: while the picker is open it owns the keys, and believing waits until it is closed. */}
+            <ScopePropertyField
+              picker={{
+                value: triage.shownScope,
+                proposed: triage.proposed,
+                known,
+                onChange: triage.changeDraft,
+                opened: triage.pickerOpen,
+                onOpenedChange: triage.setPickerOpen,
+                disabled: locked,
+              }}
+              changes={triage.edited ? triage.changes : []}
+              guessed={view.scopeSource === "defaulted"}
+              onRestore={locked ? undefined : () => triage.changeDraft(undefined)}
+            />
+            <InboxDecisionButtons kind={kind} triage={triage} queued={queued} />
+          </Group>
+          <InboxDecisionForms view={view} despitedBy={detail?.despitedBy} kind={kind} known={known} triage={triage} />
         </Stack>
       </Paper>
       <DerivationRestsOn view={view} kind={kind} owner={owner} />

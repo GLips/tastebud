@@ -4,17 +4,18 @@
  * preview). State lives in `use-derivation-review.ts`. Hotkeys live in tooltips, never in the buttons.
  */
 import { ActionIcon, Alert, Button, Group, Menu, Stack, Tooltip } from "@mantine/core";
-import { useHotkeys } from "@tanstack/react-hotkeys";
 import { describeScopeChange, isCompleteScope } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
-import { Check, Ellipsis, Inbox, PencilLine, Undo2, X } from "lucide-react";
+import { Check, Ellipsis, Inbox, Undo2, X } from "lucide-react";
 import type { MouseEventHandler } from "react";
 
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
 import { acceptItPhrase } from "./accept-wording.ts";
 import { AcceptancePreview } from "./acceptance-preview.tsx";
+import type { DerivationVersions } from "./derivation-related.tsx";
 import { ignoringRepeatClicks } from "./inbox-decided-row.tsx";
 import { scopeOverrideOf } from "./scope-draft.ts";
 import { ScopePropertyField } from "./scope-picker.tsx";
@@ -23,17 +24,17 @@ import { canDecideDerivation, type DerivationReview } from "./use-derivation-rev
 /** What an accept from each decided status changes, for the preview to say before it is sent. */
 const ACCEPT_CONSEQUENCES: Partial<Record<DerivationView["status"], string>> = {
   accepted: "It stays accepted. From now on it applies only where shown above.",
-  rejected: "It becomes accepted and applies where shown above. Your rejection stays in the history.",
+  rejected: "It becomes accepted and applies where shown above.",
   retracted: "It becomes accepted again and applies where shown above.",
 };
 
 /**
  * Reject beside the filled accept verb: a waiting proposal's two answers. The page and the inbox pane
- * both use it. The verb ends in "…" when the preview comes first (a widened scope or a near repeat).
+ * both use it. The verb ends in "…" when a known near repeat means the preview comes first.
  */
 export function PendingDecisionButtons({
   acceptLabel,
-  needsPreview,
+  needsPreview = false,
   pending,
   acceptDisabled = false,
   onAccept,
@@ -42,7 +43,7 @@ export function PendingDecisionButtons({
   oneOfSelection = false,
 }: {
   acceptLabel: string;
-  needsPreview: boolean;
+  needsPreview?: boolean;
   pending: boolean;
   acceptDisabled?: boolean;
   onAccept: MouseEventHandler<HTMLButtonElement>;
@@ -114,13 +115,13 @@ function DecidedAcceptButton({
         disabled={!isCompleteScope(review.shownScope)}
         onClick={ignoringRepeatClicks(review.startAccept)}
       >
-        {`${label}${review.needsPreview ? "…" : ""}`}
+        {label}
       </Button>
     </Tooltip>
   );
 }
 
-/** The rarer moves on a decided one, behind ⋯: put it back in the inbox, and edit the reason or reject. */
+/** The rarer moves on a decided one, behind ⋯: reject, and put it back in the inbox. The Reason's Edit link is the one way to edit it. */
 function DecidedMoreMenu({ review }: { review: DerivationReview }) {
   const status = review.view.status;
   return (
@@ -131,11 +132,7 @@ function DecidedMoreMenu({ review }: { review: DerivationReview }) {
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        {status === "rejected" ? (
-          <Menu.Item leftSection={<PencilLine size={14} />} onClick={review.editReason}>
-            Edit reason
-          </Menu.Item>
-        ) : (
+        {status !== "rejected" && (
           <Menu.Item leftSection={<X size={14} />} rightSection="R" onClick={review.startReject}>
             Reject…
           </Menu.Item>
@@ -161,7 +158,6 @@ export function DerivationActions({ review, acceptLabel }: { review: DerivationR
       <PendingDecisionButtons
         stacked
         acceptLabel={acceptLabel}
-        needsPreview={review.needsPreview}
         pending={review.decision.pending}
         acceptDisabled={!isCompleteScope(review.shownScope)}
         onAccept={ignoringRepeatClicks(review.startAccept)}
@@ -222,14 +218,14 @@ export function DerivationScopeProperty({ review, known }: { review: DerivationR
 
 /**
  * The page's keys, matching the inbox card's: A accepts, R rejects, S opens the scope picker, U undoes
- * the decision just made here, Esc drops a changed scope and otherwise goes back. Letters never fire from
- * a text field (the library's default), and none fire while a panel or list is open.
+ * the decision just made here, Esc drops a changed scope and otherwise goes back. No key fires from
+ * a text field, though a clicked checkbox or tab doesn't hold them, and none fire while a panel or list is open.
  */
 export function useDerivationPageHotkeys(review: DerivationReview, goBack: () => void) {
   const { view, mode, pickerOpen } = review;
   const idle = mode === "idle" && !pickerOpen;
   const decidable = idle && canDecideDerivation(view);
-  useHotkeys([
+  useReviewHotkeys([
     { hotkey: "A", callback: review.startAccept, options: { enabled: decidable && view.status !== "accepted" } },
     {
       hotkey: "R",
@@ -238,11 +234,11 @@ export function useDerivationPageHotkeys(review: DerivationReview, goBack: () =>
     },
     { hotkey: "S", callback: review.openPicker, options: { enabled: decidable } },
     { hotkey: "U", callback: review.undo, options: { enabled: idle && review.undoable !== undefined } },
-    // Escape fires in inputs by default; here it would go back the moment Esc closes the reject box.
+    // Skipped in text fields: here it would go back the moment Esc closes the reject box.
     {
       hotkey: "Escape",
       callback: () => (review.draft === undefined ? goBack() : review.changeDraft(undefined)),
-      options: { enabled: idle, ignoreInputs: true },
+      options: { enabled: idle },
     },
   ]);
 }
@@ -255,12 +251,14 @@ export function DerivationReviewPanels({
   review,
   acceptLabel,
   known,
+  versions,
 }: {
   review: DerivationReview;
   acceptLabel: string;
   known: KnownPlaces;
+  versions: DerivationVersions;
 }) {
-  const { view, mode, setMode, decision, baseScope, shownScope } = review;
+  const { view, mode, setMode, decision, shownScope } = review;
   return (
     <>
       {decision.failure !== undefined && decision.failure.tag !== "WideningNeedsAcknowledgement" && (
@@ -274,11 +272,10 @@ export function DerivationReviewPanels({
           statement={view.statement}
           override={scopeOverrideOf(view.proposedScope, shownScope)}
           proposedScope={view.proposedScope}
-          changes={describeScopeChange(baseScope, shownScope, known.labelOf)}
+          versions={versions}
           verb={acceptLabel}
           consequence={ACCEPT_CONSEQUENCES[view.status]}
           active
-          conflict={review.conflict}
           pending={decision.pending}
           labels={known.labels}
           onConfirm={(acknowledges) => void review.accept(acknowledges)}

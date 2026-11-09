@@ -3,7 +3,7 @@
  * themselves. The owner can change their mind from any status
  * but superseded; `decisionInvalidReason` in core is the rule.
  */
-import { isCompleteScope, isSameScope, isScopeNarrowing, type ScopeDraft } from "@tastebud/core/places";
+import { isCompleteScope, isSameScope, type ScopeDraft } from "@tastebud/core/places";
 import type { DerivationView } from "@tastebud/core/record-views";
 import { useEffect, useRef, useState } from "react";
 
@@ -20,9 +20,8 @@ export const canDecideDerivation = (view: DerivationView): boolean => !view.reti
 export function useDerivationReview(view: DerivationView) {
   const lastAccept = view.decisions.findLast((entry) => entry.outcome === "accept");
   const decision = useReviewDecision(view.id, { ...view, acknowledges: lastAccept?.acknowledges });
-  const [mode, setModeState] = useState<DerivationReviewMode>("idle");
+  const [mode, setMode] = useState<DerivationReviewMode>("idle");
   const [draft, setDraft] = useState<ScopeDraft | undefined>(undefined);
-  const [conflict, setConflict] = useState(false);
   // Kept here, not in the form, so closing the reject box keeps what was typed.
   const [rejectDraft, setRejectDraft] = useState("");
   // The picker's list, held here so the S key can open it and the page's Esc can wait for it.
@@ -51,20 +50,12 @@ export function useDerivationReview(view: DerivationView) {
   // Pending: the draft amends the proposed scope. Decided: it starts from where it applies, or applied.
   const baseScope = view.status === "pending" ? view.proposedScope : view.effectiveScope;
   const shownScope = draft ?? baseScope;
-  const setMode = (next: DerivationReviewMode) => {
-    setConflict(false);
-    setModeState(next);
-  };
   const changeDraft = (next: ScopeDraft | undefined) => {
     setDraft(next === undefined || isSameScope(baseScope, next) ? undefined : next);
   };
-  const openConflict = () => {
-    setModeState("previewing");
-    setConflict(true);
-  };
   /**
-   * Sends the accept. The server re-runs the near-repeat check, so an accept sent straight from a
-   * button lands in one click when nothing overlaps, and opens the preview when something does.
+   * Sends the accept. The server runs the near-repeat check, so an accept lands in one click when
+   * nothing overlaps, whatever the scope edit, and opens the preview when something does.
    */
   const accept = async (acknowledges: ReadonlyArray<string>) => {
     // The decision's scope is always against the proposed one: no override means "as proposed".
@@ -76,22 +67,20 @@ export function useDerivationReview(view: DerivationView) {
     if (outcome.ok) {
       setMode("idle");
       changeDraft(undefined);
-    } else if (outcome.failure.tag === "WideningNeedsAcknowledgement") openConflict();
+    } else if (outcome.failure.tag === "WideningNeedsAcknowledgement") setMode("previewing");
   };
-  // Unchanged or only narrowed, an accept can't newly overlap anything, so it goes in one click.
-  const needsPreview = draft !== undefined && isCompleteScope(draft) && !isScopeNarrowing(baseScope, draft);
   const startAccept = () => {
     if (!isCompleteScope(shownScope)) return;
     setPickerOpen(false);
-    if (needsPreview) setMode("previewing");
     // Believing again after a retract weighs again what the last accept weighed, without asking twice.
-    else void accept(view.status === "retracted" ? (lastAccept?.acknowledges ?? []) : []);
+    void accept(view.status === "retracted" ? (lastAccept?.acknowledges ?? []) : []);
   };
   /** An undo that lands on a new near repeat opens the preview to acknowledge it, like any accept. */
   const undo = async () => {
     if (undoable === undefined) return;
     const outcome = await decision.undo();
-    if (outcome !== undefined && !outcome.ok && outcome.failure.tag === "WideningNeedsAcknowledgement") openConflict();
+    if (outcome !== undefined && !outcome.ok && outcome.failure.tag === "WideningNeedsAcknowledgement")
+      setMode("previewing");
   };
   const reject = async (reason: string) => {
     if (decision.pending) return;
@@ -116,7 +105,6 @@ export function useDerivationReview(view: DerivationView) {
     shownScope,
     accept,
     startAccept: steady(startAccept),
-    needsPreview,
     undoable,
     undo: steady(() => void undo()),
     reject,
@@ -130,7 +118,6 @@ export function useDerivationReview(view: DerivationView) {
     }),
     rejectDraft,
     setRejectDraft,
-    conflict,
     openPicker: () => setPickerOpen(true),
     pickerOpen,
     setPickerOpen,

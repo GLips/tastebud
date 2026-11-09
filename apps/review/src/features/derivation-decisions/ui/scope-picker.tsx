@@ -5,7 +5,7 @@
  * ✕ drops one of several. Esc closes and keeps what was done; Restore under it goes back. It only edits a draft:
  * the host decides when the draft is used, and ⌘↵ inside it is left to the host to confirm with.
  */
-import { Anchor, Button, Combobox, Stack, Text, useCombobox } from "@mantine/core";
+import { Anchor, Badge, Button, Combobox, Group, Stack, Text, Tooltip, useCombobox } from "@mantine/core";
 import {
   applyScopePick,
   type DerivationScope,
@@ -65,8 +65,16 @@ function ScopePicker({ value, proposed, known, onChange, opened, onOpenedChange,
     value.scope === "global" ? <Globe size={13} /> : firstPlace && <PlaceFormIcon place={firstPlace} size={13} />;
   const Chevron = combobox.dropdownOpened ? ChevronUp : ChevronDown;
   return (
-    // To the left, so the list never covers the properties under Scope; it flips when there is no room.
-    <Combobox store={combobox} onOptionSubmit={submit} width={420} position="left-start" shadow="md">
+    // Under its trigger, like Linear's property menus: it may cover the evidence for a moment but never
+    // flips up over the title, the state or the decision buttons. Shift keeps it inside the pane.
+    <Combobox
+      store={combobox}
+      onOptionSubmit={submit}
+      width={320}
+      position="bottom-start"
+      middlewares={{ flip: false, shift: true }}
+      shadow="md"
+    >
       <Combobox.Target targetType="button">
         <Button
           variant="default"
@@ -126,12 +134,14 @@ export function ScopePropertyField({
 }) {
   return (
     <Stack gap="2xs" align="flex-start">
-      <ScopePicker {...picker} />
-      {guessed && changes.length === 0 && picker.opened !== true && (
-        <Text size="xs" c="dimmed">
-          Guessed from where the agent was working
-        </Text>
-      )}
+      <Group gap="xs" wrap="nowrap">
+        <ScopePicker {...picker} />
+        {guessed && changes.length === 0 && picker.opened !== true && (
+          <Tooltip label="Guessed from where the agent was working" withArrow>
+            <Badge color="gray">guessed</Badge>
+          </Tooltip>
+        )}
+      </Group>
       {changes.length > 0 && (
         <Text size="xs" c="gray.7">
           {changes.join(" · ")}

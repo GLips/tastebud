@@ -1,7 +1,7 @@
 /**
  * A derivation's properties as labelled rows, Linear-style: where it applies (editable while it can be
- * decided), who it is about, when it was proposed and by whom, its kind and its id. The state, and
- * who decided it when, are the title row's badge and the page's state card, so they aren't repeated here.
+ * decided), who it is about, when it was proposed and by whom, its kind and its id. They sit under
+ * the state in the page's rail, which says who decided it and when, so neither repeats the other.
  */
 import { Text, Tooltip } from "@mantine/core";
 import type { DerivedKindView } from "@tastebud/core/kind-catalog";
@@ -28,15 +28,12 @@ export function DerivationProperties({
   kind,
   owner,
   scope,
-  host,
 }: {
   view: DerivationView;
   kind: DerivedKindView | undefined;
   owner: string;
   /** The Scope value: the picker while it can be decided, chips otherwise. */
   scope: ReactNode;
-  /** The inbox pane leaves out Kind (its tab says it) and ID (the full page has it). */
-  host: "page" | "pane";
 }) {
   return (
     <FactList>
@@ -54,21 +51,17 @@ export function DerivationProperties({
       <FactRow label="By">
         <Text size="sm">{describeAuthor(view.derivation.proposed_by, owner)}</Text>
       </FactRow>
-      {host === "page" && (
-        <>
-          <FactRow label="Kind">
-            <Tooltip label={kind === undefined ? "This kind is retired" : RECALL_WORDS[kind.recall]} withArrow>
-              <Text size="sm" span>
-                {capitalize(view.kindLabel)}
-                {view.retired && " (retired)"}
-              </Text>
-            </Tooltip>
-          </FactRow>
-          <FactRow label="ID">
-            <DerivationIdCopy id={view.id} />
-          </FactRow>
-        </>
-      )}
+      <FactRow label="Kind">
+        <Tooltip label={kind === undefined ? "This kind is retired" : RECALL_WORDS[kind.recall]} withArrow>
+          <Text size="sm" span>
+            {capitalize(view.kindLabel)}
+            {view.retired && " (retired)"}
+          </Text>
+        </Tooltip>
+      </FactRow>
+      <FactRow label="ID">
+        <DerivationIdCopy id={view.id} />
+      </FactRow>
     </FactList>
   );
 }

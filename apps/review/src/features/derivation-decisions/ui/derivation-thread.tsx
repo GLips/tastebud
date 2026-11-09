@@ -1,9 +1,21 @@
 /**
  * The note composer at the bottom of a derivation's activity feed: it always writes as the store owner,
- * and one quiet line beside it says whether an agent is listening. The notes themselves are events in
+ * and its footer says whether an agent is listening. The notes themselves are events in
  * the feed (`derivation-activity.tsx`).
  */
-import { Box, ActionIcon, Alert, Anchor, Code, CopyButton, Group, Paper, Popover, Stack, Tooltip } from "@mantine/core";
+import {
+  Box,
+  ActionIcon,
+  Alert,
+  Code,
+  CopyButton,
+  Group,
+  Paper,
+  Popover,
+  Stack,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ListenerHeartbeat } from "@tastebud/core/review-threads";
@@ -24,18 +36,31 @@ import { useReviewClockMs } from "./use-review-clock.ts";
 const styles = stylex.create({
   dot: { width: "8px", height: "8px", borderRadius: "50%", display: "inline-block" },
   dotLive: { backgroundColor: "var(--mantine-color-teal-5)" },
+  dotIdle: { borderWidth: "1.5px", borderStyle: "solid", borderColor: "var(--mantine-color-gray-5)" },
+  // One bordered box for the field and its footer, at an input's weight, so it reads as available.
+  composer: {
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: { default: "var(--mantine-color-gray-4)", ":focus-within": "var(--mantine-color-tastebud-5)" },
+    borderRadius: "var(--mantine-radius-md)",
+    backgroundColor: "var(--mantine-color-white)",
+  },
 });
 
 const LISTEN_COMMAND = "tastebud review listen --as <name>";
 
 /** Who would answer a note posted now; when nobody is, the command that starts a listener is one click away. */
-function AgentListeningLine({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
+/**
+ * Who would answer a note posted now, in the composer's footer: a dot and a word. When nobody is
+ * listening, the dot is hollow and the word opens the command that starts a listener.
+ */
+function AgentListeningStatus({ listeners }: { listeners: ReadonlyArray<ListenerHeartbeat> }) {
   const nowMs = useReviewClockMs();
   const live = listeners.filter((listener) => listener.listening);
   if (live.length > 0) {
     return (
       <Tooltip label={`Heartbeat ${formatTimeAgo(live[0]?.heartbeatAt, nowMs)}`} withArrow>
-        <Group gap="xs">
+        <Group gap="xs" wrap="nowrap">
           <Paper
             component="span"
             withBorder={false}
@@ -50,9 +75,14 @@ function AgentListeningLine({ listeners }: { listeners: ReadonlyArray<ListenerHe
   return (
     <Popover withArrow shadow="md" position="bottom-start">
       <Popover.Target>
-        <Anchor component="button" size="xs" c="dimmed" underline="hover">
-          No agent listening
-        </Anchor>
+        <Tooltip label="Notes wait until an agent picks them up" withArrow>
+          <UnstyledButton>
+            <Group gap="xs" wrap="nowrap">
+              <Box component="span" aria-hidden {...stylex.props(styles.dot, styles.dotIdle)} />
+              <SupportingText tier="faint">Not listening</SupportingText>
+            </Group>
+          </UnstyledButton>
+        </Tooltip>
       </Popover.Target>
       <Popover.Dropdown>
         <Stack gap="2xs">
@@ -109,10 +139,14 @@ export function DerivationNoteComposer({
   const submit = () => {
     if (draft.trim() !== "" && !post.isPending) post.mutate({ ref: derivationId, text: draft });
   };
+  const empty = draft.trim() === "";
   return (
-    <Stack gap="2xs" align="flex-start">
-      <Box ref={composer} w="100%">
+    <Stack gap="2xs">
+      <Box ref={composer} {...stylex.props(styles.composer)}>
         <ReviewTextarea
+          variant="unstyled"
+          px="sm"
+          pt="2xs"
           aria-label="Note to the agent"
           placeholder="Leave a note for the agent…   ⌘↵"
           minRows={1}
@@ -121,22 +155,23 @@ export function DerivationNoteComposer({
           onSubmitShortcut={submit}
           // The first Esc leaves the box, keeping the draft; the page's Esc then goes back.
           onCancelShortcut={() => composerField()?.blur()}
-          rightSection={
-            <Tooltip label={`Post as ${owner} · ⌘↵`} withArrow>
-              <ActionIcon
-                variant="subtle"
-                aria-label="Post note"
-                onClick={submit}
-                loading={post.isPending}
-                disabled={draft.trim() === ""}
-              >
-                <SendHorizontal size={15} />
-              </ActionIcon>
-            </Tooltip>
-          }
         />
+        <Group justify="space-between" wrap="nowrap" px="sm" pb="2xs">
+          <AgentListeningStatus listeners={listeners} />
+          <Tooltip label={`Post as ${owner} · ⌘↵`} withArrow>
+            <ActionIcon
+              variant={empty ? "subtle" : "filled"}
+              color={empty ? "gray" : "tastebud"}
+              aria-label="Post note"
+              onClick={submit}
+              loading={post.isPending}
+              disabled={empty}
+            >
+              <SendHorizontal size={15} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Box>
-      <AgentListeningLine listeners={listeners} />
       {post.error && (
         <Alert color="red" variant="light" title="Note not saved">
           {post.error.message}

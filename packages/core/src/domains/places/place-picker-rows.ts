@@ -28,10 +28,7 @@ export type PlacePickerOption =
       readonly kind: "place";
       readonly value: string;
       readonly place: PlaceKey;
-      /**
-       * The folder path alone when nested under its repo's row ("only apps/checkout" while the repo
-       * is chosen, since using it narrows to it), else the full label.
-       */
+      /** The folder path alone when nested under its repo's row, else the full label. */
       readonly label: string;
       readonly nested: boolean;
       readonly chosen: boolean;
@@ -123,7 +120,7 @@ export const placePickerGroupsOf = ({
     repoOptions.push(placeOption(root, labelOf(root), false));
     for (const folder of shownFolders) {
       const path = relativePlacePath(root, folder);
-      repoOptions.push(placeOption(folder, mode === "scope" && chosen.has(root) ? `only ${path}` : path, true));
+      repoOptions.push(placeOption(folder, path, true));
     }
   }
   const flatOptions = (form: "directory" | "named") =>
