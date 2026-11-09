@@ -16,7 +16,7 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import type { DerivationCaution } from "#review/shared/ui/caution-chip.tsx";
 import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
-import { otherSubjectOf } from "#review/shared/ui/subject-label.tsx";
+import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
 
 import { InboxDecidedRow, type InboxDecidedRowLatest } from "./inbox-decided-row.tsx";
 import { InboxProposalPane } from "./inbox-proposal-pane.tsx";

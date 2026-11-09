@@ -13,7 +13,7 @@ import { describeAuthor, formatReviewDate, formatReviewTime } from "#review/shar
 import { FactList, FactRow } from "#review/shared/ui/fact-row.tsx";
 import { capitalize } from "#review/shared/ui/kind-identity.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
-import { otherSubjectOf } from "#review/shared/ui/subject-label.tsx";
+import { otherSubjectOf } from "#review/shared/ui/subject-of.ts";
 
 import { DerivationIdCopy } from "./derivation-header.tsx";
 

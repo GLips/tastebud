@@ -1,7 +1,7 @@
 import { Badge, Tooltip } from "@mantine/core";
 import { UserRound } from "lucide-react";
 
-import { otherSubjectOf, type SubjectOf } from "./subject-label.tsx";
+import { otherSubjectOf, type SubjectOf } from "./subject-of.ts";
 
 /**
  * The person a derivation is about, as a chip beside its scope chips: "Jordan", with the label their
