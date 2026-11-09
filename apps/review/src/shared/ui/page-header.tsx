@@ -15,7 +15,7 @@ export function ReviewPageHeader({
 }: {
   title: ReactNode;
   /** One sentence: what this page is for and what you can do here. */
-  purpose: ReactNode;
+  purpose?: ReactNode;
   /** Sits before the title, such as a kind's glyph. */
   icon?: ReactNode;
   /** A link back up, above the title, on detail pages. */
@@ -34,9 +34,11 @@ export function ReviewPageHeader({
             {icon}
             <Title order={3}>{title}</Title>
           </Group>
-          <Text size="sm" c="gray.7">
-            {purpose}
-          </Text>
+          {purpose !== undefined && (
+            <Text size="sm" c="gray.7">
+              {purpose}
+            </Text>
+          )}
           {details !== undefined && (
             <Text size="xs" c="dimmed">
               {details}
