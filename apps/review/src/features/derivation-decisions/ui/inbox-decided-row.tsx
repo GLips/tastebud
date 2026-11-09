@@ -12,12 +12,11 @@ import type { MouseEvent } from "react";
 
 import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { useReviewHotkeys } from "#review/shared/review-hotkeys.ts";
+import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusBadge } from "#review/shared/ui/status-chips.tsx";
-import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { inboxListStyles } from "./inbox-list-styles.ts";
-import { scopeButtonPhrase } from "./scope-draft.ts";
 import type { UndoableReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
@@ -75,7 +74,7 @@ export function InboxDecidedRow({
       {canUndo && latest?.last === true && !undoing && <UndoLatestHotkey onUndo={latest.onUndoAll ?? onUndo} />}
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
-          {/* The place wraps within its own column beside the badge, reading whole without leaving the badge alone. */}
+          {/* Its place chips wrap within their own column beside the badge, so a long scope never leaves the badge alone. */}
           <Group gap="xs" wrap="nowrap" align="flex-start">
             {undoable !== undefined && (
               <Box {...stylex.props(styles.noShrink)}>
@@ -83,9 +82,9 @@ export function InboxDecidedRow({
               </Box>
             )}
             {acceptedScope !== undefined && (
-              <SupportingText tier="secondary" fw={500} {...stylex.props(styles.shrinkable)}>
-                {scopeButtonPhrase(acceptedScope)}
-              </SupportingText>
+              <Box {...stylex.props(styles.shrinkable)}>
+                <ScopeChips scope={acceptedScope} linked={false} wrap="wrap" />
+              </Box>
             )}
           </Group>
           <Text size="sm" c="dimmed" lineClamp={2}>
