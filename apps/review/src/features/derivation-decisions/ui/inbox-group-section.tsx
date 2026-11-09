@@ -1,5 +1,5 @@
-/** One scope's section of the inbox queue: the place as its title, how many wait there, then the rows. */
-import { Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
+/** One scope's section of the inbox list: a header row naming the place and how many wait there, then the rows. */
+import { Box, Button, Group, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import type { DerivationScope } from "@tastebud/core/places";
@@ -11,29 +11,32 @@ import type { KnownPlaces } from "#review/shared/known-places.ts";
 import { PlaceFormIcon } from "#review/shared/ui/place-chips.tsx";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 
+import { inboxListStyles } from "./inbox-list-styles.ts";
 import type { InboxQueueEntry } from "./inbox-queue.ts";
 
 const styles = stylex.create({
   shrinkable: { minWidth: 0 },
   count: { fontVariantNumeric: "tabular-nums" },
-  groupHeader: {
+  sectionHeader: {
     position: "sticky",
     top: "var(--review-shell-header-height)",
     zIndex: 5,
-    paddingTop: "12px",
-    paddingBottom: "6px",
+    paddingBlock: "8px",
+    paddingInline: "12px",
     backgroundColor: "var(--mantine-color-gray-0)",
   },
-  gone: { borderStyle: "dashed", backgroundColor: "var(--mantine-color-gray-0)" },
+  gone: { paddingBlock: "8px", paddingInline: "12px", backgroundColor: "var(--mantine-color-gray-0)" },
 });
 
-/** The group's scope as a section title: the place names themselves, not chips. */
+/** The section's scope as its title: the place names themselves, not chips. */
 function ScopeTitle({ scope, known }: { scope: DerivationScope; known: KnownPlaces }) {
   if (scope.scope === "global") {
     return (
       <Group gap="xxs" wrap="nowrap">
-        <Globe size={16} aria-hidden />
-        <Title order={4}>Everywhere</Title>
+        <Globe size={14} aria-hidden />
+        <Text size="sm" fw={600}>
+          Everywhere
+        </Text>
       </Group>
     );
   }
@@ -42,12 +45,14 @@ function ScopeTitle({ scope, known }: { scope: DerivationScope; known: KnownPlac
       {scope.places.map((place, index) => (
         <Group key={place} gap="xxs" wrap="nowrap">
           {index > 0 && (
-            <Text c="dimmed" fw={600}>
+            <Text size="sm" c="dimmed" fw={600}>
               +
             </Text>
           )}
-          <PlaceFormIcon place={place} size={16} />
-          <Title order={4}>{known.labelOf(place)}</Title>
+          <PlaceFormIcon place={place} size={14} />
+          <Text size="sm" fw={600}>
+            {known.labelOf(place)}
+          </Text>
         </Group>
       ))}
     </Group>
@@ -59,7 +64,7 @@ export function GoneProposalRow({ entry, onContinue }: { entry: InboxQueueEntry;
   const detail = useQuery(recordDetailQuery(entry.id));
   const status = detail.data?.derivation?.status;
   return (
-    <Paper px="md" py="sm" {...stylex.props(styles.gone)}>
+    <Box {...stylex.props(inboxListStyles.divided, styles.gone)}>
       <Group justify="space-between" wrap="nowrap" gap="md">
         <Stack gap="3xs" {...stylex.props(styles.shrinkable)}>
           <Text size="sm" c="dimmed" td="line-through" truncate>
@@ -78,25 +83,28 @@ export function GoneProposalRow({ entry, onContinue }: { entry: InboxQueueEntry;
           </Button>
         </Group>
       </Group>
-    </Paper>
+    </Box>
   );
 }
 
 export function InboxGroupSection({
   scope,
   entries,
+  first,
   known,
   renderEntry,
 }: {
   scope: DerivationScope;
   entries: ReadonlyArray<InboxQueueEntry>;
+  /** The list's first section, whose header sits on the surface's own top border instead of a hairline. */
+  first: boolean;
   known: KnownPlaces;
   renderEntry: (entry: InboxQueueEntry) => ReactNode;
 }) {
   const live = entries.filter((entry) => !entry.gone).length;
   return (
-    <Stack gap="2xs" component="section">
-      <Group gap="sm" {...stylex.props(styles.groupHeader)}>
+    <Box component="section">
+      <Group gap="xs" {...stylex.props(!first && inboxListStyles.divided, styles.sectionHeader)}>
         <ScopeTitle scope={scope} known={known} />
         {/* A section whose rows were all decided here shows their outcomes, not a 0. */}
         {live > 0 && (
@@ -106,6 +114,6 @@ export function InboxGroupSection({
         )}
       </Group>
       {entries.map(renderEntry)}
-    </Stack>
+    </Box>
   );
 }

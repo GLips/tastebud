@@ -4,7 +4,7 @@
  * anything else decides it, undoing would overwrite a decision this row never saw. A batch's
  * last row also offers Undo all, which is what `u` does.
  */
-import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Stack, Text } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
@@ -15,12 +15,13 @@ import { recordDetailQuery } from "#review/features/review-shell/index.ts";
 import { ButtonLink } from "#review/shared/ui/router-links.tsx";
 import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
+import { inboxListStyles } from "./inbox-list-styles.ts";
 import { DECISION_OUTCOME_LABELS } from "./review-session-list.tsx";
 import { scopeButtonPhrase } from "./scope-draft.ts";
 import type { UndoableReviewDecision } from "./use-review-decision.ts";
 
 const styles = stylex.create({
-  row: { backgroundColor: "var(--mantine-color-gray-0)" },
+  row: { paddingBlock: "6px", paddingInline: "12px", backgroundColor: "var(--mantine-color-gray-0)" },
   shrinkable: { minWidth: 0, flex: 1 },
   noShrink: { flexShrink: 0 },
 });
@@ -71,7 +72,7 @@ export function InboxDecidedRow({
   // Where it was believed, read back from the store, so a batch or an edited scope reads the same.
   const acceptedScope = undoable?.outcome === "accept" ? detail.data?.derivation?.effectiveScope : undefined;
   return (
-    <Paper px="md" py="xs" {...stylex.props(styles.row)}>
+    <Box {...stylex.props(inboxListStyles.divided, styles.row)}>
       {canUndo && latest?.last === true && !undoing && (
         <UndoLatestHotkey onUndo={latest.undoAll?.onUndoAll ?? onUndo} />
       )}
@@ -119,6 +120,6 @@ export function InboxDecidedRow({
           </ButtonLink>
         </Group>
       </Group>
-    </Paper>
+    </Box>
   );
 }

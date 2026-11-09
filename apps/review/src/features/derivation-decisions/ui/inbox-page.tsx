@@ -17,6 +17,7 @@ import { InboxEmptyKind } from "./inbox-empty-kind.tsx";
 import { GoneProposalRow, InboxGroupSection } from "./inbox-group-section.tsx";
 import { InboxHeaderActions } from "./inbox-header-actions.tsx";
 import { InboxKindTabs } from "./inbox-kind-tabs.tsx";
+import { inboxListStyles } from "./inbox-list-styles.ts";
 import { type InboxQueueEntry, useStableInboxQueue } from "./inbox-queue.ts";
 import { InboxSelectionBar } from "./inbox-selection-bar.tsx";
 import { isBelievableAsProposed, useInboxBatch } from "./use-inbox-batch.ts";
@@ -195,15 +196,18 @@ export function InboxPage() {
                   </Stack>
                 </Alert>
               )}
-              {queue.buckets.map((bucket) => (
-                <InboxGroupSection
-                  key={bucket.key}
-                  scope={bucket.scope}
-                  entries={bucket.entries}
-                  known={known}
-                  renderEntry={renderEntry}
-                />
-              ))}
+              <Box {...stylex.props(inboxListStyles.surface)}>
+                {queue.buckets.map((bucket, index) => (
+                  <InboxGroupSection
+                    key={bucket.key}
+                    scope={bucket.scope}
+                    entries={bucket.entries}
+                    first={index === 0}
+                    known={known}
+                    renderEntry={renderEntry}
+                  />
+                ))}
+              </Box>
               {checked.checkedIds.length > 0 && (
                 <InboxSelectionBar
                   kind={kind}

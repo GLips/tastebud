@@ -11,8 +11,11 @@ import { Ban, Clock, CopyCheck, MessageSquare, PencilLine, Contrast } from "luci
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 
+import { useReviewCatalog } from "#review/features/review-shell/index.ts";
 import type { KnownPlaces } from "#review/shared/known-places.ts";
+import { KindGlyph } from "#review/shared/ui/kind-identity.tsx";
 import { SubjectChip } from "#review/shared/ui/subject-chip.tsx";
+import { otherSubjectOf } from "#review/shared/ui/subject-label.tsx";
 
 import { InboxDecidedRow, type InboxDecidedRowLatest } from "./inbox-decided-row.tsx";
 import { InboxProposalPane } from "./inbox-proposal-pane.tsx";
@@ -120,6 +123,7 @@ export function InboxProposalCard({
     onUndone,
   });
   const view = card.derivation;
+  const catalog = useReviewCatalog();
 
   if (decided)
     return (
@@ -138,9 +142,13 @@ export function InboxProposalCard({
       <InboxProposalRow
         ref={ref}
         statement={view.statement}
-        scope={isCompleteScope(triage.shownScope) ? triage.shownScope : undefined}
-        subject={<SubjectChip summary={view} owner={owner} />}
-        flags={rowFlagsOf(card, { edited: triage.edited, queued, backlog: kind.recall === "never" })}
+        glyph={<KindGlyph catalog={catalog} kind={view.kind} size={13} />}
+        chips={{
+          // The section is the proposed scope, so only an edit puts a different place on the row.
+          scope: triage.edited && isCompleteScope(triage.shownScope) ? triage.shownScope : undefined,
+          subject: otherSubjectOf(view, owner) === undefined ? null : <SubjectChip summary={view} owner={owner} />,
+          flags: rowFlagsOf(card, { edited: triage.edited, queued, backlog: kind.recall === "never" }),
+        }}
         selected={selected}
         onSelect={onSelect}
         check={check}

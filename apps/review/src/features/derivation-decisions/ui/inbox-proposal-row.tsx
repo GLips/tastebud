@@ -1,7 +1,7 @@
 /**
- * A pending proposal as one compact row of the inbox queue: a checkbox for bulk decisions, its statement,
- * where it would apply, who it is about, and icon chips for what deserves a second look. Selecting it
- * opens it in the detail pane, where it is decided on its own.
+ * A pending proposal as one row of the inbox's list: its kind glyph (a checkbox on hover or while rows are
+ * checked), its statement, and chips only for what sets it apart: a scope other than its section's, who
+ * it is about, cautions and notes. Selecting it opens it in the detail pane, where it is decided.
  */
 import { Badge, Box, Checkbox, Group, Text, Tooltip } from "@mantine/core";
 import * as stylex from "@stylexjs/stylex";
@@ -11,56 +11,67 @@ import type { MouseEvent, ReactNode, Ref } from "react";
 
 import { ScopeChips } from "#review/shared/ui/place-chips.tsx";
 
+import { inboxListStyles } from "./inbox-list-styles.ts";
+
 const styles = stylex.create({
   row: {
     display: "flex",
     alignItems: "flex-start",
-    gap: "8px",
-    paddingInlineStart: "10px",
-    borderRadius: "var(--mantine-radius-md)",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--mantine-color-gray-3)",
-    backgroundColor: "var(--mantine-color-white)",
-    transitionProperty: "border-color, background-color",
+    gap: "10px",
+    // A clear left edge on every row, so the open row's accent takes no width from the rest.
+    paddingInlineStart: "9px",
+    borderInlineStartWidth: "3px",
+    borderInlineStartStyle: "solid",
+    borderInlineStartColor: "transparent",
+    backgroundColor: { default: "var(--mantine-color-white)", ":hover": "var(--mantine-color-gray-0)" },
+    transitionProperty: "background-color",
     transitionDuration: "120ms",
   },
+  checked: { backgroundColor: { default: "var(--mantine-color-blue-0)", ":hover": "var(--mantine-color-blue-0)" } },
+  // Applied after `checked`: the open row keeps its accent and tint when it is also checked.
   selected: {
-    borderColor: "var(--mantine-color-tastebud-4)",
-    backgroundColor: "var(--mantine-color-tastebud-0)",
+    backgroundColor: { default: "var(--mantine-color-tastebud-0)", ":hover": "var(--mantine-color-tastebud-0)" },
+    borderInlineStartColor: "var(--mantine-color-tastebud-5)",
   },
-  // Applied before `selected`, so the open row keeps its green edge when it is also checked.
-  checked: { backgroundColor: "var(--mantine-color-blue-0)", borderColor: "var(--mantine-color-blue-3)" },
-  // Shown on hover or focus, and on every row once one is checked, so a selection reads as a mode.
+  // The glyph and the checkbox share one cell, so the row never carries an empty checkbox column.
+  lead: { display: "grid", placeItems: "center", width: "16px", height: "16px", marginTop: "10px", flexShrink: 0 },
+  layer: { gridArea: "1 / 1" },
+  glyph: {
+    opacity: {
+      default: 1,
+      [stylex.when.ancestor(":hover")]: 0,
+      [stylex.when.ancestor(":focus-within")]: 0,
+    },
+  },
   check: {
-    paddingTop: "9px",
     opacity: {
       default: 0,
       [stylex.when.ancestor(":hover")]: 1,
       [stylex.when.ancestor(":focus-within")]: 1,
     },
   },
+  // Selection mode: every row shows its checkbox, so what is checked reads at a glance.
+  glyphHidden: { opacity: 0 },
   checkShown: { opacity: 1 },
   body: {
     display: "flex",
     flexDirection: "column",
-    gap: "2px",
+    gap: "4px",
     flex: 1,
     minWidth: 0,
-    paddingBlock: "6px",
-    paddingInlineEnd: "10px",
+    paddingBlock: "8px",
+    paddingInlineEnd: "12px",
     borderWidth: 0,
     backgroundColor: "transparent",
     color: "inherit",
     font: "inherit",
     textAlign: "left",
     cursor: "pointer",
-    // Scrolled into view below the shell header and the sticky group header (about 56px) over it.
-    scrollMarginTop: "calc(var(--review-shell-header-height) + 64px)",
+    // Scrolled into view below the shell header and the sticky section header over it.
+    scrollMarginTop: "calc(var(--review-shell-header-height) + 48px)",
     scrollMarginBottom: "72px",
   },
   statement: { fontWeight: 600, lineHeight: 1.35 },
-  // One line of chips; what doesn't fit is in the pane, which shows everything.
   details: { overflow: "hidden" },
 });
 
@@ -70,6 +81,15 @@ export interface InboxRowFlag {
   readonly text: string;
   readonly tooltip: string;
   readonly caution: boolean;
+}
+
+/** What a row shows under its statement; each part is left out when it says nothing new. */
+export interface InboxRowChips {
+  /** Where it would apply, only when that differs from its section's scope. */
+  readonly scope: DerivationScope | undefined;
+  /** A chip for who it is about, when that isn't the owner. */
+  readonly subject: ReactNode;
+  readonly flags: ReadonlyArray<InboxRowFlag>;
 }
 
 function InboxRowFlagChip({ flag }: { flag: InboxRowFlag }) {
@@ -100,36 +120,46 @@ export interface InboxRowCheck {
 
 export function InboxProposalRow({
   statement,
-  scope,
-  subject,
-  flags,
+  glyph,
+  chips,
   selected,
   check,
   onSelect,
   ref,
 }: {
   statement: string;
-  /** Where it would apply now: the owner's edit if there is one, otherwise as proposed. */
-  scope: DerivationScope | undefined;
-  /** A chip for who it is about, when that isn't the owner. */
-  subject: ReactNode;
-  flags: ReadonlyArray<InboxRowFlag>;
+  /** The kind's glyph, which the checkbox replaces on hover and in selection mode. */
+  glyph: ReactNode;
+  chips: InboxRowChips;
   selected: boolean;
   check: InboxRowCheck;
   onSelect: () => void;
   ref?: Ref<HTMLButtonElement> | undefined;
 }) {
   const { checked, onCheck } = check;
+  const selecting = checked || check.shown;
+  const hasChips = chips.scope !== undefined || chips.subject !== null || chips.flags.length > 0;
   return (
-    <Box {...stylex.props(stylex.defaultMarker(), styles.row, checked && styles.checked, selected && styles.selected)}>
-      <Box {...stylex.props(styles.check, (checked || check.shown) && styles.checkShown)}>
-        <Checkbox
-          size="xs"
-          checked={checked}
-          aria-label="Select for a bulk decision"
-          // React fires a checkbox's change from its click, so the native event carries the shift key.
-          onChange={(event) => onCheck("shiftKey" in event.nativeEvent && event.nativeEvent.shiftKey === true)}
-        />
+    <Box
+      {...stylex.props(
+        stylex.defaultMarker(),
+        inboxListStyles.divided,
+        styles.row,
+        checked && styles.checked,
+        selected && styles.selected,
+      )}
+    >
+      <Box {...stylex.props(styles.lead)}>
+        <Box {...stylex.props(styles.layer, styles.glyph, selecting && styles.glyphHidden)}>{glyph}</Box>
+        <Box {...stylex.props(styles.layer, styles.check, selecting && styles.checkShown)}>
+          <Checkbox
+            size="xs"
+            checked={checked}
+            aria-label="Select for a bulk decision"
+            // React fires a checkbox's change from its click, so the native event carries the shift key.
+            onChange={(event) => onCheck("shiftKey" in event.nativeEvent && event.nativeEvent.shiftKey === true)}
+          />
+        </Box>
       </Box>
       <Box
         component="button"
@@ -140,16 +170,18 @@ export function InboxProposalRow({
         onClick={(event: MouseEvent) => (event.shiftKey ? onCheck(true) : onSelect())}
         {...stylex.props(styles.body)}
       >
-        <Text size="sm" truncate="end" title={statement} {...stylex.props(styles.statement)}>
+        <Text size="sm" lineClamp={2} title={statement} {...stylex.props(styles.statement)}>
           {statement}
         </Text>
-        <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.details)}>
-          {scope !== undefined && <ScopeChips scope={scope} linked={false} />}
-          {subject}
-          {flags.map((flag) => (
-            <InboxRowFlagChip key={flag.tooltip} flag={flag} />
-          ))}
-        </Group>
+        {hasChips && (
+          <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.details)}>
+            {chips.scope !== undefined && <ScopeChips scope={chips.scope} linked={false} />}
+            {chips.subject}
+            {chips.flags.map((flag) => (
+              <InboxRowFlagChip key={flag.tooltip} flag={flag} />
+            ))}
+          </Group>
+        )}
       </Box>
     </Box>
   );
