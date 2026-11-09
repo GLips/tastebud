@@ -8,6 +8,7 @@ import { useKnownPlaces } from "#review/features/review-shell/index.ts";
 import { ReviewQueryError } from "#review/shared/review-outcome.ts";
 import { PlaceChip } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   preWrap: { whiteSpace: "pre-wrap" },
@@ -27,9 +28,7 @@ export function RecallContextSummary({ context }: { context: TasteContext }) {
   return (
     <Box {...stylex.props(styles.contextBar)}>
       <LocateFixed size={14} color="var(--mantine-color-gray-6)" />
-      <Text size="xs" c="dimmed">
-        {ORIGIN_WORDING[context.origin]}
-      </Text>
+      <SupportingText tier="secondary">{ORIGIN_WORDING[context.origin]}</SupportingText>
       {context.places.map((place) => (
         <PlaceChip key={place} place={place} label={known.labelOf(place)} />
       ))}
@@ -44,9 +43,9 @@ export function RecallFailure({ error }: { error: Error }) {
         <Text size="sm" {...stylex.props(styles.preWrap)}>
           {error.message}
         </Text>
-        <Text size="xs" c="dimmed" mt="2xs">
+        <SupportingText tier="secondary" mt="2xs">
           Nothing was recalled. Try another directory, or pick a place instead.
-        </Text>
+        </SupportingText>
       </Alert>
     );
   return <QueryErrorAlert error={error} />;

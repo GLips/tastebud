@@ -30,6 +30,7 @@ import { capitalize, describeKindDelivery, KindGlyph, RECALL_POLICY_LABELS } fro
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 const styles = stylex.create({
   facts: {
@@ -99,15 +100,11 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
           <Group gap="xs">
             <KindGlyph catalog={catalog} kind={kind.key} size={13} />
             <Text fw={600}>{capitalize(kind.plural)}</Text>
-            <Text size="xs" c="dimmed" {...stylex.props(styles.mono)}>
+            <SupportingText tier="faint" {...stylex.props(styles.mono)}>
               {kind.key}
-            </Text>
+            </SupportingText>
           </Group>
-          {kind.description !== undefined && (
-            <Text size="sm" c="dimmed">
-              {kind.description}
-            </Text>
-          )}
+          {kind.description !== undefined && <SupportingText tier="secondary">{kind.description}</SupportingText>}
         </Stack>
         <Box {...stylex.props(styles.facts)}>
           <FactRow label="Labels">
@@ -131,9 +128,7 @@ function DerivedKindCard({ kind }: { kind: DerivedKindView }) {
               color="var(--mantine-color-gray-6)"
               {...stylex.props(styles.chevron, open && styles.chevronOpen)}
             />
-            <Text size="xs" c="dimmed">
-              Proposal prompt agents read
-            </Text>
+            <SupportingText tier="secondary">Proposal prompt agents read</SupportingText>
           </Group>
         </UnstyledButton>
         <Collapse expanded={open}>
@@ -254,9 +249,7 @@ function AgentHostInstallLines({ storeRoot }: { storeRoot: string | undefined })
                 { value: "other", label: "Other MCP client" },
               ]}
             />
-            <Text size="sm" c="dimmed">
-              {plan.note} Each line is already set for this store.
-            </Text>
+            <SupportingText tier="secondary">{plan.note} Each line is already set for this store.</SupportingText>
           </Stack>
           {plan.steps.map((step, index) => (
             <Group key={step.label} gap="sm" wrap="nowrap" align="flex-start">
@@ -309,7 +302,7 @@ function HowItBehaves({ catalog, configPath }: { catalog: CatalogView; configPat
           <Box {...stylex.props(styles.facts)}>
             <FactRow label="Who decides">
               <Text size="sm">
-                Agents only propose. Only {catalog.owner} {ownerDecisionsOf(catalog)}, here in the inbox.
+                Agents only propose. Only {catalog.ownerName} {ownerDecisionsOf(catalog)}, here in the inbox.
               </Text>
             </FactRow>
             <FactRow label="Each prompt">
@@ -366,9 +359,9 @@ function ConfigurationDetails({
             {...stylex.props(styles.chevron, open && styles.chevronOpen)}
           />
           <Text fw={600}>Configuration details</Text>
-          <Text size="xs" c="dimmed">
+          <SupportingText tier="secondary">
             Store, labels, button wording, sources and the prompts agents read
-          </Text>
+          </SupportingText>
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>
@@ -399,9 +392,7 @@ function ConfigurationDetails({
           <Stack gap="sm">
             <Stack gap="3xs">
               <Text fw={600}>Derived kinds</Text>
-              <Text size="xs" c="dimmed">
-                What agents propose for you to accept.
-              </Text>
+              <SupportingText tier="secondary">What agents propose for you to accept.</SupportingText>
             </Stack>
             {catalog.derivedKinds.map((kind) => (
               <DerivedKindCard key={kind.key} kind={kind} />
@@ -411,9 +402,9 @@ function ConfigurationDetails({
           <Stack gap="sm">
             <Stack gap="3xs">
               <Text fw={600}>Source kinds</Text>
-              <Text size="xs" c="dimmed">
+              <SupportingText tier="secondary">
                 Whose words the store keeps. Agents are told each description as when to save those words.
-              </Text>
+              </SupportingText>
             </Stack>
             <Paper p="md">
               <Box {...stylex.props(styles.facts)}>
@@ -422,10 +413,10 @@ function ConfigurationDetails({
                     <Text size="sm">
                       {capitalize(kind.plural)}
                       {kind.description !== undefined && (
-                        <Text span c="dimmed">
+                        <SupportingText span tier="secondary">
                           {" "}
                           — {kind.description}
-                        </Text>
+                        </SupportingText>
                       )}
                     </Text>
                   </FactRow>

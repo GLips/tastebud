@@ -6,6 +6,7 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
 import { DerivationStatusDot } from "#review/shared/ui/status-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallFailure } from "./recall-context.tsx";
 import { recallExplanationQuery, type RecallExplanationRequest } from "./recall-queries.ts";
@@ -32,9 +33,9 @@ export function RecallItemExplanation({ request }: { request: RecallExplanationR
                     </AnchorLink>
                   </Group>
                   {recallExplanationLines(item, catalog, known).map((line) => (
-                    <Text key={line} size="sm" c="dimmed" pl="md">
+                    <SupportingText key={line} tier="secondary" pl="md">
                       {line}
-                    </Text>
+                    </SupportingText>
                   ))}
                 </Stack>
               </Paper>

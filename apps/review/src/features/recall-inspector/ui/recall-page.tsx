@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -7,6 +7,7 @@ import { useKnownPlaces, useReviewCatalog } from "#review/features/review-shell/
 import { LoadedQueryContent } from "#review/shared/ui/loaded-query-content.tsx";
 import { ReviewPageHeader } from "#review/shared/ui/page-header.tsx";
 import { placeFormOf } from "#review/shared/ui/place-chips.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { RecallAppliesPanel } from "./recall-applies-panel.tsx";
 import { RecallCandidateGroups } from "./recall-candidate-groups.tsx";
@@ -69,9 +70,9 @@ export function RecallInspectorPage() {
         />
         {check.in !== undefined && standing !== undefined && <RecallContextSummary context={standing} />}
         {check.at !== undefined && search.at === undefined && (
-          <Text size="xs" c="dimmed">
+          <SupportingText tier="secondary">
             Standing in {known.labelOf(check.at)}, your first repo. Pick another place, or nowhere, in the bar.
-          </Text>
+          </SupportingText>
         )}
       </Stack>
 

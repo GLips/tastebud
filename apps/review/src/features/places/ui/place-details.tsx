@@ -36,6 +36,7 @@ import { capitalize, findKindView, KindGlyph, RECALL_POLICY_LABELS } from "#revi
 import { PLACE_FORM_NAMES, PlaceFormIcon, placeFormOf } from "#review/shared/ui/place-chips.tsx";
 import { QueryErrorAlert } from "#review/shared/ui/route-panels.tsx";
 import { AnchorLink } from "#review/shared/ui/router-links.tsx";
+import { SupportingText } from "#review/shared/ui/supporting-text.tsx";
 
 import { type PlaceReachRow, placeReachOf } from "./place-applicability.ts";
 import { PlaceRepointSheet } from "./place-repoint-sheet.tsx";
@@ -93,30 +94,30 @@ function ReachOrigin({
   const { origin } = row;
   if (origin.from === "here")
     return (
-      <Text size="xs" c="dimmed" {...stylex.props(styles.origin)}>
+      <SupportingText tier="secondary" {...stylex.props(styles.origin)}>
         Here
-      </Text>
+      </SupportingText>
     );
   if (origin.from === "everywhere")
     return (
       <Group gap="2xs" wrap="nowrap" {...stylex.props(styles.origin)}>
         <Globe size={11} color="var(--mantine-color-gray-6)" />
-        <Text size="xs" c="dimmed">
-          Everywhere
-        </Text>
+        <SupportingText tier="secondary">Everywhere</SupportingText>
       </Group>
     );
   return (
-    <Anchor
-      component="button"
-      type="button"
-      size="xs"
-      c="dimmed"
-      onClick={() => onSelect(origin.place)}
-      {...stylex.props(styles.origin)}
-    >
-      {known.labelOf(origin.place)}
-    </Anchor>
+    <SupportingText tier="secondary" {...stylex.props(styles.origin)}>
+      <Anchor
+        component="button"
+        type="button"
+        inherit
+        c="inherit"
+        underline="always"
+        onClick={() => onSelect(origin.place)}
+      >
+        {known.labelOf(origin.place)}
+      </Anchor>
+    </SupportingText>
   );
 }
 
@@ -134,21 +135,22 @@ function ReachCell({ row, column }: { row: PlaceReachRow; column: ReachColumn })
   const kind = findKindView(catalog, row.summary.kind);
   if (column === "waiting")
     return (
-      <Text size="xs" c="dimmed">
+      <SupportingText tier="secondary">
         {kind?.recall === "never" ? `Never sent (${kind.plural} stay in your backlog)` : "Not until accepted"}
-      </Text>
+      </SupportingText>
     );
   if (column === "settled")
-    return (
-      <Text size="xs" c="dimmed">
-        {SETTLED_STATUS_WORDS[row.summary.status]}
-      </Text>
-    );
+    return <SupportingText tier="secondary">{SETTLED_STATUS_WORDS[row.summary.status]}</SupportingText>;
   if (kind === undefined) return null;
   return (
-    <Text size="xs" c={kind.recall === "inject" ? "tastebud.8" : "dimmed"}>
-      {RECALL_POLICY_LABELS[kind.recall]}
-    </Text>
+    // What is sent takes the accent; the rest reads in the secondary tier.
+    kind.recall === "inject" ? (
+      <Text size="sm" c="tastebud.8">
+        {RECALL_POLICY_LABELS[kind.recall]}
+      </Text>
+    ) : (
+      <SupportingText tier="secondary">{RECALL_POLICY_LABELS[kind.recall]}</SupportingText>
+    )
   );
 }
 
@@ -184,10 +186,10 @@ function ReachRows({
               {row.summary.statement}
             </AnchorLink>
             {column === "settled" && row.summary.reason !== undefined && (
-              <Text span size="xs" c="dimmed">
+              <SupportingText span tier="secondary">
                 {" "}
                 · “{row.summary.reason}”
-              </Text>
+              </SupportingText>
             )}
           </Text>
           <ReachOrigin row={row} known={known} onSelect={onSelect} />
@@ -308,10 +310,10 @@ function SettledAgainst({
           <Text size="sm" fw={600}>
             Doesn't apply
           </Text>
-          <Text size="xs" c="dimmed">
+          <SupportingText tier="secondary">
             {plural(rows.length, "item", "items")} you rejected, retracted or replaced. Agents are told about rejections
             so they don't propose them again.
-          </Text>
+          </SupportingText>
         </Group>
       </UnstyledButton>
       <Collapse expanded={open}>
@@ -362,9 +364,7 @@ export function PlaceDetails({
               <Tooltip label={place} withArrow openDelay={300} fz="xs">
                 <Title order={4}>{known.labelOf(place)}</Title>
               </Tooltip>
-              <Text size="xs" c="dimmed">
-                {PLACE_FORM_NAMES[placeFormOf(place)]}
-              </Text>
+              <SupportingText tier="secondary">{PLACE_FORM_NAMES[placeFormOf(place)]}</SupportingText>
               <PlaceKeyCopyButton place={place} />
             </Group>
             {acceptedScopedHere.length > 0 && (
@@ -377,10 +377,10 @@ export function PlaceDetails({
                 <Menu.Dropdown>
                   <Menu.Item onClick={() => setRepointing(true)}>
                     <Text size="sm">Move these to another place…</Text>
-                    <Text size="xs" c="dimmed" maw={260}>
+                    <SupportingText tier="secondary" maw={260}>
                       Proposes a revision of each accepted item scoped exactly here, pointing at the new place. Each
                       replaces the old one when you accept it.
-                    </Text>
+                    </SupportingText>
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
